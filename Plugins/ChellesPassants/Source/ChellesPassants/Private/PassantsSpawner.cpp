@@ -243,11 +243,14 @@ bool APassantsSpawner::TrouverPointDApparition(FVector& OutPoint) const
 	const FVector Centre = GetActorLocation();
 	const float DemiHauteur = GetDefault<APassantCharacter>()->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 
-	// De preference sur le NavMesh (rues et trottoirs ou l'on peut marcher).
+	// De preference sur le NavMesh, et seulement aux endroits que l'on peut rejoindre a pied
+	// depuis le Spawner (pose dans la rue) : jamais sur un toit.
 	if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld()))
 	{
+		FNavLocation Depart;
 		FNavLocation Point;
-		if (Nav->GetRandomPointInNavigableRadius(Centre, RayonDeZone, Point))
+		if (Nav->ProjectPointToNavigation(Centre, Depart, FVector(500.f, 500.f, 1000.f))
+			&& Nav->GetRandomReachablePointInRadius(Depart.Location, RayonDeZone, Point))
 		{
 			OutPoint = Point.Location + FVector(0.f, 0.f, DemiHauteur + 5.f);
 			return true;
