@@ -23,7 +23,7 @@ if exist "%SORTIE%" rmdir /s /q "%SORTIE%"
 
 echo.
 echo Compilation en cours (1 a 5 minutes)...
-call "%UE%\Engine\Build\BatchFiles\RunUAT.bat" BuildPlugin -Plugin="%PLUGIN%ChellesPassants.uplugin" -Package="%SORTIE%" -TargetPlatforms=Win64 -Rocket
+call "%UE%\Engine\Build\BatchFiles\RunUAT.bat" BuildPlugin -Plugin="%PLUGIN%ChellesPassants.uplugin" -Package="%SORTIE%" -TargetPlatforms=Win64 -Rocket -VS2019
 if errorlevel 1 (
     echo.
     echo ECHEC de la compilation. Verifiez que Visual Studio 2019 est installe

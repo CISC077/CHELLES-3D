@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Animation/AnimInstance.h"
 #include "PassantCharacter.generated.h"
 
 class UAnimSequence;
