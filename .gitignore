@@ -1,0 +1,35 @@
+# --- Unreal Engine 4.27 : dossiers générés automatiquement (ne pas envoyer) ---
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Build/
+.vs/
+.vscode/
+.idea/
+
+# Plugins : on garde le code source, pas les fichiers compilés
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+
+# Fichiers de solution générés (recréés par "Generate Visual Studio project files")
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Fichiers compilés
+*.pdb
+*.dll
+*.exe
+*.lib
+*.obj
+*.o
+
+# Divers
+*.tmp
+*.log
+Thumbs.db
+.DS_Store
