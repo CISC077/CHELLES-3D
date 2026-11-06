@@ -28,6 +28,47 @@ def log(msg):
     open(_LOG, "a", encoding="utf-8").write(str(msg) + "\n")
 
 
+ECHELLE = 100.0  # les FBX sont en metres : x100 pour avoir des cm
+
+
+def regler_echelle(donnees):
+    """Echelle fixe x100 (la conversion d'unite automatique d'Unreal ne s'appliquait pas)."""
+    for nom, valeur in (("convert_scene_unit", False), ("import_uniform_scale", ECHELLE)):
+        try:
+            donnees.set_editor_property(nom, valeur)
+        except Exception:
+            pass
+
+
+def preparer_reimport(dossier):
+    """Un asset deja importe est 'reimporte' avec SES anciens reglages : on corrige aussi ceux-la."""
+    if not unreal.EditorAssetLibrary.does_directory_exist(dossier):
+        return
+    for chemin in unreal.EditorAssetLibrary.list_assets(dossier, recursive=True):
+        asset = unreal.EditorAssetLibrary.load_asset(chemin)
+        try:
+            donnees = asset.get_editor_property("asset_import_data")
+        except Exception:
+            continue
+        if donnees is not None and hasattr(donnees, "import_uniform_scale"):
+            regler_echelle(donnees)
+
+
+def taille_cm(chemin):
+    asset = unreal.EditorAssetLibrary.load_asset(chemin)
+    try:
+        if isinstance(asset, unreal.StaticMesh):
+            b = asset.get_bounds()
+        elif isinstance(asset, unreal.SkeletalMesh):
+            b = asset.get_bounds() if hasattr(asset, "get_bounds") else asset.get_imported_bounds()
+        else:
+            return None
+        e = b.box_extent
+        return (e.x * 2, e.y * 2, e.z * 2)
+    except Exception:
+        return None
+
+
 def options_statique():
     ui = unreal.FbxImportUI()
     ui.set_editor_property("automated_import_should_detect_type", False)
@@ -42,7 +83,7 @@ def options_statique():
     d.set_editor_property("auto_generate_collision", True)
     d.set_editor_property("generate_lightmap_u_vs", True)
     d.set_editor_property("remove_degenerates", True)
-    d.set_editor_property("convert_scene_unit", True)  # FBX en metres -> cm
+    regler_echelle(d)
     return ui
 
 
@@ -58,8 +99,8 @@ def options_squelette():
     ui.set_editor_property("mesh_type_to_import", unreal.FBXImportType.FBXIT_SKELETAL_MESH)
     d = ui.get_editor_property("skeletal_mesh_import_data")
     d.set_editor_property("import_morph_targets", False)
-    d.set_editor_property("convert_scene_unit", True)  # FBX en metres -> cm
-    ui.get_editor_property("anim_sequence_import_data").set_editor_property("convert_scene_unit", True)
+    regler_echelle(d)
+    regler_echelle(ui.get_editor_property("anim_sequence_import_data"))
     return ui
 
 
@@ -147,6 +188,7 @@ def run():
             squelette = nom.startswith("SK_")
             log("Import %s -> %s" % (nom, dossier))
             try:
+                preparer_reimport(dossier)
                 chemins = importer(fbx, dossier, nom, squelette)
                 for c in chemins:
                     log("   + %s" % c)
@@ -154,6 +196,9 @@ def run():
                     log("   ATTENTION : rien d'importe (voir Output Log)")
                     continue
                 total += 1
+                t = taille_cm("%s/%s" % (dossier, nom))
+                if t:
+                    log("   taille : %.0f x %.0f x %.0f cm%s" % (t[0], t[1], t[2], "   <-- TROP PETIT" if max(t) < 50 else ""))
                 if not squelette:
                     ajouter_lods("%s/%s" % (dossier, nom))
                 if categorie == "Voitures":
