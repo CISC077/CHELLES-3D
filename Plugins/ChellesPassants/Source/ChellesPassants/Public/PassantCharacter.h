@@ -23,9 +23,21 @@ public:
 	/** Donne au passant son apparence, ses animations et sa zone de promenade. */
 	void Configurer(USkeletalMesh* Apparence, TSubclassOf<UAnimInstance> AnimBlueprint,
 		UAnimSequence* Marche, UAnimSequence* Repos,
-		float Vitesse, const FVector& Centre, float Rayon, float PauseMin, float PauseMax);
+		float Vitesse, const FVector& Centre, float Rayon, float PauseMin, float PauseMax,
+		float DistanceAffichage = 0.f);
 
 	virtual void Tick(float DeltaSeconds) override;
+
+	/**
+	 * Le sol sous le point (X, Y) est-il un trottoir ? On regarde autour de la hauteur HauteurPieds.
+	 * Un trottoir = un acteur ou un Static Mesh dont le nom contient MotCle (ex. "Trottoir").
+	 * OutSol recoit le point du sol touche.
+	 */
+	static bool EstUnTrottoir(const UWorld* Monde, const FVector& Point, float HauteurPieds,
+		const FString& MotCle, const AActor* AIgnorer, FVector* OutSol = nullptr);
+
+	/** Hauteur des pieds (bas de la capsule). */
+	float HauteurDesPieds() const;
 
 	/** Centre de la zone ou le passant a le droit de se promener. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Passant")
@@ -42,6 +54,14 @@ public:
 	/** Pause maximale entre deux trajets (secondes). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Passant")
 	float PauseMax = 8.f;
+
+	/** Ne marche que sur les trottoirs (jamais sur les routes, les toits, les jumpers...). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Passant")
+	bool bTrottoirsSeulement = false;
+
+	/** Mot present dans le nom des trottoirs (acteur ou Static Mesh). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Passant")
+	FString MotCleTrottoir = TEXT("Trottoir");
 
 protected:
 	/** Silhouette simple affichee seulement si aucun personnage n'a ete trouve. */

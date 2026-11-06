@@ -6,6 +6,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
@@ -13,6 +14,8 @@
 APassantCharacter::APassantCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	// Le Tick ne sert qu'a choisir entre marche et repos : 10 fois par seconde suffit largement.
+	PrimaryActorTick.TickInterval = 0.1f;
 
 	// Le passant est pilote par sa propre petite IA, jamais par le joueur.
 	AIControllerClass = APassantAIController::StaticClass();
@@ -39,6 +42,13 @@ APassantCharacter::APassantCharacter()
 	// Placement standard d'un personnage Unreal dans sa capsule.
 	GetMesh()->SetRelativeLocationAndRotation(FVector(0.f, 0.f, -88.f), FRotator(0.f, -90.f, 0.f));
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	// Optimisations d'animation : pas de calcul de pose quand le passant n'est pas visible,
+	// et frequence d'animation reduite quand il est loin (Update Rate Optimization).
+	GetMesh()->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
+	GetMesh()->bEnableUpdateRateOptimizations = true;
+	GetMesh()->SetGenerateOverlapEvents(false);
+	GetMesh()->SetCanEverAffectNavigation(false);
+	GetCapsuleComponent()->SetCanEverAffectNavigation(false);
 
 	// Silhouette de secours (corps + tete) si aucun personnage n'est trouve.
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylindre(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
@@ -59,9 +69,63 @@ APassantCharacter::APassantCharacter()
 	if (Sphere.Succeeded()) { SilhouetteTete->SetStaticMesh(Sphere.Object); }
 }
 
+float APassantCharacter::HauteurDesPieds() const
+{
+	return GetActorLocation().Z - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+}
+
+bool APassantCharacter::EstUnTrottoir(const UWorld* Monde, const FVector& Point, float HauteurPieds,
+	const FString& MotCle, const AActor* AIgnorer, FVector* OutSol)
+{
+	if (!Monde)
+	{
+		return false;
+	}
+
+	// Trace verticale courte autour des pieds : on ne regarde que le decor (pas les personnages),
+	// et assez bas pour passer sous les arbres et les toits.
+	const FVector Haut(Point.X, Point.Y, HauteurPieds + 80.f);
+	const FVector Bas(Point.X, Point.Y, HauteurPieds - 150.f);
+	FCollisionObjectQueryParams Objets;
+	Objets.AddObjectTypesToQuery(ECC_WorldStatic);
+	Objets.AddObjectTypesToQuery(ECC_WorldDynamic);
+	FCollisionQueryParams Params(TEXT("PassantTrottoir"), true, AIgnorer); // true = collision complexe
+
+	FHitResult Impact;
+	if (!Monde->LineTraceSingleByObjectType(Impact, Haut, Bas, Objets, Params))
+	{
+		return false;
+	}
+	if (OutSol)
+	{
+		*OutSol = Impact.ImpactPoint;
+	}
+
+	// Un trottoir est horizontal et a peu pres a la hauteur des pieds (bordure de ~16 cm).
+	if (Impact.ImpactNormal.Z < 0.8f || FMath::Abs(Impact.ImpactPoint.Z - HauteurPieds) > 45.f)
+	{
+		return false;
+	}
+
+	const AActor* Acteur = Impact.GetActor();
+	if (Acteur && Acteur->GetName().Contains(MotCle))
+	{
+		return true;
+	}
+	if (const UStaticMeshComponent* Composant = Cast<UStaticMeshComponent>(Impact.GetComponent()))
+	{
+		if (const UStaticMesh* Mesh = Composant->GetStaticMesh())
+		{
+			return Mesh->GetName().Contains(MotCle);
+		}
+	}
+	return false;
+}
+
 void APassantCharacter::Configurer(USkeletalMesh* Apparence, TSubclassOf<UAnimInstance> AnimBlueprint,
 	UAnimSequence* Marche, UAnimSequence* Repos,
-	float Vitesse, const FVector& Centre, float Rayon, float InPauseMin, float InPauseMax)
+	float Vitesse, const FVector& Centre, float Rayon, float InPauseMin, float InPauseMax,
+	float DistanceAffichage)
 {
 	CentreZone = Centre;
 	RayonZone = Rayon;
@@ -69,6 +133,15 @@ void APassantCharacter::Configurer(USkeletalMesh* Apparence, TSubclassOf<UAnimIn
 	PauseMax = FMath::Max(InPauseMin, InPauseMax);
 	GetCharacterMovement()->MaxWalkSpeed = Vitesse;
 
+	// Au-dela de cette distance le passant n'est plus dessine (0 = toujours dessine).
+	if (DistanceAffichage > 0.f)
+	{
+		GetMesh()->SetCullDistance(DistanceAffichage);
+		SilhouetteCorps->SetCullDistance(DistanceAffichage);
+		SilhouetteTete->SetCullDistance(DistanceAffichage);
+	}
+
+	bool bTickUtile = false;
 	if (Apparence)
 	{
 		GetMesh()->SetSkeletalMesh(Apparence);
@@ -86,6 +159,7 @@ void APassantCharacter::Configurer(USkeletalMesh* Apparence, TSubclassOf<UAnimIn
 			AnimMarche = Marche;
 			AnimRepos = Repos;
 			EtatAnim = 0;
+			bTickUtile = (AnimMarche || AnimRepos);
 		}
 	}
 	else
@@ -93,6 +167,9 @@ void APassantCharacter::Configurer(USkeletalMesh* Apparence, TSubclassOf<UAnimIn
 		GetMesh()->SetVisibility(false);
 		ColorerVetements(SilhouetteCorps);
 	}
+
+	// Pas d'animation a piloter nous-memes : on coupe le Tick (gain CPU avec beaucoup de passants).
+	SetActorTickEnabled(bTickUtile);
 }
 
 void APassantCharacter::ColorerVetements(UMeshComponent* Composant)

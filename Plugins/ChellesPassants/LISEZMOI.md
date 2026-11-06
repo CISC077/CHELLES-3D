@@ -56,6 +56,24 @@ Si le choix automatique ne convient pas, sélectionnez le Spawner et, dans *Deta
   (elles doivent être du même squelette que les personnages) ;
 - ou **Animation Blueprint** : l'Animation Blueprint de vos personnages.
 
+## Trottoirs seulement
+
+Par défaut (case **Trottoirs Seulement** cochée, rubrique *Passants > Trottoirs*), les passants
+n'apparaissent et ne marchent **que sur les trottoirs** : jamais sur les routes, l'herbe, les toits
+ou les jumpers. Un trottoir est reconnu à son nom (acteurs `Chelles_Trottoir_...` ou meshes
+`SM_Trottoir_...`, réglage **Mot Cle Trottoir**). Ce mode n'a pas besoin de NavMesh et ne change
+rien pour les autres personnages du jeu. Pour l'instant, les passants ne traversent pas les rues :
+chacun se promène sur sa portion de trottoir.
+
+Décochez la case pour revenir à l'ancien comportement (NavMesh ou marche libre).
+
+## Mettre à jour la liste des personnages
+
+Après avoir ajouté des personnages dans Content : sélectionnez chaque Passants Spawner, cliquez sur
+**Remplir la liste des personnages** (panneau Details), puis enregistrez le niveau. Sont ignorés :
+les mannequins gris, les zombies, les corps seuls ou en morceaux, les doublons (_Mobile, _FPS, _Vol,
+_Base) et les dossiers listés dans **Dossiers Ignores**.
+
 ## Réglages utiles (panneau Details du Spawner)
 
 | Réglage | Par défaut | Rôle |
