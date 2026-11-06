@@ -33,3 +33,8 @@ Plugins/**/Intermediate/
 *.log
 Thumbs.db
 .DS_Store
+
+# Import voitures/personnages : modeles convertis (gros fichiers, regeneres par conversion_liste.sh)
+Tools/ImportVoituresPersonnages/modeles.zip*
+Tools/ImportVoituresPersonnages/Voitures/
+Tools/ImportVoituresPersonnages/Personnages/
