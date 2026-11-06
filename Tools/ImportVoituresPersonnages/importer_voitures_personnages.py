@@ -42,6 +42,7 @@ def options_statique():
     d.set_editor_property("auto_generate_collision", True)
     d.set_editor_property("generate_lightmap_u_vs", True)
     d.set_editor_property("remove_degenerates", True)
+    d.set_editor_property("convert_scene_unit", True)  # FBX en metres -> cm
     return ui
 
 
@@ -57,6 +58,8 @@ def options_squelette():
     ui.set_editor_property("mesh_type_to_import", unreal.FBXImportType.FBXIT_SKELETAL_MESH)
     d = ui.get_editor_property("skeletal_mesh_import_data")
     d.set_editor_property("import_morph_targets", False)
+    d.set_editor_property("convert_scene_unit", True)  # FBX en metres -> cm
+    ui.get_editor_property("anim_sequence_import_data").set_editor_property("convert_scene_unit", True)
     return ui
 
 
