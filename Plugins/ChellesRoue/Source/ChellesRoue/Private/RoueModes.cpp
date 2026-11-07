@@ -154,16 +154,16 @@ ARoueModes::ARoueModes()
 	Suv.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/SUV_BP_child.SUV_BP_child_C")));
 	Modes.Add(Suv);
 
-	// 1 case libre pour une future fonction (a remplir plus tard)
-	for (int32 i = 1; i <= 1; ++i)
-	{
-		FModeRoue Libre;
-		Libre.Nom = FText::FromString(TEXT("Libre"));
-		Libre.Type = ETypeModeRoue::Libre;
-		Libre.Icone = EIconeRoue::Question;
-		Libre.Couleur = FLinearColor(1.f, 0.85f, 0.f); // point d'interrogation jaune
-		Modes.Add(Libre);
-	}
+	// Dernier bouton : le cheval du pack HorseStarterKit (le cavalier fait partie du cheval)
+	FModeRoue Cheval;
+	Cheval.Nom = FText::FromString(TEXT("HORSE"));
+	Cheval.Type = ETypeModeRoue::Vehicule;
+	Cheval.Icone = EIconeRoue::FerACheval;
+	Cheval.Couleur = FLinearColor(0.85f, 0.55f, 0.28f);
+	Cheval.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/HorseStarterKit/Blueprint/BP_Rideable_DarkBrown_Horse.BP_Rideable_DarkBrown_Horse_C")));
+	Modes.Add(Cheval);
+
+	// Pour ajouter une case libre plus tard : Type = ETypeModeRoue::Libre, Icone = EIconeRoue::Question.
 }
 
 APlayerController* ARoueModes::GetPC() const

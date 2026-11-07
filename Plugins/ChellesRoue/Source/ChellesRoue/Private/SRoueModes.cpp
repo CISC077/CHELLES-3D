@@ -177,6 +177,24 @@ void SRoueModes::Icone(FSlateWindowElementList& Sortie, int32 Couche, const FGeo
 		Cercle(Sortie, Couche, G, C + FVector2D(0.55f, 0.34f) * S, S * 0.2f, Couleur, E, 14);
 		break;
 	}
+	case EIconeRoue::FerACheval:
+	{
+		// Fer a cheval : un U ouvert vers le bas, avec les trous des clous
+		TArray<FVector2D> Fer;
+		const int32 Cotes = 20;
+		for (int32 i = 0; i <= Cotes; ++i)
+		{
+			const float A = FMath::Lerp(PI * 0.82f, PI * 2.18f, float(i) / Cotes); // de bas-gauche a bas-droite par le haut
+			Fer.Add(C + FVector2D(FMath::Cos(A), FMath::Sin(A)) * S * 0.85f);
+		}
+		Lignes(Sortie, Couche, G, Fer, Couleur, E * 1.6f);
+		for (int32 i = 0; i < 6; ++i)
+		{
+			const float A = FMath::Lerp(PI * 0.95f, PI * 2.05f, float(i) / 5.f);
+			Cercle(Sortie, Couche, G, C + FVector2D(FMath::Cos(A), FMath::Sin(A)) * S * 0.85f, S * 0.05f, FLinearColor(0.02f, 0.02f, 0.03f, Couleur.A), E * 0.6f, 6);
+		}
+		break;
+	}
 	case EIconeRoue::Question:
 	{
 		const FSlateFontInfo Police = FCoreStyle::GetDefaultFontStyle("Bold", FMath::Max(12, FMath::RoundToInt(S * 1.7f)));
