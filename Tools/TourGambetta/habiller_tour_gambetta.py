@@ -2,8 +2,8 @@
 """
 Habiller la tour Gambetta (CHELLES 3D, Unreal 4.27).
 
-A lancer DANS l'editeur : selectionner le cube de la tour dans la vue,
-puis File > Execute Python Script... > ce fichier.
+A lancer DANS l'editeur : selectionner les cubes de la tour dans la vue
+(Ctrl + clic sur chacun ; un seul cube marche aussi), puis File > Execute Python Script... > ce fichier.
 
 Ce que fait le script :
   1. Regle les 4 textures de /Game/IMAGES/TourG pour garder leur canal alpha
@@ -11,8 +11,9 @@ Ce que fait le script :
   2. Cree le materiau M_TourG_Facade : la facade est melangee au blanc du
      cube grace a l'alpha (plus de fond noir). Couleur du fond reglable.
   3. Cree 4 instances MI_TourG_Avant / Arriere / Droite / Gauche.
-  4. Pose 4 plans colles sur les 4 faces du cube selectionne, attaches a lui
-     (si on deplace ou etire le cube, les facades suivent).
+  4. Pose 4 plans colles sur la face exterieure de chaque mur : le script
+     trouve tout seul quel cube est devant, derriere, a droite, a gauche.
+     Chaque facade est attachee a son cube (elle suit si on le deplace).
 
 Relancer le script remplace les facades deja posees (rien n'est duplique).
 Ctrl+Z annule la pose des facades.
@@ -26,14 +27,9 @@ NOM_MATERIAU = "M_TourG_Facade"
 PREFIXE_ACTEUR = "TourG_Facade_"
 DECALAGE_CM = 2.0          # ecart entre la facade et le mur (evite le scintillement)
 
-# Face du cube (axes locaux du cube) pour chaque facade.
-# Avant = +X ; quand on regarde l'avant, la droite est -Y et la gauche +Y.
-FACES = {
-    "Avant":   unreal.Vector(1, 0, 0),
-    "Arriere": unreal.Vector(-1, 0, 0),
-    "Droite":  unreal.Vector(0, -1, 0),
-    "Gauche":  unreal.Vector(0, 1, 0),
-}
+# Avant = +X de la tour (orientation du 1er cube selectionne) ;
+# quand on regarde l'avant, la droite est -Y et la gauche +Y.
+FACES = ["Avant", "Arriere", "Droite", "Gauche"]
 MOTS_CLES = {"Avant": "avant", "Arriere": "arriere", "Droite": "droite", "Gauche": "gauche"}
 
 mel = unreal.MaterialEditingLibrary
@@ -217,14 +213,69 @@ def sens_uv_du_plan(plan):
         return defaut
 
 
-def poser_facades(cube, instances):
-    comp = cube.static_mesh_component
-    mesh = comp.static_mesh
-    bornes = mesh.get_bounds()
-    centre, ext = bornes.origin, bornes.box_extent
-    ext_l = [ext.x, ext.y, ext.z]
-    echelle = cube.get_actor_scale3d()
-    ech_l = [abs(echelle.x) or 1, abs(echelle.y) or 1, abs(echelle.z) or 1]
+def vers_monde(transfo, v):
+    try:
+        return transfo.transform_location(v)
+    except Exception:
+        return unreal.MathLibrary.transform_location(transfo, v)
+
+
+def scal(a, b):
+    return a.x * b.x + a.y * b.y + a.z * b.z
+
+
+def boite_dans_repere(cube, axes):
+    """Min/max du cube projete sur les 3 axes du repere de la tour (coordonnees monde)."""
+    bornes = cube.static_mesh_component.static_mesh.get_bounds()
+    o, e = bornes.origin, bornes.box_extent
+    transfo = cube.get_actor_transform()
+    mini, maxi = [1e18] * 3, [-1e18] * 3
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            for sz in (-1, 1):
+                p = vers_monde(transfo, unreal.Vector(o.x + sx * e.x, o.y + sy * e.y, o.z + sz * e.z))
+                for k in range(3):
+                    d = scal(p, axes[k])
+                    mini[k] = min(mini[k], d)
+                    maxi[k] = max(maxi[k], d)
+    return mini, maxi
+
+
+def poser_facades(cubes, instances):
+    """cubes : 1 cube (4 facades dessus) ou plusieurs cubes (un mur par face)."""
+    # Repere de la tour : l'orientation du premier cube, ramenee a moins d'un quart de tour
+    lacet = cubes[0].get_actor_rotation().yaw
+    lacet = ((lacet + 45.0) % 90.0) - 45.0
+    import math
+    c, s_ = math.cos(math.radians(lacet)), math.sin(math.radians(lacet))
+    fx = unreal.Vector(c, s_, 0)
+    fy = unreal.Vector(-s_, c, 0)
+    fz = unreal.Vector(0, 0, 1)
+    axes = [fx, fy, fz]
+
+    boites = {cube: boite_dans_repere(cube, axes) for cube in cubes}
+    g_min = [min(b[0][k] for b in boites.values()) for k in range(3)]
+    g_max = [max(b[1][k] for b in boites.values()) for k in range(3)]
+    g_ctr = [(g_min[k] + g_max[k]) / 2.0 for k in range(3)]
+    g_demi = [max((g_max[k] - g_min[k]) / 2.0, 1.0) for k in range(3)]
+
+    # Face du repere (axe 0 ou 1, signe) pour chaque facade
+    faces = {"Avant": (0, 1), "Arriere": (0, -1), "Droite": (1, -1), "Gauche": (1, 1)}
+
+    # Quel cube porte quelle facade
+    porteur = {}
+    if len(cubes) == 1:
+        porteur = {cle: cubes[0] for cle in faces}
+    else:
+        for cle, (ax, sg) in faces.items():
+            meilleur, score = None, -1e18
+            for cube, (mn, mx) in boites.items():
+                ctr = [(mn[k] + mx[k]) / 2.0 for k in range(3)]
+                # le mur le plus pousse vers ce cote de la tour
+                sc = sg * (ctr[ax] - g_ctr[ax]) / g_demi[ax] - abs(ctr[1 - ax] - g_ctr[1 - ax]) / g_demi[1 - ax]
+                if sc > score:
+                    meilleur, score = cube, sc
+            porteur[cle] = meilleur
 
     plan = unreal.load_asset("/Engine/BasicShapes/Plane.Plane")
     pb = plan.get_bounds().box_extent
@@ -233,14 +284,17 @@ def poser_facades(cube, instances):
     bas = unreal.Vector(0, 0, -1)
 
     # Retire les anciennes facades posees par ce script
-    for enfant in cube.get_attached_actors():
-        if enfant.get_actor_label().startswith(PREFIXE_ACTEUR):
-            unreal.EditorLevelLibrary.destroy_actor(enfant)
+    for acteur in unreal.EditorLevelLibrary.get_all_level_actors():
+        if acteur.get_actor_label().startswith(PREFIXE_ACTEUR):
+            unreal.EditorLevelLibrary.destroy_actor(acteur)
 
-    for cle, n in FACES.items():
+    for cle, (ax, sg) in faces.items():
         if cle not in instances:
             continue
         mi = instances[cle]
+        cube = porteur[cle]
+        mn, mx = boites[cube]
+        n = unreal.Vector(axes[ax].x * sg, axes[ax].y * sg, 0)
         droite = unreal.Vector(n.y, -n.x, 0)   # droite de quelqu'un qui regarde la facade
 
         # Rotation : normale du plan (Z) vers l'exterieur, U du plan vers la droite
@@ -248,41 +302,49 @@ def poser_facades(cube, instances):
             rot = unreal.MathLibrary.make_rot_from_zx(n, unreal.Vector(droite.x * dir_u.x, droite.y * dir_u.x, 0))
         else:
             rot = unreal.MathLibrary.make_rot_from_zy(n, unreal.Vector(droite.x * dir_u.y, droite.y * dir_u.y, 0))
-        v_monde = tourner(rot, dir_v)
-        miroir_v = 1.0 if (v_monde.x * bas.x + v_monde.y * bas.y + v_monde.z * bas.z) < 0 else 0.0
+        miroir_v = 1.0 if scal(tourner(rot, dir_v), bas) < 0 else 0.0
         mel.set_material_instance_scalar_parameter_value(mi, "Miroir_Vertical", miroir_v)
         mel.set_material_instance_scalar_parameter_value(mi, "Miroir_Horizontal", 0.0)
         eal.save_loaded_asset(mi)
 
-        # Taille : le plan couvre toute la face
-        ax_x = axe_dominant(tourner(rot, unreal.Vector(1, 0, 0)))
-        ax_y = axe_dominant(tourner(rot, unreal.Vector(0, 1, 0)))
-        taille = unreal.Vector(ext_l[ax_x] / demi_plan[0], ext_l[ax_y] / demi_plan[1], 1)
+        # Taille : le plan couvre toute la face exterieure du mur
+        def demi(k):
+            return (mx[k] - mn[k]) / 2.0
 
-        ax_n = axe_dominant(n)
-        recul = ext_l[ax_n] + DECALAGE_CM / ech_l[ax_n]
-        pos = unreal.Vector(centre.x + n.x * recul, centre.y + n.y * recul, centre.z + n.z * recul)
+        def axe_repere(v):
+            d = [abs(scal(v, a)) for a in axes]
+            return d.index(max(d))
 
-        acteur = unreal.EditorLevelLibrary.spawn_actor_from_object(plan, cube.get_actor_location(), cube.get_actor_rotation())
+        kx = axe_repere(tourner(rot, unreal.Vector(1, 0, 0)))
+        ky = axe_repere(tourner(rot, unreal.Vector(0, 1, 0)))
+        taille = unreal.Vector(demi(kx) / demi_plan[0], demi(ky) / demi_plan[1], 1)
+
+        # Position : centre de la face exterieure, decolle de quelques cm
+        coord = [(mn[k] + mx[k]) / 2.0 for k in range(3)]
+        coord[ax] = (mx[ax] if sg > 0 else mn[ax]) + sg * DECALAGE_CM
+        pos = unreal.Vector(0, 0, 0)
+        for k in range(3):
+            pos = unreal.Vector(pos.x + axes[k].x * coord[k], pos.y + axes[k].y * coord[k],
+                                pos.z + axes[k].z * coord[k])
+
+        acteur = unreal.EditorLevelLibrary.spawn_actor_from_object(plan, pos, rot)
         acteur.set_actor_label(PREFIXE_ACTEUR + cle)
-        acteur.attach_to_actor(cube, "", unreal.AttachmentRule.KEEP_RELATIVE,
-                               unreal.AttachmentRule.KEEP_RELATIVE, unreal.AttachmentRule.KEEP_RELATIVE, False)
-        acteur.set_actor_relative_location(pos, False, True)
-        acteur.set_actor_relative_rotation(rot, False, True)
-        acteur.set_actor_relative_scale3d(taille)
+        acteur.set_actor_scale3d(taille)
         smc = acteur.static_mesh_component
         try:
-            smc.set_mobility(comp.get_editor_property("mobility"))
+            smc.set_mobility(cube.static_mesh_component.get_editor_property("mobility"))
         except Exception:
             pass
         smc.set_material(0, mi)
         smc.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
         smc.set_editor_property("cast_shadow", False)
+        acteur.attach_to_actor(cube, "", unreal.AttachmentRule.KEEP_WORLD,
+                               unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD, False)
         try:
             acteur.set_folder_path("TourGambetta")
         except Exception:
             pass
-        log("facade %s posee" % cle)
+        log("facade %s posee sur %s" % (cle, cube.get_actor_label()))
 
 
 # ---------------------------------------------------------------- principal
@@ -306,13 +368,13 @@ def main():
     selection = [a for a in unreal.EditorLevelLibrary.get_selected_level_actors()
                  if isinstance(a, unreal.StaticMeshActor) and not a.get_actor_label().startswith(PREFIXE_ACTEUR)]
     msg = []
-    if len(selection) == 1:
+    if selection:
         with unreal.ScopedEditorTransaction("Facades tour Gambetta"):
-            poser_facades(selection[0], instances)
-        msg.append("Les facades sont posees sur « %s »." % selection[0].get_actor_label())
+            poser_facades(selection, instances)
+        msg.append("Les facades sont posees sur : " + ", ".join(a.get_actor_label() for a in selection))
     else:
-        msg.append("Materiaux crees, mais aucune facade posee : selectionne UNIQUEMENT le cube de la tour, "
-                   "puis relance le script.")
+        msg.append("Materiaux crees, mais aucune facade posee : selectionne les cubes de la tour "
+                   "(Ctrl + clic sur chacun), puis relance le script.")
     if manquantes:
         msg.append("Textures non trouvees : " + ", ".join(manquantes))
     if sans_alpha:
