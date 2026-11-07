@@ -138,11 +138,27 @@ ARoueModes::ARoueModes()
 	Auto.ClasseVehicule = FSoftClassPath(FString(CHEMIN_VOITURE));
 	Modes.Add(Auto);
 
-	// 3 cases libres pour de futures fonctions (a remplir plus tard)
-	for (int32 i = 1; i <= 3; ++i)
+	FModeRoue Berline;
+	Berline.Nom = FText::FromString(TEXT("Berline"));
+	Berline.Type = ETypeModeRoue::Vehicule;
+	Berline.Icone = EIconeRoue::Voiture;
+	Berline.Couleur = FLinearColor(0.75f, 0.4f, 1.f);
+	Berline.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/Sedane_BP_child.Sedane_BP_child_C")));
+	Modes.Add(Berline);
+
+	FModeRoue Suv;
+	Suv.Nom = FText::FromString(TEXT("SUV"));
+	Suv.Type = ETypeModeRoue::Vehicule;
+	Suv.Icone = EIconeRoue::Voiture;
+	Suv.Couleur = FLinearColor(0.2f, 0.85f, 0.6f);
+	Suv.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/SUV_BP_child.SUV_BP_child_C")));
+	Modes.Add(Suv);
+
+	// 1 case libre pour une future fonction (a remplir plus tard)
+	for (int32 i = 1; i <= 1; ++i)
 	{
 		FModeRoue Libre;
-		Libre.Nom = FText::FromString(FString::Printf(TEXT("Libre %d"), i));
+		Libre.Nom = FText::FromString(TEXT("Libre"));
 		Libre.Type = ETypeModeRoue::Libre;
 		Libre.Icone = EIconeRoue::Question;
 		Libre.Couleur = FLinearColor(1.f, 0.85f, 0.f); // point d'interrogation jaune
