@@ -177,6 +177,19 @@ void SRoueModes::Icone(FSlateWindowElementList& Sortie, int32 Couche, const FGeo
 		Cercle(Sortie, Couche, G, C + FVector2D(0.55f, 0.34f) * S, S * 0.2f, Couleur, E, 14);
 		break;
 	}
+	case EIconeRoue::Question:
+	{
+		const FSlateFontInfo Police = FCoreStyle::GetDefaultFontStyle("Bold", FMath::Max(12, FMath::RoundToInt(S * 1.7f)));
+		Texte(Sortie, Couche, G, C, FText::FromString(TEXT("?")), Police, Couleur);
+		break;
+	}
+	case EIconeRoue::Plus:
+	{
+		Lignes(Sortie, Couche, G, { C - FVector2D(S * 0.6f, 0.f), C + FVector2D(S * 0.6f, 0.f) }, Couleur, E);
+		Lignes(Sortie, Couche, G, { C - FVector2D(0.f, S * 0.6f), C + FVector2D(0.f, S * 0.6f) }, Couleur, E);
+		Cercle(Sortie, Couche, G, C, S * 0.95f, AvecAlpha(Couleur, 0.6f), E * 0.6f);
+		break;
+	}
 	default:
 	{
 		TArray<FVector2D> Etoile;
@@ -228,7 +241,7 @@ int32 SRoueModes::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSla
 		const float A1 = Milieu + Part * 0.5f - Ecart;
 		const float ROut = bSurvol ? R + 12.f : R;
 
-		const FLinearColor Teinte = Case.bDisponible ? Case.Couleur : FLinearColor(0.35f, 0.35f, 0.38f);
+		const FLinearColor Teinte = (Case.bDisponible || Case.bLibre) ? Case.Couleur : FLinearColor(0.35f, 0.35f, 0.38f);
 		FLinearColor Fond = bSurvol
 			? FLinearColor::LerpUsingHSV(FLinearColor(0.05f, 0.06f, 0.08f), Teinte, 0.55f)
 			: FLinearColor(0.035f, 0.04f, 0.055f);
@@ -236,12 +249,12 @@ int32 SRoueModes::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSla
 
 		Secteur(Sortie, Couche + 2, G, Centre, RIn, ROut, A0, A1, Fond);
 		// Bande de couleur sur le bord exterieur
-		Secteur(Sortie, Couche + 3, G, Centre, ROut - (bSurvol ? 8.f : 5.f), ROut, A0, A1, AvecAlpha(Teinte, (Case.bDisponible ? 1.f : 0.5f) * T));
+		Secteur(Sortie, Couche + 3, G, Centre, ROut - (bSurvol ? 8.f : 5.f), ROut, A0, A1, AvecAlpha(Teinte, ((Case.bDisponible || Case.bLibre) ? 1.f : 0.5f) * T));
 
 		const float RIcone = FMath::Lerp(RIn, ROut, 0.47f);
 		const FVector2D PosIcone = Polaire(Centre, RIcone, Milieu) - FVector2D(0.f, 10.f);
 		const float TailleIcone = (R - RIn) * (bSurvol ? 0.24f : 0.21f);
-		const FLinearColor CouleurTrait = bSurvol ? FLinearColor::White : AvecAlpha(Teinte, Case.bDisponible ? 1.f : 0.6f);
+		const FLinearColor CouleurTrait = (bSurvol && !Case.bLibre) ? FLinearColor::White : AvecAlpha(Teinte, (Case.bDisponible || Case.bLibre) ? 1.f : 0.6f);
 		Icone(Sortie, Couche + 4, G, PosIcone, TailleIcone, Case.Icone, AvecAlpha(CouleurTrait, T));
 
 		Texte(Sortie, Couche + 4, G, PosIcone + FVector2D(0.f, TailleIcone + 16.f), Case.Nom, PoliceCase,
@@ -257,7 +270,7 @@ int32 SRoueModes::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSla
 
 	// Disque central
 	const bool bChoix = Cases.IsValidIndex(Survol);
-	const FLinearColor CouleurChoix = bChoix ? (Cases[Survol].bDisponible ? Cases[Survol].Couleur : FLinearColor(0.5f, 0.5f, 0.52f)) : FLinearColor(0.7f, 0.75f, 0.8f);
+	const FLinearColor CouleurChoix = bChoix ? ((Cases[Survol].bDisponible || Cases[Survol].bLibre) ? Cases[Survol].Couleur : FLinearColor(0.5f, 0.5f, 0.52f)) : FLinearColor(0.7f, 0.75f, 0.8f);
 	Disque(Sortie, Couche + 2, G, Centre, RIn - 10.f, FLinearColor(0.015f, 0.02f, 0.03f, 0.92f * T));
 	Secteur(Sortie, Couche + 3, G, Centre, RIn - 13.f, RIn - 10.f, 0.f, Pi2, AvecAlpha(CouleurChoix, 0.9f * T));
 
@@ -275,7 +288,11 @@ int32 SRoueModes::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSla
 	Texte(Sortie, Couche + 5, G, Centre - FVector2D(0.f, 12.f), Titre, PoliceCentre, AvecAlpha(FLinearColor::White, T));
 
 	FText Aide;
-	if (bChoix && !Cases[Survol].bDisponible)
+	if (bChoix && Cases[Survol].bLibre)
+	{
+		Aide = FText::FromString(TEXT("Case libre : bient\u00F4t une fonction"));
+	}
+	else if (bChoix && !Cases[Survol].bDisponible)
 	{
 		Aide = FText::FromString(TEXT("Indisponible"));
 	}

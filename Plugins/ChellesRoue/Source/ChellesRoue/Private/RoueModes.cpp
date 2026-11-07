@@ -137,6 +137,17 @@ ARoueModes::ARoueModes()
 	Auto.Couleur = FLinearColor(1.f, 0.68f, 0.12f);
 	Auto.ClasseVehicule = FSoftClassPath(FString(CHEMIN_VOITURE));
 	Modes.Add(Auto);
+
+	// 3 cases libres pour de futures fonctions (a remplir plus tard)
+	for (int32 i = 1; i <= 3; ++i)
+	{
+		FModeRoue Libre;
+		Libre.Nom = FText::FromString(FString::Printf(TEXT("Libre %d"), i));
+		Libre.Type = ETypeModeRoue::Libre;
+		Libre.Icone = EIconeRoue::Question;
+		Libre.Couleur = FLinearColor(1.f, 0.85f, 0.f); // point d'interrogation jaune
+		Modes.Add(Libre);
+	}
 }
 
 APlayerController* ARoueModes::GetPC() const
@@ -340,6 +351,8 @@ bool ARoueModes::EstDisponible(int32 Index) const
 		return IsValid(Bascule);
 	case ETypeModeRoue::Vehicule:
 		return ClasseMotoneige != nullptr && ClassesVehicules.IsValidIndex(Index) && ClassesVehicules[Index] != nullptr;
+	case ETypeModeRoue::Libre:
+		return false;
 	}
 	return false;
 }
@@ -388,7 +401,11 @@ void ARoueModes::ChoisirMode(int32 Index)
 	const FModeRoue& Mode = Modes[Index];
 	if (!EstDisponible(Index))
 	{
-		if (Mode.Type == ETypeModeRoue::Vol)
+		if (Mode.Type == ETypeModeRoue::Libre)
+		{
+			Message(TEXT("Case libre : aucune fonction pour l'instant."));
+		}
+		else if (Mode.Type == ETypeModeRoue::Vol)
 		{
 			Message(TEXT("Spider-Man indisponible : l'acteur Bascule Vol n'est pas dans le niveau."));
 		}
@@ -463,6 +480,8 @@ void ARoueModes::ChoisirMode(int32 Index)
 		}
 		break;
 	}
+	default:
+		break;
 	}
 
 	RetirerAnciennesTouches();
@@ -556,6 +575,7 @@ void ARoueModes::Ouvrir()
 		Case.Icone = Modes[i].Icone;
 		Case.Couleur = Modes[i].Couleur;
 		Case.bDisponible = EstDisponible(i);
+		Case.bLibre = (Modes[i].Type == ETypeModeRoue::Libre);
 		Widget->Cases.Add(Case);
 	}
 	Widget->Actuel = ModeActuel();

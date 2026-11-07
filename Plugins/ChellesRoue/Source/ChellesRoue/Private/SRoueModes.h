@@ -11,6 +11,7 @@ struct FCaseRoue
 	EIconeRoue Icone = EIconeRoue::Etoile;
 	FLinearColor Couleur = FLinearColor::White;
 	bool bDisponible = true;
+	bool bLibre = false;
 };
 
 class SRoueModes : public SLeafWidget

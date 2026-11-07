@@ -18,7 +18,8 @@ enum class ETypeModeRoue : uint8
 {
 	APied     UMETA(DisplayName = "A pied (soldat)"),
 	Vol       UMETA(DisplayName = "Vol (Spider-Man)"),
-	Vehicule  UMETA(DisplayName = "Vehicule")
+	Vehicule  UMETA(DisplayName = "Vehicule"),
+	Libre     UMETA(DisplayName = "Libre (fonction a venir)")
 };
 
 UENUM(BlueprintType)
@@ -28,7 +29,9 @@ enum class EIconeRoue : uint8
 	Toile,
 	Flocon,
 	Voiture,
-	Etoile
+	Etoile,
+	Plus,
+	Question
 };
 
 /** Une case de la roue. */
