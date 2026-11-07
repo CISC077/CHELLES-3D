@@ -12,15 +12,21 @@ Comment ca marche (rien a regler pour commencer) :
       * "Lointaine" : gros flocons qui viennent de tres haut (300 m x 300 m, jusqu'a ~400 m de haut) ;
   - flocons eclaires par le soleil/ciel du niveau : ils s'assombrissent la nuit (cycle jour/nuit GoodSky).
 
+  - SOL NEIGEUX : le Landscape recoit un materiau de neige (M_Sol_Neige) ;
+  - EMPREINTES : quand on marche sur le Landscape (joueur, passants, soldats), des traces de pas
+    apparaissent et s'effacent lentement (~45 s). Il faut le plugin Plugins/ChellesNeige (compile une fois
+    avec Plugins/ChellesNeige/Compiler_le_plugin.bat, Unreal ferme).
+
 Ce que le script fait, dans l'ordre :
   1. copie de sauvegarde du niveau ouvert dans Saved/Sauvegardes/neige_<date>/ ;
   2. cree les flocons (/Game/Chelles/Neige/SM_Neige_Flocons) et le materiau M_Neige_Flocons
      + 2 reglages MI_Neige_Proche et MI_Neige_Lointaine ;
-  3. pose 2 acteurs "Chelles_Neige_Proche" et "Chelles_Neige_Lointaine" (dossier Chelles/Neige du World Outliner),
-     puis enregistre le niveau.
+  3. pose 2 acteurs "Chelles_Neige_Proche" et "Chelles_Neige_Lointaine" (dossier Chelles/Neige du World Outliner) ;
+  4. sol : materiaux des empreintes, M_Sol_Neige sur le Landscape (l'ancien materiau est note pour pouvoir
+     revenir en arriere), acteur "Chelles_Neige_Empreintes" ; puis enregistre le niveau.
 
 Ne touche a RIEN d'autre (ciel, soleil, eclairage, batiments, routes...). Peut etre relance : il remplace sa neige.
-Pour arreter la neige : retirer_neige.py (ou cacher les 2 acteurs).
+Pour arreter la neige et rendre au Landscape son ancien materiau : retirer_neige.py.
 Pour regler (plus/moins de neige, vitesse, vent, taille) : double-clic sur MI_Neige_Proche ou MI_Neige_Lointaine
 dans /Game/Chelles/Neige, cocher le parametre et changer la valeur (Densite, Chute, Vent, Taille...).
 Journal : Tools/out/neige.log
@@ -109,6 +115,215 @@ def ecrire_obj(chemin, n, graine=77108):
         f.write("\n".join(lignes) + "\n")
 
 
+# ----------------------------------------------------------------------------------------------- sol neigeux
+RESOLUTION_EMPREINTES = 2048   # pixels de la texture des empreintes (zone de 40 m -> ~2 cm par pixel)
+ZONE_EMPREINTES = 4000.0       # cm, zone autour du joueur qui garde les empreintes
+NOM_SOL = "M_Sol_Neige"
+TAG_ANCIEN = "ChellesNeigeAncienSol="
+
+CODE_PAS = r"""
+float2 p = UV - 0.5;
+float2 a = (p - float2(0.12, 0.0)) / float2(0.34, 0.45);
+float2 b = (p - float2(-0.28, 0.0)) / float2(0.19, 0.36);
+float e = max(saturate((1.0 - dot(a, a)) * 3.0), saturate((1.0 - dot(b, b)) * 3.0));
+return e * Force;
+"""
+
+CODE_REPORT = r"""
+float2 p = UV + Decalage.xy;
+if (p.x < 0.0 || p.y < 0.0 || p.x > 1.0 || p.y > 1.0) return 0.0;
+return Texture2DSampleLevel(Source, SourceSampler, p, 0).r * Attenuation;
+"""
+
+CODE_TRACES = r"""
+float2 uv = (WP.xy - float2(CX, CY)) / max(Taille, 1.0) + 0.5;
+if (uv.x < 0.002 || uv.y < 0.002 || uv.x > 0.998 || uv.y > 0.998) return float4(0.0, 0.0, 1.0, 0.0);
+float t = 1.0 / max(Resolution, 1.0);
+float c = saturate(Texture2DSampleLevel(Tex, TexSampler, uv, 0).r);
+float l = saturate(Texture2DSampleLevel(Tex, TexSampler, uv - float2(t, 0.0), 0).r);
+float r = saturate(Texture2DSampleLevel(Tex, TexSampler, uv + float2(t, 0.0), 0).r);
+float d = saturate(Texture2DSampleLevel(Tex, TexSampler, uv - float2(0.0, t), 0).r);
+float u = saturate(Texture2DSampleLevel(Tex, TexSampler, uv + float2(0.0, t), 0).r);
+float3 n = normalize(float3((l - r) * Profondeur, (d - u) * Profondeur, 1.0));
+return float4(n, c);
+"""
+
+CODE_COULEUR = r"""
+float n1 = Texture2DSample(Bruit, BruitSampler, WP.xy / 3000.0).r;
+float n2 = Texture2DSample(Bruit, BruitSampler, WP.xy / 450.0).r;
+float v = lerp(0.86, 1.0, n1 * 0.6 + n2 * 0.4);
+float k = saturate(Creux);
+float3 col = lerp(Neige.rgb * v, Tasse.rgb, k);
+return float4(col, lerp(0.7, 0.45, k));
+"""
+
+
+def installer_sol(unreal, log, paysages, prefixe):
+    eal = unreal.EditorAssetLibrary
+    ell = unreal.EditorLevelLibrary
+    mel = unreal.MaterialEditingLibrary
+    tools = unreal.AssetToolsHelpers.get_asset_tools()
+    outils = unreal.NeigeOutils
+
+    def obtenir(nom, classe, fabrique):
+        chemin = "%s/%s" % (DOSSIER_ASSETS, nom)
+        if eal.does_asset_exist(chemin):
+            return eal.load_asset(chemin)
+        return tools.create_asset(nom, DOSSIER_ASSETS, classe, fabrique)
+
+    def materiau(nom):
+        m = obtenir(nom, unreal.Material, unreal.MaterialFactoryNew())
+        mel.delete_all_material_expressions(m)
+        return m
+
+    def custom(m, code, sortie, entrees, x, y, desc):
+        e = mel.create_material_expression(m, unreal.MaterialExpressionCustom, x, y)
+        e.set_editor_property("code", code)
+        e.set_editor_property("output_type", sortie)
+        e.set_editor_property("description", desc)
+        liste = []
+        for nom, _ in entrees:
+            ci = unreal.CustomInput()
+            ci.set_editor_property("input_name", nom)
+            liste.append(ci)
+        e.set_editor_property("inputs", liste)
+        for nom, source in entrees:
+            if not mel.connect_material_expressions(source, "", e, nom):
+                raise RuntimeError("liaison impossible : %s.%s" % (desc, nom))
+        return e
+
+    def scalaire(m, nom, val, x, y):
+        e = mel.create_material_expression(m, unreal.MaterialExpressionScalarParameter, x, y)
+        e.set_editor_property("parameter_name", nom)
+        e.set_editor_property("default_value", float(val))
+        return e
+
+    def couleur(m, nom, rgb, x, y):
+        e = mel.create_material_expression(m, unreal.MaterialExpressionVectorParameter, x, y)
+        e.set_editor_property("parameter_name", nom)
+        e.set_editor_property("default_value", unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0))
+        return e
+
+    def masque(m, src, canaux, x, y):
+        e = mel.create_material_expression(m, unreal.MaterialExpressionComponentMask, x, y)
+        for c in "rgba":
+            e.set_editor_property(c, c in canaux)
+        mel.connect_material_expressions(src, "", e, "")
+        return e
+
+    def sortie(m, e, prop):
+        if not mel.connect_material_property(e, "", prop):
+            raise RuntimeError("liaison impossible vers %s" % prop)
+
+    # textures des empreintes (format flottant : l'effacement lent ne "colle" pas)
+    rts = {}
+    for nom in ("RT_Empreintes", "RT_Empreintes_Tampon"):
+        rt = obtenir(nom, unreal.TextureRenderTarget2D, unreal.TextureRenderTargetFactoryNew())
+        rt.set_editor_property("render_target_format", unreal.TextureRenderTargetFormat.RTF_R16F)
+        rt.set_editor_property("size_x", RESOLUTION_EMPREINTES)
+        rt.set_editor_property("size_y", RESOLUTION_EMPREINTES)
+        rt.set_editor_property("clear_color", unreal.LinearColor(0.0, 0.0, 0.0, 1.0))
+        rt.set_editor_property("address_x", unreal.TextureAddress.TA_CLAMP)
+        rt.set_editor_property("address_y", unreal.TextureAddress.TA_CLAMP)
+        eal.save_loaded_asset(rt)
+        rts[nom] = rt
+
+    mpc = obtenir("MPC_Empreintes", unreal.MaterialParameterCollection, unreal.MaterialParameterCollectionFactoryNew())
+    for nom, val in (("CentreX", 0.0), ("CentreY", 0.0), ("Taille", ZONE_EMPREINTES)):
+        if not outils.ajouter_scalaire_collection(mpc, nom, val):
+            raise RuntimeError("MPC_Empreintes : parametre %s impossible" % nom)
+    eal.save_loaded_asset(mpc)
+
+    # forme d'un pas (additif)
+    m_pas = materiau("M_Empreinte_Pas")
+    m_pas.set_editor_property("blend_mode", unreal.BlendMode.BLEND_ADDITIVE)
+    m_pas.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    uv = mel.create_material_expression(m_pas, unreal.MaterialExpressionTextureCoordinate, -600, 0)
+    force = scalaire(m_pas, "Force", 1.0, -600, 120)
+    sortie(m_pas, custom(m_pas, CODE_PAS, unreal.CustomMaterialOutputType.CMOT_FLOAT1,
+                         [("UV", uv), ("Force", force)], -300, 0, "Empreinte"),
+           unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    mel.recompile_material(m_pas)
+    eal.save_loaded_asset(m_pas)
+
+    # decalage + effacement (opaque)
+    m_rep = materiau("M_Empreinte_Report")
+    m_rep.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    uv = mel.create_material_expression(m_rep, unreal.MaterialExpressionTextureCoordinate, -600, 0)
+    src = mel.create_material_expression(m_rep, unreal.MaterialExpressionTextureObjectParameter, -600, 120)
+    src.set_editor_property("parameter_name", "Source")
+    src.set_editor_property("texture", rts["RT_Empreintes_Tampon"])
+    dec = couleur(m_rep, "Decalage", (0.0, 0.0, 0.0), -600, 300)
+    att = scalaire(m_rep, "Attenuation", 1.0, -600, 450)
+    sortie(m_rep, custom(m_rep, CODE_REPORT, unreal.CustomMaterialOutputType.CMOT_FLOAT1,
+                         [("UV", uv), ("Source", src), ("Decalage", dec), ("Attenuation", att)],
+                         -300, 0, "Report"),
+           unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    mel.recompile_material(m_rep)
+    eal.save_loaded_asset(m_rep)
+
+    # materiau du sol
+    sol = materiau(NOM_SOL)
+    wp = mel.create_material_expression(sol, unreal.MaterialExpressionWorldPosition, -900, -300)
+    tex = mel.create_material_expression(sol, unreal.MaterialExpressionTextureObject, -900, -200)
+    tex.set_editor_property("texture", rts["RT_Empreintes"])
+    coll = {}
+    y = -50
+    for nom in ("CentreX", "CentreY", "Taille"):
+        e = mel.create_material_expression(sol, unreal.MaterialExpressionCollectionParameter, -900, y)
+        if not outils.regler_noeud_collection(e, mpc, nom):
+            raise RuntimeError("noeud MPC %s impossible" % nom)
+        coll[nom] = e
+        y += 90
+    res = scalaire(sol, "Resolution", RESOLUTION_EMPREINTES, -900, y)
+    prof = scalaire(sol, "Profondeur", 6.0, -900, y + 90)
+    traces = custom(sol, CODE_TRACES, unreal.CustomMaterialOutputType.CMOT_FLOAT4,
+                    [("WP", wp), ("Tex", tex), ("CX", coll["CentreX"]), ("CY", coll["CentreY"]),
+                     ("Taille", coll["Taille"]), ("Resolution", res), ("Profondeur", prof)],
+                    -550, -100, "Neige_Traces")
+    bruit_tex = None
+    for chemin in ("/Game/StarterContent/Textures/T_Perlin_Noise_M", "/Engine/EngineResources/WhiteSquareTexture"):
+        if eal.does_asset_exist(chemin):
+            bruit_tex = eal.load_asset(chemin)
+            break
+    bruit = mel.create_material_expression(sol, unreal.MaterialExpressionTextureObject, -900, 350)
+    bruit.set_editor_property("texture", bruit_tex)
+    creux = masque(sol, traces, "a", -300, 50)
+    neige = couleur(sol, "CouleurNeige", (0.82, 0.85, 0.9), -900, 500)
+    tasse = couleur(sol, "CouleurTasse", (0.58, 0.64, 0.74), -900, 650)
+    col = custom(sol, CODE_COULEUR, unreal.CustomMaterialOutputType.CMOT_FLOAT4,
+                 [("WP", wp), ("Bruit", bruit), ("Creux", creux), ("Neige", neige), ("Tasse", tasse)],
+                 -150, 300, "Neige_Couleur")
+    sortie(sol, masque(sol, col, "rgb", 100, 250), unreal.MaterialProperty.MP_BASE_COLOR)
+    sortie(sol, masque(sol, col, "a", 100, 400), unreal.MaterialProperty.MP_ROUGHNESS)
+    sortie(sol, masque(sol, traces, "rgb", -300, -150), unreal.MaterialProperty.MP_NORMAL)
+    mel.recompile_material(sol)
+    eal.save_loaded_asset(sol)
+    log("5/5 sol : %s/%s, empreintes %dx%d sur %.0f m autour du joueur"
+        % (DOSSIER_ASSETS, NOM_SOL, RESOLUTION_EMPREINTES, RESOLUTION_EMPREINTES, ZONE_EMPREINTES / 100.0))
+
+    for p in paysages:
+        ancien = p.get_editor_property("landscape_material")
+        tags = [str(t) for t in p.get_editor_property("tags")]
+        if not any(t.startswith(TAG_ANCIEN) for t in tags):
+            tags.append(TAG_ANCIEN + (ancien.get_path_name() if ancien else ""))
+            p.set_editor_property("tags", [unreal.Name(t) for t in tags])
+        p.set_editor_property("landscape_material", sol)
+        log("   Landscape '%s' : neige (ancien materiau : %s)" % (p.get_actor_label(), ancien.get_path_name() if ancien else "aucun"))
+
+    for a in ell.get_all_level_actors():
+        if a.get_actor_label() == prefixe + "Empreintes":
+            ell.destroy_actor(a)
+    a = ell.spawn_actor_from_class(unreal.EmpreintesNeige, unreal.Vector(0.0, 0.0, 0.0))
+    a.set_actor_label(prefixe + "Empreintes")
+    a.set_folder_path(DOSSIER_NIVEAU)
+    for prop, val in (("cible", rts["RT_Empreintes"]), ("tampon", rts["RT_Empreintes_Tampon"]),
+                      ("mat_empreinte", m_pas), ("mat_report", m_rep), ("collection", mpc),
+                      ("taille_zone", ZONE_EMPREINTES)):
+        a.set_editor_property(prop, val)
+    log("   acteur %sEmpreintes pose (reglages : duree de disparition, taille des pas...)" % prefixe)
+
+
 def executer_dans_unreal():
     import unreal
 
@@ -130,6 +345,15 @@ def executer_dans_unreal():
         world = ell.get_editor_world()
         log("Niveau ouvert : %s" % world.get_path_name())
 
+        if not hasattr(unreal, "NeigeOutils") or not hasattr(unreal, "EmpreintesNeige"):
+            log("ABANDON : le plugin ChellesNeige n'est pas charge. Fermez Unreal, double-cliquez sur "
+                "Plugins/ChellesNeige/Compiler_le_plugin.bat, rouvrez le projet puis relancez ce script. "
+                "Rien n'a ete modifie.")
+            return
+        paysages = [a for a in ell.get_all_level_actors() if isinstance(a, unreal.LandscapeProxy)]
+        if not paysages:
+            log("Attention : aucun Landscape dans ce niveau, il y aura les flocons mais pas de sol neigeux.")
+
         # ---- 1. sauvegarde du niveau
         pkg = world.get_outermost().get_name()
         rel = pkg[len("/Game/"):] if pkg.startswith("/Game/") else None
@@ -146,7 +370,7 @@ def executer_dans_unreal():
         if copies == 0:
             log("ABANDON : impossible de sauvegarder le niveau (enregistrez-le d'abord avec Ctrl+S). Rien n'a ete modifie.")
             return
-        log("1/4 sauvegarde du niveau : %s" % sauv)
+        log("1/5 sauvegarde du niveau : %s" % sauv)
 
         # ---- 2. maillage des flocons
         obj = os.path.join(out_dir, NOM_MESH + ".obj")
@@ -189,7 +413,7 @@ def executer_dans_unreal():
         echelle = taille_mesuree / taille_prevue if taille_prevue > 0 else 1.0
         if echelle < 0.5 or echelle > 2.0:
             echelle = round(echelle) if echelle >= 1 else echelle
-        log("2/4 %d flocons importes (%s), taille %.0f cm, echelle %.3f" % (NB_FLOCONS, NOM_MESH, taille_mesuree, echelle))
+        log("2/5 %d flocons importes (%s), taille %.0f cm, echelle %.3f" % (NB_FLOCONS, NOM_MESH, taille_mesuree, echelle))
         # tres grandes "bornes" : Unreal ne doit jamais cacher la neige, ou que soit la camera (10 km)
         grand = unreal.Vector(1000000.0, 1000000.0, 1000000.0)
         mesh.set_editor_property("positive_bounds_extension", grand)
@@ -286,8 +510,9 @@ def executer_dans_unreal():
         lueur = expr(unreal.MaterialExpressionMultiply, -150, 600)
         mel.connect_material_expressions(couleur, "", lueur, "A")
         mel.connect_material_expressions(eclat, "", lueur, "B")
+        # Python 4.27 ne sait pas brancher "World Position Offset" : le plugin ChellesNeige le fait
         ok = all([
-            mel.connect_material_property(mouvement, "", unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET),
+            unreal.NeigeOutils.brancher_position_monde(mat, mouvement),
             mel.connect_material_property(opacite, "", unreal.MaterialProperty.MP_OPACITY),
             mel.connect_material_property(couleur, "", unreal.MaterialProperty.MP_BASE_COLOR),
             mel.connect_material_property(lueur, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR),
@@ -317,7 +542,7 @@ def executer_dans_unreal():
             instances[nom] = mi
         mesh.set_material(0, instances["Proche"])
         eal.save_loaded_asset(mesh)
-        log("3/4 materiau %s + reglages %s" % (chemin_mat, ", ".join("MI_Neige_" + n for n in COUCHES)))
+        log("3/5 materiau %s + reglages %s" % (chemin_mat, ", ".join("MI_Neige_" + n for n in COUCHES)))
 
         # ---- 4. pose des 2 acteurs (a l'origine, sans rotation ni echelle : le materiau en a besoin)
         anciens = [a for a in ell.get_all_level_actors() if a.get_actor_label().startswith(PREFIXE)]
@@ -340,10 +565,12 @@ def executer_dans_unreal():
                     c.set_editor_property(prop, val)
                 except Exception:
                     pass
-        log("4/4 %d acteur(s) remplace(s), 2 poses : %s (dossier %s)"
+        log("4/5 %d acteur(s) remplace(s), 2 poses : %s (dossier %s)"
             % (len(anciens), ", ".join(PREFIXE + n for n in COUCHES), DOSSIER_NIVEAU))
+        # ---- 5. sol neigeux + empreintes
+        installer_sol(unreal, log, paysages, PREFIXE)
         if ell.save_current_level():
-            log("TERMINE : niveau enregistre. Cliquez sur Play : il neige !")
+            log("TERMINE : niveau enregistre. Cliquez sur Play : il neige, et vos pas marquent la neige !")
         else:
             log("TERMINE, mais le niveau n'a pas pu etre enregistre : faites Ctrl+S.")
     except Exception:
