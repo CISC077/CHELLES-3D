@@ -23,7 +23,7 @@ import unreal
 
 DOSSIER_TEXTURES = "/Game/IMAGES/TourG"
 DOSSIER_MATERIAUX = "/Game/IMAGES/TourG"
-NOM_MATERIAU = "M_TourG_Facade"
+NOM_MATERIAU = "M_TourG_Facade_v2"   # v2 : recadrage automatique des marges vides
 PREFIXE_ACTEUR = "TourG_Facade_"
 DECALAGE_CM = 2.0          # ecart entre la facade et le mur (evite le scintillement)
 
@@ -79,6 +79,120 @@ def regler_texture(tex):
     return alpha
 
 
+# ---------------------------------------------------------------- recadrage
+import os
+import json
+import struct
+import zlib
+
+DOSSIER_EXPORT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "export")
+SEUIL_ALPHA = 20   # sur 255 : en dessous, le pixel compte comme vide
+
+
+def lire_png_alpha_cadre(chemin):
+    """Lit un PNG (sans bibliotheque) et renvoie le rectangle (x0, y0, x1, y1) des pixels
+    non transparents, ou None si l'image n'a pas de transparence."""
+    with open(chemin, "rb") as f:
+        data = f.read()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    pos, idat, entete = 8, [], None
+    while pos < len(data):
+        lg, typ = struct.unpack(">I4s", data[pos:pos + 8])
+        corps = data[pos + 8:pos + 8 + lg]
+        if typ == b"IHDR":
+            entete = struct.unpack(">IIBBBBB", corps)
+        elif typ == b"IDAT":
+            idat.append(corps)
+        elif typ == b"IEND":
+            break
+        pos += 12 + lg
+    larg, haut, prof, couleur, _, _, entrelace = entete
+    if entrelace or couleur not in (4, 6) or prof not in (8, 16):
+        return None
+    canaux = 4 if couleur == 6 else 2
+    octets = prof // 8
+    bpp = canaux * octets
+    pas = larg * bpp
+    brut = zlib.decompress(b"".join(idat))
+    prec = bytearray(pas)
+    x0, y0, x1, y1 = larg, haut, -1, -1
+    off_alpha = (canaux - 1) * octets
+    i = 0
+    for y in range(haut):
+        filtre = brut[i]
+        ligne = bytearray(brut[i + 1:i + 1 + pas])
+        i += 1 + pas
+        if filtre == 1:
+            for k in range(bpp, pas):
+                ligne[k] = (ligne[k] + ligne[k - bpp]) & 255
+        elif filtre == 2:
+            for k in range(pas):
+                ligne[k] = (ligne[k] + prec[k]) & 255
+        elif filtre == 3:
+            for k in range(pas):
+                g = ligne[k - bpp] if k >= bpp else 0
+                ligne[k] = (ligne[k] + ((g + prec[k]) >> 1)) & 255
+        elif filtre == 4:
+            for k in range(pas):
+                a = ligne[k - bpp] if k >= bpp else 0
+                b = prec[k]
+                c = prec[k - bpp] if k >= bpp else 0
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
+                ligne[k] = (ligne[k] + pr) & 255
+        prec = ligne
+        alphas = ligne[off_alpha::bpp]   # octet fort de l'alpha
+        plein = [k for k in range(larg) if alphas[k] > SEUIL_ALPHA]
+        if plein:
+            x0, x1 = min(x0, plein[0]), max(x1, plein[-1])
+            y0 = min(y0, y)
+            y1 = y
+    if x1 < 0:
+        return None
+    return x0, y0, x1 + 1, y1 + 1, larg, haut
+
+
+def cadre_utile(texture):
+    """Rectangle utile de la texture en UV (u0, v0, u1, v1), avec un cache."""
+    try:
+        if not os.path.isdir(DOSSIER_EXPORT):
+            os.makedirs(DOSSIER_EXPORT)
+        nom = sans_accents(texture.get_name()).replace(" ", "_")
+        cache_f = os.path.join(DOSSIER_EXPORT, "cadres.json")
+        cache = {}
+        if os.path.exists(cache_f):
+            with open(cache_f, "r") as f:
+                cache = json.load(f)
+        cle = "%s_%dx%d" % (nom, texture.blueprint_get_size_x(), texture.blueprint_get_size_y())
+        if cle not in cache:
+            png = os.path.join(DOSSIER_EXPORT, nom + ".png")
+            tache = unreal.AssetExportTask()
+            tache.set_editor_property("object", texture)
+            tache.set_editor_property("filename", png)
+            tache.set_editor_property("automated", True)
+            tache.set_editor_property("prompt", False)
+            tache.set_editor_property("replace_identical", True)
+            tache.set_editor_property("exporter", unreal.TextureExporterPNG())
+            if not unreal.Exporter.run_asset_export_task(tache) or not os.path.exists(png):
+                log("export PNG impossible pour " + texture.get_name())
+                return None
+            log("analyse de la transparence de %s (quelques secondes)..." % texture.get_name())
+            r = lire_png_alpha_cadre(png)
+            cache[cle] = list(r) if r else None
+            with open(cache_f, "w") as f:
+                json.dump(cache, f, indent=1)
+        r = cache[cle]
+        if not r:
+            return None
+        x0, y0, x1, y1, larg, haut = r
+        return (float(x0) / larg, float(y0) / haut, float(x1) / larg, float(y1) / haut)
+    except Exception as e:
+        log("recadrage non calcule pour %s : %s" % (texture.get_name(), e))
+        return None
+
+
 # ---------------------------------------------------------------- materiau
 def creer_materiau(texture_defaut):
     chemin = DOSSIER_MATERIAUX + "/" + NOM_MATERIAU
@@ -114,7 +228,30 @@ def creer_materiau(texture_defaut):
     tex = noeud(unreal.MaterialExpressionTextureSampleParameter2D, -450, 0)
     tex.set_editor_property("parameter_name", "Facade")
     tex.set_editor_property("texture", texture_defaut)
-    mel.connect_material_expressions(uv_miroir, "", tex, "UVs")
+    # Recadrage : on ne garde que le rectangle ou il y a vraiment l'immeuble
+    def param(nom, defaut, x, y):
+        p = noeud(unreal.MaterialExpressionScalarParameter, x, y)
+        p.set_editor_property("parameter_name", nom)
+        p.set_editor_property("default_value", defaut)
+        return p
+
+    u0 = param("Recadrage_U0", 0.0, -1000, 420)
+    v0 = param("Recadrage_V0", 0.0, -1000, 500)
+    lu = param("Recadrage_Largeur", 1.0, -1000, 580)
+    lv = param("Recadrage_Hauteur", 1.0, -1000, 660)
+    debut = noeud(unreal.MaterialExpressionAppendVector, -800, 450)
+    mel.connect_material_expressions(u0, "", debut, "A")
+    mel.connect_material_expressions(v0, "", debut, "B")
+    taille = noeud(unreal.MaterialExpressionAppendVector, -800, 600)
+    mel.connect_material_expressions(lu, "", taille, "A")
+    mel.connect_material_expressions(lv, "", taille, "B")
+    fois = noeud(unreal.MaterialExpressionMultiply, -700, 100)
+    mel.connect_material_expressions(uv_miroir, "", fois, "A")
+    mel.connect_material_expressions(taille, "", fois, "B")
+    plus = noeud(unreal.MaterialExpressionAdd, -600, 100)
+    mel.connect_material_expressions(fois, "", plus, "A")
+    mel.connect_material_expressions(debut, "", plus, "B")
+    mel.connect_material_expressions(plus, "", tex, "UVs")
 
     # Fond = couleur du cube (blanc), remplace la ou la facade est transparente
     fond = noeud(unreal.MaterialExpressionVectorParameter, -450, -250)
@@ -149,6 +286,13 @@ def creer_instance(mat, cle, texture):
                                  unreal.MaterialInstanceConstantFactoryNew())
     mel.set_material_instance_parent(mi, mat)
     mel.set_material_instance_texture_parameter_value(mi, "Facade", texture)
+    cadre = cadre_utile(texture)
+    if cadre:
+        u0, v0, u1, v1 = cadre
+        for nom, val in (("Recadrage_U0", u0), ("Recadrage_V0", v0),
+                         ("Recadrage_Largeur", u1 - u0), ("Recadrage_Hauteur", v1 - v0)):
+            mel.set_material_instance_scalar_parameter_value(mi, nom, val)
+        log("%s recadree : U %.3f-%.3f, V %.3f-%.3f" % (texture.get_name(), u0, u1, v0, v1))
     return mi
 
 
