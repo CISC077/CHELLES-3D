@@ -2,7 +2,7 @@
 # CHELLES 3D - Costume Spider-Man pour les personnages SuperPowers (Super, Flame, Speedster).
 # Dans Unreal : File > Execute Python Script... > choisir ce fichier.
 # Ne modifie rien d'existant : cree seulement, dans /Game/Personnages/SK_SpiderMan_UE4/,
-# SK_SpiderMan_Pouvoirs (squelette SuperPowers) et SK_SpiderMan_Cavalier (squelette du cavalier HorseStarterKit).
+# SK_SpiderMan_Pouvoirs (SuperPowers), SK_SpiderMan_Cavalier (cavalier HorseStarterKit) et SK_SpiderMan_Combat (DynamicCombatSystem).
 # Le meme Spider-Man, sur le squelette de chaque pack pour garder ses animations. On peut le relancer sans risque.
 import os, unreal
 
@@ -13,6 +13,7 @@ DEST = "/Game/Personnages/SK_SpiderMan_UE4"
 A_CREER = [
     ("SK_SpiderMan_Pouvoirs", "/Game/SuperPowers/Demo/Character/Mesh/UE4_Mannequin_Skeleton"),        # Super, Flame, Speedster
     ("SK_SpiderMan_Cavalier", "/Game/HorseStarterKit/ThirdPersonBP/Character/Mesh/UE4_Mannequin_Skeleton"),  # cavalier du cheval
+    ("SK_SpiderMan_Combat", "/Game/DynamicCombatSystem/Meshes/Skeleton_CombatMannequin"),  # DYNAMIC COMBAT
 ]
 MODELE = DEST + "/SK_SpiderMan_UE4"  # on lui reprend ses materiaux
 

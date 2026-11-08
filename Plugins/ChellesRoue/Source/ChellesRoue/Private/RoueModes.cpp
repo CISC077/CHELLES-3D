@@ -25,6 +25,8 @@
 // Spider-Man sur le squelette du pack SuperPowers (cree par Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py)
 #define CHEMIN_COSTUME_SPIDERMAN TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Pouvoirs.SK_SpiderMan_Pouvoirs")
 // Spider-Man sur le squelette du cavalier HorseStarterKit (meme script)
+// Spider-Man sur le squelette du pack DynamicCombatSystem (meme script)
+#define CHEMIN_COSTUME_COMBAT TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Combat.SK_SpiderMan_Combat")
 #define CHEMIN_COSTUME_CAVALIER TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Cavalier.SK_SpiderMan_Cavalier")
 
 // ---------------------------------------------------------------------------
@@ -165,6 +167,16 @@ ARoueModes::ARoueModes()
 	Pouvoirs.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/SuperPowers/Powers/Super/BP_Super.BP_Super_C")));
 	Pouvoirs.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDERMAN));
 	Modes.Add(Pouvoirs);
+
+	// Pack DynamicCombatSystem (+ MagicModule) : combat a mains nues, sorts, inventaire
+	FModeRoue Combat;
+	Combat.Nom = FText::FromString(TEXT("DYNAMIC COMBAT"));
+	Combat.Type = ETypeModeRoue::Vehicule; // personnage du pack, pris en main comme un vehicule
+	Combat.Icone = EIconeRoue::Epees;
+	Combat.Couleur = FLinearColor(0.95f, 0.25f, 0.3f);
+	Combat.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DynamicCombatSystem/Blueprints/BP_CombatCharacter.BP_CombatCharacter_C")));
+	Combat.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_COMBAT));
+	Modes.Add(Combat);
 
 	// Dernier bouton : le cheval du pack HorseStarterKit (le cavalier fait partie du cheval)
 	FModeRoue Cheval;

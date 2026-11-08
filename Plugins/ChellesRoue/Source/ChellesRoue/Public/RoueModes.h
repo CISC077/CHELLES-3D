@@ -34,7 +34,8 @@ enum class EIconeRoue : uint8
 	Question,
 	FerACheval,
 	Eclair,
-	Flamme
+	Flamme,
+	Epees
 };
 
 /** Une case de la roue. */

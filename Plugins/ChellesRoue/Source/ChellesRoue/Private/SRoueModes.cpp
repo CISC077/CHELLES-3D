@@ -228,6 +228,21 @@ void SRoueModes::Icone(FSlateWindowElementList& Sortie, int32 Couche, const FGeo
 		Lignes(Sortie, Couche, G, Interieur, AvecAlpha(Couleur, 0.8f), E * 0.7f);
 		break;
 	}
+	case EIconeRoue::Epees:
+	{
+		// Deux epees croisees : lame, garde, pommeau
+		for (float Sens : { 1.f, -1.f })
+		{
+			const FVector2D Pointe = C + FVector2D(0.85f * Sens, -0.85f) * S;
+			const FVector2D Garde = C + FVector2D(-0.42f * Sens, 0.42f) * S;
+			const FVector2D Bout = C + FVector2D(-0.8f * Sens, 0.8f) * S;
+			Lignes(Sortie, Couche, G, { Pointe, Garde }, Couleur, E);
+			Lignes(Sortie, Couche, G, { Garde, Bout }, Couleur, E * 1.4f);
+			const FVector2D Travers = FVector2D(0.22f, 0.22f * Sens) * S;
+			Lignes(Sortie, Couche, G, { Garde - Travers, Garde + Travers }, Couleur, E);
+		}
+		break;
+	}
 	case EIconeRoue::Question:
 	{
 		const FSlateFontInfo Police = FCoreStyle::GetDefaultFontStyle("Bold", FMath::Max(12, FMath::RoundToInt(S * 1.7f)));
