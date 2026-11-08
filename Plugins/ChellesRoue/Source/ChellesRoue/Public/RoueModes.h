@@ -62,6 +62,14 @@ struct FModeRoue
 	/** Optionnel : mesh (SkeletalMesh) a mettre sur le personnage choisi, ex. le costume Spider-Man. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue", meta = (AllowedClasses = "SkeletalMesh"))
 	FSoftObjectPath Costume;
+
+	/** Nom du composant qui recoit le costume (vide = le corps du personnage). Ex. Horse_Rider pour le cavalier. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
+	FName ComposantCostume;
+
+	/** Vrai : la roue fait venir le vehicule a cote du joueur, on monte en s'approchant et en appuyant sur E. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
+	bool bMonterAvecE = false;
 };
 
 /**
@@ -138,6 +146,13 @@ private:
 	bool EstDisponible(int32 Index) const;
 	bool EstEnVol() const;
 	void MettreCostume(const FModeRoue& Mode);
+	void HabillerComposant(AActor* Acteur, const FModeRoue& Mode, bool bVisible);
+	APawn* VehiculeDe(AActor* Controleur) const;
+	void AppelerVehicule(int32 Index);
+	void ToucheMonter();
+	void SuivreMontures();
+	void JouerMontee(APawn* Monture, const FModeRoue& Mode);
+	void FinMontee();
 
 	void CacherHudPack(const FString& Racine);
 	void MontrerHudPack(const FString& Racine);
@@ -174,4 +189,9 @@ private:
 	bool bOuverte = false;
 	bool bLieClavier = false;
 	bool bIgnoreVue = false;
+
+	/** Case (bMonterAvecE) sur laquelle on etait monte au tick precedent, -1 sinon. */
+	int32 MontureActive = -1;
+	TWeakObjectPtr<APawn> MontureAnimee;
+	FTimerHandle MinuteurMontee;
 };

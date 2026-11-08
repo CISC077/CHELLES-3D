@@ -15,6 +15,8 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Animation/AnimInstance.h"
+#include "TimerManager.h"
 #include "Misc/App.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/UnrealType.h"
@@ -22,6 +24,8 @@
 #define CHEMIN_MOTONEIGE TEXT("/Game/DV_Snowmobile/Blueprints/BP_Snowmobile.BP_Snowmobile_C")
 // Spider-Man sur le squelette du pack SuperPowers (cree par Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py)
 #define CHEMIN_COSTUME_SPIDERMAN TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Pouvoirs.SK_SpiderMan_Pouvoirs")
+// Spider-Man sur le squelette du cavalier HorseStarterKit (meme script)
+#define CHEMIN_COSTUME_CAVALIER TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Cavalier.SK_SpiderMan_Cavalier")
 
 // ---------------------------------------------------------------------------
 // Appels par reflexion vers ChellesBasculeVol et ChellesMotoneige (aucune dependance)
@@ -169,6 +173,9 @@ ARoueModes::ARoueModes()
 	Cheval.Icone = EIconeRoue::FerACheval;
 	Cheval.Couleur = FLinearColor(0.85f, 0.55f, 0.28f);
 	Cheval.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/HorseStarterKit/Blueprint/BP_Rideable_DarkBrown_Horse.BP_Rideable_DarkBrown_Horse_C")));
+	Cheval.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_CAVALIER));
+	Cheval.ComposantCostume = TEXT("Horse_Rider");
+	Cheval.bMonterAvecE = true; // le cheval arrive, on monte avec E
 	Modes.Add(Cheval);
 
 	// Pour ajouter une case libre plus tard : Type = ETypeModeRoue::Libre, Icone = EIconeRoue::Question.
@@ -221,6 +228,9 @@ void ARoueModes::LierClavier()
 		{
 			InputComponent->BindKey(Touche, IE_Pressed, this, &ARoueModes::Ouvrir);
 			InputComponent->BindKey(Touche, IE_Released, this, &ARoueModes::Relacher);
+			// E pres du cheval : monter (ne bloque pas la touche E pour le reste du jeu)
+			FInputKeyBinding& Monter = InputComponent->BindKey(EKeys::E, IE_Pressed, this, &ARoueModes::ToucheMonter);
+			Monter.bConsumeInput = false;
 			bLieClavier = true;
 			UE_LOG(LogTemp, Log, TEXT("[Roue] Maintenir %s pour choisir le mode."), *Touche.ToString());
 		}
@@ -417,9 +427,9 @@ int32 ARoueModes::ModeActuel() const
 
 void ARoueModes::MettreCostume(const FModeRoue& Mode)
 {
-	if (Mode.Costume.IsNull())
+	if (Mode.Costume.IsNull() || !Mode.ComposantCostume.IsNone())
 	{
-		return;
+		return; // costume sur un composant (cavalier) : gere par SuivreMontures
 	}
 	APlayerController* PC = GetPC();
 	ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
@@ -447,6 +457,213 @@ void ARoueModes::MettreCostume(const FModeRoue& Mode)
 	}
 	Corps->SetSkeletalMesh(Costume);
 	Corps->EmptyOverrideMaterials();
+}
+
+APawn* ARoueModes::VehiculeDe(AActor* Controleur) const
+{
+	if (!IsValid(Controleur))
+	{
+		return nullptr;
+	}
+	FObjectProperty* P = FindFProperty<FObjectProperty>(Controleur->GetClass(), TEXT("Moto"));
+	APawn* Pion = P ? Cast<APawn>(P->GetObjectPropertyValue_InContainer(Controleur)) : nullptr;
+	return IsValid(Pion) ? Pion : nullptr;
+}
+
+void ARoueModes::HabillerComposant(AActor* Acteur, const FModeRoue& Mode, bool bVisible)
+{
+	if (!IsValid(Acteur) || Mode.ComposantCostume.IsNone())
+	{
+		return;
+	}
+	TArray<USkeletalMeshComponent*> Corps;
+	Acteur->GetComponents(Corps);
+	for (USkeletalMeshComponent* C : Corps)
+	{
+		if (!C || C->GetFName() != Mode.ComposantCostume)
+		{
+			continue;
+		}
+		if (bVisible && !Mode.Costume.IsNull())
+		{
+			USkeletalMesh* Costume = Cast<USkeletalMesh>(Mode.Costume.TryLoad());
+			if (!Costume)
+			{
+				static bool bDejaDit = false;
+				if (!bDejaDit)
+				{
+					bDejaDit = true;
+					Message(TEXT("Costume du cavalier introuvable : relance Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py dans Unreal."));
+				}
+			}
+			else if (C->SkeletalMesh != Costume)
+			{
+				if (C->SkeletalMesh && C->SkeletalMesh->GetSkeleton() != Costume->GetSkeleton())
+				{
+					Message(TEXT("Costume du cavalier : squelette different, costume non applique."));
+				}
+				else
+				{
+					C->SetSkeletalMesh(Costume);
+					C->EmptyOverrideMaterials();
+				}
+			}
+		}
+		if (C->bHiddenInGame == bVisible)
+		{
+			C->SetHiddenInGame(!bVisible);
+		}
+	}
+}
+
+void ARoueModes::AppelerVehicule(int32 Index)
+{
+	const FModeRoue& Mode = Modes[Index];
+	AActor* Controleur = ControleurVehicule(Index);
+	APlayerController* PC = GetPC();
+	APawn* Pieton = PC ? PC->GetPawn() : nullptr;
+	FClassProperty* PropClasse = Controleur ? FindFProperty<FClassProperty>(Controleur->GetClass(), TEXT("ClasseMoto")) : nullptr;
+	FObjectProperty* PropMoto = Controleur ? FindFProperty<FObjectProperty>(Controleur->GetClass(), TEXT("Moto")) : nullptr;
+	UClass* Classe = PropClasse ? Cast<UClass>(PropClasse->GetObjectPropertyValue_InContainer(Controleur)) : nullptr;
+	if (!Controleur || !Pieton || !PropMoto || !Classe)
+	{
+		Message(FString::Printf(TEXT("%s : impossible de le faire venir."), *Mode.Nom.ToString()));
+		return;
+	}
+
+	// 3,5 m devant le joueur, pose au sol, tourne dans le meme sens que lui
+	const float Yaw = PC->GetControlRotation().Yaw;
+	const FVector Devant = FRotator(0.f, Yaw, 0.f).Vector();
+	FVector Lieu = Pieton->GetActorLocation() + Devant * 350.f;
+	FHitResult Sol;
+	FCollisionQueryParams Params(TEXT("RoueSol"), false, Pieton);
+	if (GetWorld()->LineTraceSingleByChannel(Sol, Lieu + FVector(0.f, 0.f, 500.f), Lieu - FVector(0.f, 0.f, 2000.f), ECC_Visibility, Params))
+	{
+		Lieu = Sol.ImpactPoint;
+	}
+	Lieu.Z += 120.f;
+	const FRotator Rot(0.f, Yaw + 90.f, 0.f); // de profil : on monte par le cote gauche
+
+	APawn* Monture = VehiculeDe(Controleur);
+	if (Monture)
+	{
+		Monture->SetActorLocationAndRotation(Lieu, Rot, false, nullptr, ETeleportType::ResetPhysics);
+	}
+	else
+	{
+		FActorSpawnParameters P;
+		P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+		Monture = GetWorld()->SpawnActor<APawn>(Classe, Lieu, Rot, P);
+		if (!Monture)
+		{
+			Message(FString::Printf(TEXT("%s : impossible de le faire venir."), *Mode.Nom.ToString()));
+			return;
+		}
+		PropMoto->SetObjectPropertyValue_InContainer(Controleur, Monture);
+	}
+	HabillerComposant(Monture, Mode, false); // pas de cavalier tant qu'on n'est pas monte
+	Message(FString::Printf(TEXT("%s est la : approche-toi et appuie sur E pour monter."), *Mode.Nom.ToString()));
+}
+
+void ARoueModes::ToucheMonter()
+{
+	if (bOuverte || MontureActive != INDEX_NONE)
+	{
+		return; // deja en selle : E sert a descendre (plugin Motoneige)
+	}
+	APlayerController* PC = GetPC();
+	APawn* Pieton = PC ? PC->GetPawn() : nullptr;
+	if (!Pieton)
+	{
+		return;
+	}
+	const int32 Avant = ModeActuel();
+	if (Modes.IsValidIndex(Avant) && Modes[Avant].Type == ETypeModeRoue::Vehicule)
+	{
+		return; // dans un autre vehicule
+	}
+	for (int32 i = 0; i < Modes.Num(); ++i)
+	{
+		if (!Modes[i].bMonterAvecE || !Controleurs.IsValidIndex(i))
+		{
+			continue;
+		}
+		AActor* Controleur = Controleurs[i];
+		APawn* Monture = VehiculeDe(Controleur);
+		if (!Monture || FVector::Dist(Monture->GetActorLocation(), Pieton->GetActorLocation()) > 450.f)
+		{
+			continue;
+		}
+		Appeler(Controleur, TEXT("Basculer"));
+		if (AppelerBool(Controleur, TEXT("EstSurMoto")))
+		{
+			MontrerHudPack(RacinePack(Modes[i].ClasseVehicule));
+			HabillerComposant(Monture, Modes[i], true);
+			JouerMontee(Monture, Modes[i]);
+			MontureActive = i;
+		}
+		return;
+	}
+}
+
+static void MettreBoolAnim(USkeletalMeshComponent* C, const TCHAR* Nom, bool bValeur)
+{
+	UAnimInstance* Anim = C ? C->GetAnimInstance() : nullptr;
+	if (FBoolProperty* P = Anim ? FindFProperty<FBoolProperty>(Anim->GetClass(), FName(Nom)) : nullptr)
+	{
+		P->SetPropertyValue_InContainer(Anim, bValeur);
+	}
+}
+
+void ARoueModes::JouerMontee(APawn* Monture, const FModeRoue& Mode)
+{
+	// Animation de montee du pack (cheval + cavalier), si elle existe
+	TArray<USkeletalMeshComponent*> Corps;
+	Monture->GetComponents(Corps);
+	for (USkeletalMeshComponent* C : Corps)
+	{
+		MettreBoolAnim(C, TEXT("PlayMountLeft"), true);
+	}
+	MontureAnimee = Monture;
+	GetWorldTimerManager().SetTimer(MinuteurMontee, this, &ARoueModes::FinMontee, 3.f, false);
+}
+
+void ARoueModes::FinMontee()
+{
+	if (APawn* Monture = MontureAnimee.Get())
+	{
+		TArray<USkeletalMeshComponent*> Corps;
+		Monture->GetComponents(Corps);
+		for (USkeletalMeshComponent* C : Corps)
+		{
+			MettreBoolAnim(C, TEXT("PlayMountLeft"), false);
+		}
+	}
+	MontureAnimee.Reset();
+}
+
+void ARoueModes::SuivreMontures()
+{
+	int32 Active = INDEX_NONE;
+	for (int32 i = 0; i < Modes.Num(); ++i)
+	{
+		if (!Modes[i].bMonterAvecE || !Controleurs.IsValidIndex(i) || !IsValid(Controleurs[i]))
+		{
+			continue;
+		}
+		APawn* Monture = VehiculeDe(Controleurs[i]);
+		if (!Monture)
+		{
+			continue;
+		}
+		const bool bSur = AppelerBool(Controleurs[i], TEXT("EstSurMoto"));
+		HabillerComposant(Monture, Modes[i], bSur);
+		if (bSur)
+		{
+			Active = i;
+		}
+	}
+	MontureActive = Active;
 }
 
 void ARoueModes::ChoisirMode(int32 Index)
@@ -521,6 +738,11 @@ void ARoueModes::ChoisirMode(int32 Index)
 
 	case ETypeModeRoue::Vehicule:
 	{
+		if (Mode.bMonterAvecE)
+		{
+			AppelerVehicule(Index);
+			break;
+		}
 		AActor* Controleur = ControleurVehicule(Index);
 		if (!Controleur)
 		{
@@ -810,6 +1032,7 @@ void ARoueModes::Tick(float DeltaSeconds)
 		ChercherPlugins();
 	}
 	RetirerAnciennesTouches();
+	SuivreMontures();
 
 	if (bOuverte)
 	{
