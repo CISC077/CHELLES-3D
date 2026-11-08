@@ -177,6 +177,13 @@ ARoueModes::ARoueModes()
 	Combat.Couleur = FLinearColor(0.95f, 0.25f, 0.3f);
 	Combat.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DynamicCombatSystem/Blueprints/BP_CombatCharacter.BP_CombatCharacter_C")));
 	Combat.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_COMBAT));
+	Combat.bDescendreAvecE = false; // E = ramasser dans ce pack
+	// Touches du pack (voir sa fenetre K) : Espace = roulade, Maj+Espace = saut ; R = mode combat (pas le ralenti)
+	Combat.ActionsCoupees = { TEXT("Jump"), TEXT("SlowMotion") };
+	{
+		FInputActionKeyMapping Saut(TEXT("Jump"), EKeys::SpaceBar, /*Shift*/ true);
+		Combat.ActionsAjoutees.Add(Saut);
+	}
 	Modes.Add(Combat);
 
 	// Dernier bouton : le cheval du pack HorseStarterKit (le cavalier fait partie du cheval)
@@ -225,6 +232,7 @@ void ARoueModes::BeginPlay()
 void ARoueModes::EndPlay(const EEndPlayReason::Type Raison)
 {
 	Fermer();
+	RetablirTouches();
 	Super::EndPlay(Raison);
 }
 
@@ -320,10 +328,17 @@ void ARoueModes::RetirerAnciennesTouches()
 			continue;
 		}
 		RetirerTouche(A->InputComponent, LireTouche(A));
-		// Pendant la conduite, F (descendre puis voler) passe aussi par la roue. E reste pour descendre.
+		// Pendant la conduite, F (descendre puis voler) passe aussi par la roue. E reste pour descendre,
+		// sauf pour les personnages de pack qui se servent de E (bDescendreAvecE = faux).
 		if (FObjectProperty* P = FindFProperty<FObjectProperty>(A->GetClass(), TEXT("EntreesConduite")))
 		{
-			RetirerTouche(Cast<UInputComponent>(P->GetObjectPropertyValue_InContainer(A)), EKeys::F);
+			UInputComponent* Conduite = Cast<UInputComponent>(P->GetObjectPropertyValue_InContainer(A));
+			RetirerTouche(Conduite, EKeys::F);
+			const int32 Index = Controleurs.IndexOfByKey(A);
+			if (Modes.IsValidIndex(Index) && !Modes[Index].bDescendreAvecE)
+			{
+				RetirerTouche(Conduite, EKeys::E);
+			}
 		}
 	}
 }
@@ -750,6 +765,66 @@ void ARoueModes::EmpecherChute()
 	}
 }
 
+void ARoueModes::RetablirTouches()
+{
+	APlayerController* PC = GetPC();
+	UPlayerInput* Entrees = PC ? PC->PlayerInput : nullptr;
+	if (Entrees)
+	{
+		for (const FInputActionKeyMapping& M : TouchesAjoutees)
+		{
+			Entrees->RemoveActionMapping(M);
+		}
+		for (const FInputActionKeyMapping& M : TouchesRetirees)
+		{
+			Entrees->AddActionMapping(M);
+		}
+		Entrees->ForceRebuildingKeyMaps(false);
+	}
+	TouchesAjoutees.Reset();
+	TouchesRetirees.Reset();
+	ModeTouches = -1;
+}
+
+void ARoueModes::AppliquerTouchesDuMode()
+{
+	APlayerController* PC = GetPC();
+	UPlayerInput* Entrees = PC ? PC->PlayerInput : nullptr;
+	if (!Entrees)
+	{
+		return;
+	}
+	const int32 Mode = ModeActuel();
+	if (Mode == ModeTouches)
+	{
+		return;
+	}
+	RetablirTouches();
+	if (!Modes.IsValidIndex(Mode) || (Modes[Mode].ActionsCoupees.Num() == 0 && Modes[Mode].ActionsAjoutees.Num() == 0))
+	{
+		ModeTouches = Mode;
+		return;
+	}
+	for (const FInputActionKeyMapping& M : Entrees->ActionMappings)
+	{
+		if (Modes[Mode].ActionsCoupees.Contains(M.ActionName))
+		{
+			TouchesRetirees.Add(M);
+		}
+	}
+	for (const FInputActionKeyMapping& M : TouchesRetirees)
+	{
+		Entrees->RemoveActionMapping(M);
+	}
+	for (const FInputActionKeyMapping& M : Modes[Mode].ActionsAjoutees)
+	{
+		Entrees->AddActionMapping(M);
+		TouchesAjoutees.Add(M);
+	}
+	Entrees->ForceRebuildingKeyMaps(false);
+	ModeTouches = Mode;
+}
+
 void ARoueModes::ChoisirMode(int32 Index)
 {
 	if (!Modes.IsValidIndex(Index))
@@ -1118,6 +1193,10 @@ void ARoueModes::Tick(float DeltaSeconds)
 	RetirerAnciennesTouches();
 	SuivreMontures();
 	EmpecherChute();
+	if (!bOuverte)
+	{
+		AppliquerTouchesDuMode();
+	}
 
 	if (bOuverte)
 	{

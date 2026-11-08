@@ -5,6 +5,7 @@
 #include "GameFramework/Actor.h"
 #include "InputCoreTypes.h"
 #include "UObject/SoftObjectPath.h"
+#include "GameFramework/PlayerInput.h"
 #include "RoueModes.generated.h"
 
 class APawn;
@@ -71,6 +72,18 @@ struct FModeRoue
 	/** Vrai : la roue fait venir le vehicule a cote du joueur, on monte en s'approchant et en appuyant sur E. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
 	bool bMonterAvecE = false;
+
+	/** Faux : E ne fait pas descendre (le personnage du pack se sert de E). On change de mode avec la roue. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
+	bool bDescendreAvecE = true;
+
+	/** Actions du jeu coupees tant que ce mode est joue (pour eviter les conflits de touches). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
+	TArray<FName> ActionsCoupees;
+
+	/** Touches ajoutees tant que ce mode est joue. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
+	TArray<FInputActionKeyMapping> ActionsAjoutees;
 };
 
 /**
@@ -156,6 +169,8 @@ private:
 	void FinMontee();
 	void ChiffreAzerty(FKey Touche, bool bAppui);
 	void EmpecherChute();
+	void AppliquerTouchesDuMode();
+	void RetablirTouches();
 
 	void CacherHudPack(const FString& Racine);
 	void MontrerHudPack(const FString& Racine);
@@ -202,4 +217,9 @@ private:
 	TWeakObjectPtr<APawn> PionSurveille;
 	FVector DernierSol = FVector::ZeroVector;
 	bool bSolConnu = false;
+
+	/** Profil de touches applique (index du mode), et ce qu'il a change. */
+	int32 ModeTouches = -1;
+	TArray<FInputActionKeyMapping> TouchesRetirees;
+	TArray<FInputActionKeyMapping> TouchesAjoutees;
 };
