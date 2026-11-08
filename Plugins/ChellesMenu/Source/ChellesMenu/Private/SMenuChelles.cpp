@@ -1370,7 +1370,7 @@ void SMenuChelles::OuvrirLien(const TCHAR* Cle, const TCHAR* Nom)
 	FString Url = ChellesOptions::LireTexte(Cle);
 	if (Url.IsEmpty())
 	{
-		if (FCString::Strcmp(Cle, TEXT("LienDiscord")) == 0) { Url = TEXT("https://discord.com/channels/1568892043680288768"); }
+		if (FCString::Strcmp(Cle, TEXT("LienDiscord")) == 0) { Url = TEXT("https://discord.gg/MtUru8vyg"); }
 		else if (FCString::Strcmp(Cle, TEXT("LienFacebook")) == 0) { Url = TEXT("https://www.facebook.com/TIKT0K3D/"); }
 		else if (FCString::Strcmp(Cle, TEXT("LienYoutube")) == 0) { Url = TEXT("https://www.youtube.com/@CHELLES3D-77"); }
 		else if (FCString::Strcmp(Cle, TEXT("LienTiktok")) == 0) { Url = TEXT("https://www.tiktok.com/@meridja77"); }
