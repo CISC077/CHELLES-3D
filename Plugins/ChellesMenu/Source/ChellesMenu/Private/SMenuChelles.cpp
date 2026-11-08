@@ -1370,7 +1370,7 @@ void SMenuChelles::OuvrirLien(const TCHAR* Cle, const TCHAR* Nom)
 	{
 		if (FCString::Strcmp(Cle, TEXT("LienDiscord")) == 0) { Url = TEXT(""); }
 		else if (FCString::Strcmp(Cle, TEXT("LienFacebook")) == 0) { Url = TEXT(""); }
-		else if (FCString::Strcmp(Cle, TEXT("LienYoutube")) == 0) { Url = TEXT(""); }
+		else if (FCString::Strcmp(Cle, TEXT("LienYoutube")) == 0) { Url = TEXT("https://www.youtube.com/@CHELLES3D-77"); }
 	}
 	if (Url.StartsWith(TEXT("http")))
 	{
