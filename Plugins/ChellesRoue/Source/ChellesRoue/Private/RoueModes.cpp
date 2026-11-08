@@ -179,11 +179,20 @@ ARoueModes::ARoueModes()
 	Combat.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_COMBAT));
 	Combat.bDescendreAvecE = false; // E = ramasser dans ce pack
 	// Touches du pack (voir sa fenetre K) : Espace = roulade, Maj+Espace = saut ; R = mode combat (pas le ralenti)
-	Combat.ActionsCoupees = { TEXT("Jump"), TEXT("SlowMotion") };
-	{
-		FInputActionKeyMapping Saut(TEXT("Jump"), EKeys::SpaceBar, /*Shift*/ true);
-		Combat.ActionsAjoutees.Add(Saut);
-	}
+	// Tout le pack sur peu de touches (demande MERIDJA) :
+	//   clic gauche = attaque / sort, clic droit = mode combat (sortir / annuler le sort),
+	//   + / - = sort suivant / precedent, F2 roulade, F3 saut, F4 potion (outil), F5 ramasser, F6 verrouiller la cible.
+	Combat.ActionsCoupees = { TEXT("Jump"), TEXT("SlowMotion"), TEXT("Zoom") };
+	Combat.ActionsAjoutees = {
+		FInputActionKeyMapping(TEXT("ToggleCombat"), EKeys::RightMouseButton),
+		FInputActionKeyMapping(TEXT("Roll"), EKeys::F2),
+		FInputActionKeyMapping(TEXT("Jump"), EKeys::F3),
+		FInputActionKeyMapping(TEXT("Jump"), EKeys::SpaceBar, true),
+		FInputActionKeyMapping(TEXT("UseToolItem"), EKeys::F4),
+		FInputActionKeyMapping(TEXT("Interact"), EKeys::F5),
+		FInputActionKeyMapping(TEXT("ToggleTargeting"), EKeys::F6)
+	};
+	Combat.bSortsPlusMoins = true;
 	Modes.Add(Combat);
 
 	// Dernier bouton : le cheval du pack HorseStarterKit (le cavalier fait partie du cheval)
@@ -255,6 +264,18 @@ void ARoueModes::LierClavier()
 
 			// Clavier AZERTY : la rangee & e " ' ( ne donne pas 1 2 3 4 5 a Unreal. On les traduit
 			// pour les packs qui ecoutent les chiffres (sorts de DYNAMIC COMBAT, armes...).
+			// + et - : sorts du pack (DYNAMIC COMBAT). Pave numerique et clavier principal.
+			for (const FKey& K : { EKeys::Add, EKeys::Equals })
+			{
+				FInputKeyBinding& B = InputComponent->BindKey(K, IE_Pressed, this, &ARoueModes::SortPlus);
+				B.bConsumeInput = false;
+			}
+			for (const FKey& K : { EKeys::Subtract, EKeys::Hyphen })
+			{
+				FInputKeyBinding& B = InputComponent->BindKey(K, IE_Pressed, this, &ARoueModes::SortMoins);
+				B.bConsumeInput = false;
+			}
+
 			const FKey Azerty[] = { EKeys::Ampersand, EKeys::E_AccentAigu, EKeys::Quote, EKeys::Apostrophe, EKeys::LeftParantheses };
 			for (const FKey& K : Azerty)
 			{
@@ -825,6 +846,62 @@ void ARoueModes::AppliquerTouchesDuMode()
 	ModeTouches = Mode;
 }
 
+void ARoueModes::SortSuivant(int32 Sens)
+{
+	const int32 Mode = ModeActuel();
+	APlayerController* PC = GetPC();
+	if (!PC || bOuverte || !Modes.IsValidIndex(Mode) || !Modes[Mode].bSortsPlusMoins)
+	{
+		return;
+	}
+	SortCourant = (SortCourant - 1 + Sens + 5) % 5 + 1;
+	static const FKey Chiffres[] = { EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four, EKeys::Five };
+	const FKey Chiffre = Chiffres[SortCourant - 1];
+	TWeakObjectPtr<APlayerController> PCFaible = PC;
+	GetWorldTimerManager().SetTimerForNextTick([PCFaible, Chiffre]()
+	{
+		if (APlayerController* P = PCFaible.Get())
+		{
+			P->InputKey(Chiffre, IE_Pressed, 1.f, false);
+			P->InputKey(Chiffre, IE_Released, 0.f, false);
+		}
+	});
+	Message(FString::Printf(TEXT("Sort %d"), SortCourant));
+}
+
+void ARoueModes::RendreSesReferences(APawn* Perso, APawn* Ancien)
+{
+	// Le plugin Motoneige donne le pieton aux variables "Character/Pawn/Player" du vehicule (utile pour une
+	// vraie motoneige). Pour un personnage de pack, ces variables doivent designer le personnage lui-meme.
+	if (!IsValid(Perso) || !IsValid(Ancien) || Perso == Ancien)
+	{
+		return;
+	}
+	auto Corriger = [Perso, Ancien](UObject* Objet)
+	{
+		if (!Objet)
+		{
+			return;
+		}
+		for (TFieldIterator<FObjectProperty> It(Objet->GetClass()); It; ++It)
+		{
+			FObjectProperty* Prop = *It;
+			if (Prop->GetObjectPropertyValue_InContainer(Objet) == Ancien && Perso->IsA(Prop->PropertyClass))
+			{
+				Prop->SetObjectPropertyValue_InContainer(Objet, Perso);
+				UE_LOG(LogTemp, Log, TEXT("[Roue] %s.%s remis sur %s"), *Objet->GetName(), *Prop->GetName(), *Perso->GetName());
+			}
+		}
+	};
+	Corriger(Perso);
+	TInlineComponentArray<UActorComponent*> Composants;
+	Perso->GetComponents(Composants);
+	for (UActorComponent* C : Composants)
+	{
+		Corriger(C);
+	}
+}
+
 void ARoueModes::ChoisirMode(int32 Index)
 {
 	if (!Modes.IsValidIndex(Index))
@@ -908,11 +985,18 @@ void ARoueModes::ChoisirMode(int32 Index)
 			Message(FString::Printf(TEXT("%s : impossible de preparer la conduite."), *Mode.Nom.ToString()));
 			break;
 		}
+		APlayerController* PCAvant = GetPC();
+		APawn* PionAvant = PCAvant ? PCAvant->GetPawn() : nullptr;
 		Appeler(Controleur, TEXT("Basculer")); // le pieton (ou Spider-Man) monte, le vehicule arrive a cote
 		if (AppelerBool(Controleur, TEXT("EstSurMoto")))
 		{
 			MontrerHudPack(RacinePack(Mode.ClasseVehicule));
 			MettreCostume(Mode);
+			if (!Mode.Costume.IsNull() && Mode.ComposantCostume.IsNone() && PCAvant)
+			{
+				RendreSesReferences(PCAvant->GetPawn(), PionAvant); // personnages de pack (pouvoirs, combat)
+			}
+			SortCourant = 1;
 		}
 		else
 		{

@@ -84,6 +84,10 @@ struct FModeRoue
 	/** Touches ajoutees tant que ce mode est joue. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
 	TArray<FInputActionKeyMapping> ActionsAjoutees;
+
+	/** Vrai : + et - font defiler les sorts 1 a 5 du pack (touches 1..5 simulees). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
+	bool bSortsPlusMoins = false;
 };
 
 /**
@@ -171,6 +175,10 @@ private:
 	void EmpecherChute();
 	void AppliquerTouchesDuMode();
 	void RetablirTouches();
+	void SortSuivant(int32 Sens);
+	void SortPlus() { SortSuivant(1); }
+	void SortMoins() { SortSuivant(-1); }
+	static void RendreSesReferences(APawn* Perso, APawn* Ancien);
 
 	void CacherHudPack(const FString& Racine);
 	void MontrerHudPack(const FString& Racine);
@@ -220,6 +228,7 @@ private:
 
 	/** Profil de touches applique (index du mode), et ce qu'il a change. */
 	int32 ModeTouches = -1;
+	int32 SortCourant = 1;
 	TArray<FInputActionKeyMapping> TouchesRetirees;
 	TArray<FInputActionKeyMapping> TouchesAjoutees;
 };
