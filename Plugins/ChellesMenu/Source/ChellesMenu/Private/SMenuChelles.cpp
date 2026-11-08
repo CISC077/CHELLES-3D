@@ -1587,7 +1587,7 @@ TSharedRef<SWidget> SMenuChelles::OngletAudio()
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Curseur([]() { return ChellesOptions::VolumeCanal(2); }, [](float V) { ChellesOptions::DefinirVolumeCanal(2, V); }) ]
 		]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteSon(); }, [](int32 S) { ChellesOptions::ChangerSon(S); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Le volume g\u00E9n\u00E9ral agit sur tout le jeu. Musique / effets / voix agissent sur les sons class\u00E9s comme tels dans le pack FPS, et sur les sons de ce menu."))) ];
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Le volume g\u00E9n\u00E9ral agit sur tout le jeu. Musique / effets / voix agissent sur les sons class\u00E9s comme tels dans le pack FPS, et sur les sons de ce menu. En jeu : Page Haut / Page Bas = volume musique, N = couper, Fin = piste suivante."))) ];
 }
 
 TSharedRef<SWidget> SMenuChelles::OngletJeu()

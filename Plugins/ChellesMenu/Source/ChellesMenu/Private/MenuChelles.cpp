@@ -52,6 +52,9 @@ AMenuChelles::AMenuChelles()
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.TickInterval = 0.5f; // seulement pour relancer la musique en boucle
 	SetCanBeDamaged(false);
+	MusiquesJeu.Add(TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/ChellesMenu/Audio/Musique_Jeu.Musique_Jeu"))));
+	MusiquesJeu.Add(TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/ChellesMenu/Audio/Musique_Jeu2.Musique_Jeu2"))));
+	MusiquesJeu.Add(TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/ChellesMenu/Audio/Musique_Jeu3.Musique_Jeu3"))));
 }
 
 APlayerController* AMenuChelles::GetPC() const
@@ -232,9 +235,48 @@ void AMenuChelles::Tick(float Delta)
 {
 	Super::Tick(Delta);
 	// Les sons du pack ne bouclent pas tous : on relance la musique de la partie quand elle se termine.
+	// Quand une piste est finie, on passe a la suivante de la playlist.
 	if (MusiquePartie && !MusiquePartie->IsPlaying() && !ChellesOptions::MusiqueCoupee())
 	{
-		MusiquePartie->Play();
+		MusiqueSuivante();
+	}
+}
+
+USoundBase* AMenuChelles::PisteDeLaPlaylist(int32& Index)
+{
+	const int32 Nombre = MusiquesJeu.Num();
+	for (int32 Essai = 0; Essai < Nombre; ++Essai)
+	{
+		const int32 i = ((Index + Essai) % Nombre + Nombre) % Nombre;
+		if (USoundBase* Son = MusiquesJeu[i].LoadSynchronous())
+		{
+			Index = i;
+			return Son;
+		}
+	}
+	return LoadObject<USoundBase>(nullptr, TEXT("/Game/Audio/Starter_Music_Cue.Starter_Music_Cue"), nullptr, LOAD_NoWarn | LOAD_Quiet);
+}
+
+void AMenuChelles::MusiqueSuivante()
+{
+	if (!MusiquePartie)
+	{
+		return;
+	}
+	++Piste;
+	if (USoundBase* Son = PisteDeLaPlaylist(Piste))
+	{
+		MusiquePartie->Stop();
+		MusiquePartie->SetSound(Son);
+		MajVolumeMusique();
+		if (!ChellesOptions::MusiqueCoupee())
+		{
+			MusiquePartie->FadeIn(1.f, FMath::Max(0.001f, ChellesOptions::VolumeMusique()));
+		}
+	}
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(77011, 3.f, FColor(255, 0, 200), FString::Printf(TEXT("Musique : piste %d / %d  (Fin = suivante)"), Piste + 1, FMath::Max(1, MusiquesJeu.Num())));
 	}
 }
 
@@ -252,12 +294,13 @@ void AMenuChelles::LancerMusiqueJeu()
 		InputComponent->BindKey(EKeys::PageUp, IE_Pressed, this, &AMenuChelles::MusiquePlus);
 		InputComponent->BindKey(EKeys::PageDown, IE_Pressed, this, &AMenuChelles::MusiqueMoins);
 		InputComponent->BindKey(EKeys::N, IE_Pressed, this, &AMenuChelles::MusiqueCouper);
+		InputComponent->BindKey(EKeys::End, IE_Pressed, this, &AMenuChelles::MusiqueSuivante);
 	}
 	if (MusiquePartie)
 	{
 		return;
 	}
-	if (USoundBase* Son = Charger(MusiqueJeu, TEXT("/Game/Audio/Starter_Music_Cue.Starter_Music_Cue")))
+	if (USoundBase* Son = PisteDeLaPlaylist(Piste))
 	{
 		MusiquePartie = UGameplayStatics::CreateSound2D(this, Son, 1.f, 1.f, 0.f, nullptr, false, false);
 		if (MusiquePartie)
@@ -322,7 +365,7 @@ void AMenuChelles::AnnoncerMusique()
 	{
 		const FString Texte = ChellesOptions::MusiqueCoupee()
 			? FString(TEXT("Musique : COUP\u00C9E  (N pour la remettre)"))
-			: FString::Printf(TEXT("Musique : %d %%  (Page Haut / Page Bas, N = couper)"), FMath::RoundToInt(ChellesOptions::VolumeMusique() * 100.f));
+			: FString::Printf(TEXT("Musique : %d %%  (Page Haut / Page Bas, N = couper, Fin = suivante)"), FMath::RoundToInt(ChellesOptions::VolumeMusique() * 100.f));
 		GEngine->AddOnScreenDebugMessage(77010, 2.5f, FColor(0, 240, 255), Texte);
 	}
 }
@@ -420,6 +463,11 @@ IOnlineSessionPtr AMenuChelles::Sessions() const
 
 FString AMenuChelles::CheminCarte() const
 {
+	// Une seule carte dans le projet : Rachid, pour le solo et le multijoueur.
+	if (!CarteDuJeu.IsEmpty())
+	{
+		return CarteDuJeu;
+	}
 	UWorld* Monde = GetWorld();
 	return Monde ? UWorld::RemovePIEPrefix(Monde->GetOutermost()->GetName()) : FString();
 }

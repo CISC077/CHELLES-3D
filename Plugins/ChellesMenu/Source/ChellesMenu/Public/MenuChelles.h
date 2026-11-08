@@ -68,9 +68,13 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
 	TSoftObjectPtr<USoundBase> SonSortie = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/Sounds/InterfaceAudio/Stereo/MenuExitStereo_Cue.MenuExitStereo_Cue")));
 
-	/** Musique de la partie (apres SOLO ou en multi). Page Haut / Page Bas = volume, N = couper. */
+	/** Playlist de la partie (apres SOLO ou en multi), jouee a la suite. Page Haut / Page Bas = volume, N = couper, Fin = piste suivante. */
 	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
-	TSoftObjectPtr<USoundBase> MusiqueJeu = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/ChellesMenu/Audio/Musique_Jeu.Musique_Jeu")));
+	TArray<TSoftObjectPtr<USoundBase>> MusiquesJeu;
+
+	/** La seule carte du jeu, en solo comme en multijoueur. */
+	UPROPERTY(EditAnywhere, Category = "Chelles Menu")
+	FString CarteDuJeu = TEXT("/Game/Maps/Rachid");
 
 	void JouerSon(ESonMenu Quel);
 	void MajVolumeMusique();
@@ -122,7 +126,11 @@ private:
 	void MusiquePlus();
 	void MusiqueMoins();
 	void MusiqueCouper();
+	void MusiqueSuivante();
+	/** Charge la piste Index de la playlist (saute celles qui manquent). */
+	USoundBase* PisteDeLaPlaylist(int32& Index);
 	void AnnoncerMusique();
+	int32 Piste = 0;
 
 	UPROPERTY(Transient)
 	UAudioComponent* Musique = nullptr;
