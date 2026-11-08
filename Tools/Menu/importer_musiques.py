@@ -10,6 +10,18 @@ DOSSIER = os.path.join(PROJET, "Tools", "Menu", "Musiques")
 CIBLE = "/Game/ChellesMenu/Audio"
 MUSIQUES = [("Musique_Menu.wav", "Musique_Menu"), ("Musique_Jeu.wav", "Musique_Jeu")]
 
+# Les .wav arrivent en morceaux (part00, part01...) : on les recolle d'abord.
+import glob
+for fichier, nom in MUSIQUES:
+    chemin = os.path.join(DOSSIER, fichier)
+    morceaux = sorted(glob.glob(chemin + ".part*"))
+    if morceaux and not os.path.isfile(chemin):
+        with open(chemin, "wb") as sortie:
+            for m in morceaux:
+                with open(m, "rb") as entree:
+                    sortie.write(entree.read())
+        unreal.log_warning("[Menu] Recolle : " + chemin)
+
 taches = []
 for fichier, nom in MUSIQUES:
     chemin = os.path.join(DOSSIER, fichier)
