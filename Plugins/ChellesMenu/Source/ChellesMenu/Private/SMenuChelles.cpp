@@ -1351,6 +1351,7 @@ TSharedRef<SWidget> SMenuChelles::EcranPrincipal()
 			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("DISCORD")), 22, [this]() { OuvrirLien(TEXT("LienDiscord"), TEXT("Discord")); }) ]
 			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("FACEBOOK")), 22, [this]() { OuvrirLien(TEXT("LienFacebook"), TEXT("Facebook")); }) ]
 			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("YOUTUBE")), 22, [this]() { OuvrirLien(TEXT("LienYoutube"), TEXT("YouTube")); }) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("TIKTOK")), 22, [this]() { OuvrirLien(TEXT("LienTiktok"), TEXT("TikTok")); }) ]
 		]
 		+ SVerticalBox::Slot().AutoHeight()
 		[
@@ -1364,13 +1365,14 @@ TSharedRef<SWidget> SMenuChelles::EcranPrincipal()
 
 void SMenuChelles::OuvrirLien(const TCHAR* Cle, const TCHAR* Nom)
 {
-	// Liens de la communaute : a remplir ici, ou dans GameUserSettings.ini [ChellesMenu] (LienDiscord=, LienFacebook=, LienYoutube=)
+	// Liens de la communaute : a remplir ici, ou dans GameUserSettings.ini [ChellesMenu] (LienDiscord=, LienFacebook=, LienYoutube=, LienTiktok=)
 	FString Url = ChellesOptions::LireTexte(Cle);
 	if (Url.IsEmpty())
 	{
 		if (FCString::Strcmp(Cle, TEXT("LienDiscord")) == 0) { Url = TEXT(""); }
 		else if (FCString::Strcmp(Cle, TEXT("LienFacebook")) == 0) { Url = TEXT("https://www.facebook.com/TIKT0K3D/"); }
 		else if (FCString::Strcmp(Cle, TEXT("LienYoutube")) == 0) { Url = TEXT("https://www.youtube.com/@CHELLES3D-77"); }
+		else if (FCString::Strcmp(Cle, TEXT("LienTiktok")) == 0) { Url = TEXT("https://www.tiktok.com/@meridja77"); }
 	}
 	if (Url.StartsWith(TEXT("http")))
 	{
