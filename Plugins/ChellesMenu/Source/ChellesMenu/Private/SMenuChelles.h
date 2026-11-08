@@ -122,6 +122,7 @@ public:
 private:
 	TSharedRef<SWidget> Construire(EEcranMenu E);
 	TSharedRef<SWidget> EcranPrincipal();
+	void OuvrirLien(const TCHAR* Cle, const TCHAR* Nom);
 	TSharedRef<SWidget> EcranMode();
 	TSharedRef<SWidget> EcranMulti();
 	TSharedRef<SWidget> EcranServeurs();
@@ -156,6 +157,7 @@ private:
 	TSharedPtr<SBox> Zone;
 	TSharedPtr<SEditableTextBox> ChampIP;
 	FString TexteIP;
+	FText MessageLien;
 	float Age = 0.f;
 	TArray<TWeakPtr<SBoutonMenu>> Boutons;
 	int32 Selection = INDEX_NONE;

@@ -7,6 +7,7 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Framework/Application/SlateApplication.h"
+#include "HAL/PlatformProcess.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerInput.h"
@@ -50,6 +51,7 @@ namespace
 	const FLinearColor Cyan(FColor(0, 240, 255));
 	const FLinearColor Magenta(FColor(255, 0, 170));
 	const FLinearColor Violet(FColor(120, 40, 255));
+	const FLinearColor Or(FColor(255, 196, 64));
 	const FLinearColor Blanc(FColor(235, 250, 255));
 	const FLinearColor Gris(FColor(90, 110, 125));
 	const FLinearColor Fond(FColor(5, 7, 18, 225));
@@ -840,9 +842,9 @@ int32 SDecorCyber::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(T.X - M - 110.f, T.Y - M - 30.f), FVector2D(100.f, 24.f)),
 		ChellesOptions::Version(), PoliceVersion, ESlateDrawEffect::None, Alpha(Cyan, 0.85f));
 
-	// Etincelles neon qui montent derriere les boutons
+	// Etincelles neon et dorees qui montent derriere les boutons
 	const FSlateBrush* Blanc = FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
-	for (int32 i = 0; i < 70; ++i)
+	for (int32 i = 0; i < 100; ++i)
 	{
 		const float Graine = FMath::Frac(FMath::Sin(i * 12.9898f) * 43758.5453f);
 		const float Vitesse = 0.04f + 0.08f * FMath::Frac(Graine * 7.31f);
@@ -851,7 +853,7 @@ int32 SDecorCyber::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 		const float Y = T.Y * (1.05f - Vie * 1.1f);
 		const float Taille = 2.f + 3.f * FMath::Frac(Graine * 5.71f);
 		const float Eclat = FMath::Sin(Vie * PI) * (0.35f + 0.4f * FMath::Frac(Graine * 9.13f));
-		const FLinearColor Couleur = (i % 3 == 0) ? Magenta : Cyan;
+		const FLinearColor Couleur = (i % 3 == 0) ? Or : ((i % 3 == 1) ? Cyan : Magenta);
 		FSlateDrawElement::MakeBox(Sortie, Couche + 1, G.ToPaintGeometry(FVector2D(X - Taille * 1.5f, Y - Taille * 1.5f), FVector2D(Taille * 3.f, Taille * 3.f)),
 			Blanc, ESlateDrawEffect::None, Alpha(Couleur, Eclat * 0.15f));
 		FSlateDrawElement::MakeBox(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(X - Taille * 0.5f, Y - Taille * 0.5f), FVector2D(Taille, Taille)),
@@ -1342,7 +1344,43 @@ TSharedRef<SWidget> SMenuChelles::EcranPrincipal()
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("JOUER")), 64, [this]() { Afficher(EEcranMenu::Mode); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("OPTIONS")), 64, [this]() { Afficher(EEcranMenu::Options); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("CR\u00C9DITS")), 30, [this]() { Afficher(EEcranMenu::Credits); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("QUITTER")), 64, [this]() { Afficher(EEcranMenu::ConfirmerQuitter); }) ];
+		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("QUITTER")), 64, [this]() { Afficher(EEcranMenu::ConfirmerQuitter); }) ]
+		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 14.f, 0.f, 0.f)).HAlign(HAlign_Center)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("DISCORD")), 22, [this]() { OuvrirLien(TEXT("LienDiscord"), TEXT("Discord")); }) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("FACEBOOK")), 22, [this]() { OuvrirLien(TEXT("LienFacebook"), TEXT("Facebook")); }) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("YOUTUBE")), 22, [this]() { OuvrirLien(TEXT("LienYoutube"), TEXT("YouTube")); }) ]
+		]
+		+ SVerticalBox::Slot().AutoHeight()
+		[
+			SNew(STextBlock)
+			.Text_Lambda([this]() { return MessageLien; })
+			.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 14))
+			.ColorAndOpacity(Alpha(Or, 0.9f))
+			.Justification(ETextJustify::Center)
+		];
+}
+
+void SMenuChelles::OuvrirLien(const TCHAR* Cle, const TCHAR* Nom)
+{
+	// Liens de la communaute : a remplir ici, ou dans GameUserSettings.ini [ChellesMenu] (LienDiscord=, LienFacebook=, LienYoutube=)
+	FString Url = ChellesOptions::LireTexte(Cle);
+	if (Url.IsEmpty())
+	{
+		if (FCString::Strcmp(Cle, TEXT("LienDiscord")) == 0) { Url = TEXT(""); }
+		else if (FCString::Strcmp(Cle, TEXT("LienFacebook")) == 0) { Url = TEXT(""); }
+		else if (FCString::Strcmp(Cle, TEXT("LienYoutube")) == 0) { Url = TEXT(""); }
+	}
+	if (Url.StartsWith(TEXT("http")))
+	{
+		FPlatformProcess::LaunchURL(*Url, nullptr, nullptr);
+		MessageLien = FText::FromString(FString::Printf(TEXT("Ouverture de %s dans le navigateur..."), Nom));
+	}
+	else
+	{
+		MessageLien = FText::FromString(FString::Printf(TEXT("Lien %s : bient\u00F4t disponible"), Nom));
+	}
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranMode()
