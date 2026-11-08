@@ -32,6 +32,7 @@ namespace ChellesOptions
 	void AppliquerAuDemarrage(UWorld* Monde);
 	void AppliquerAuJoueur(APlayerController* Joueur);
 	bool ChatActif();
+	bool Manette();
 	int32 Difficulte(); // 0 Facile, 1 Normal, 2 Difficile, 3 Extreme
 }
 
@@ -68,10 +69,17 @@ public:
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& Geometrie, const FSlateRect& Clip,
 		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override;
 
+	/** Sens > 0 : clic gauche ; Sens < 0 : clic droit (choix precedent). */
+	void Cliquer(int32 Sens);
+	void SetSelectionne(bool b) { bSelectionne = b; }
+	bool EstReglage() const { return bReglage; }
+
 private:
 	FSimpleDelegate Clic;
 	FSimpleDelegate ClicDroit;
 	bool bActif = true;
+	bool bReglage = false;
+	bool bSelectionne = false;
 };
 
 class SMenuChelles : public SCompoundWidget
@@ -112,6 +120,8 @@ private:
 	TSharedRef<SWidget> BoutonRetour();
 
 	void Retour();
+	void Deplacer(int32 Sens);
+	TSharedRef<SBoutonMenu> Enregistrer(TSharedRef<SBoutonMenu> Nouveau);
 	AMenuChelles* LeMenu() const;
 
 	TWeakObjectPtr<AMenuChelles> Menu;
@@ -120,4 +130,7 @@ private:
 	TSharedPtr<SEditableTextBox> ChampIP;
 	FString TexteIP;
 	float Age = 0.f;
+	TArray<TWeakPtr<SBoutonMenu>> Boutons;
+	int32 Selection = INDEX_NONE;
+	bool bNavigation = false;
 };
