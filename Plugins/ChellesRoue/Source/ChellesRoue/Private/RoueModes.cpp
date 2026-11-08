@@ -172,7 +172,9 @@ ARoueModes::ARoueModes()
 	// Pack DynamicCombatSystem (+ MagicModule) : combat a mains nues, sorts, inventaire
 	FModeRoue Combat;
 	Combat.Nom = FText::FromString(TEXT("DYNAMIC COMBAT"));
-	Combat.Type = ETypeModeRoue::Vehicule; // personnage du pack, pris en main comme un vehicule
+	// Pris en main directement (sans le plugin Motoneige, qui donnait le soldat cache aux variables du perso :
+	// les sorts se jouaient alors sur le soldat, journal 2026-11-08 "Montage ... for the wrong Skeleton").
+	Combat.Type = ETypeModeRoue::Personnage;
 	Combat.Icone = EIconeRoue::Epees;
 	Combat.Couleur = FLinearColor(0.95f, 0.25f, 0.3f);
 	Combat.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DynamicCombatSystem/Blueprints/BP_CombatCharacter.BP_CombatCharacter_C")));
@@ -181,8 +183,16 @@ ARoueModes::ARoueModes()
 	// Touches du pack (voir sa fenetre K) : Espace = roulade, Maj+Espace = saut ; R = mode combat (pas le ralenti)
 	// Tout le pack sur peu de touches (demande MERIDJA) :
 	//   clic gauche = attaque / sort, clic droit = mode combat (sortir / annuler le sort),
-	//   + / - = sort suivant / precedent, F2 roulade, F3 saut, F4 potion (outil), F5 ramasser, F6 verrouiller la cible.
-	Combat.ActionsCoupees = { TEXT("Jump"), TEXT("SlowMotion"), TEXT("Zoom") };
+	//   molette (ou + / -) = sort suivant / precedent, F2 roulade, F3 saut, F4 potion (outil), F5 ramasser, F6 cible.
+	// On coupe toutes les autres actions posees sur la souris (armes du soldat, pouvoirs SuperPowers...) :
+	// sinon un autre acteur peut prendre le clic avant le perso du pack.
+	Combat.ActionsCoupees = {
+		TEXT("Jump"), TEXT("SlowMotion"), TEXT("Zoom"),
+		TEXT("Fire"), TEXT("ADS"), TEXT("Aim"), TEXT("NextWeapon"), TEXT("PreviousWeapon"), TEXT("SwitchWeapon"),
+		TEXT("Disperse"), TEXT("Freefall"), TEXT("FireProjectile"), TEXT("FireProjectile2Hands"),
+		TEXT("ThrowLightning"), TEXT("Freeze"),
+		TEXT("TargetLeft"), TEXT("TargetRight"), TEXT("SwitchMainHandItemUp"), TEXT("SwitchMainHandItemDown")
+	};
 	Combat.ActionsAjoutees = {
 		FInputActionKeyMapping(TEXT("ToggleCombat"), EKeys::RightMouseButton),
 		FInputActionKeyMapping(TEXT("Roll"), EKeys::F2),
@@ -223,7 +233,7 @@ void ARoueModes::BeginPlay()
 	ClassesVehicules.SetNum(Modes.Num());
 	for (int32 i = 0; i < Modes.Num(); ++i)
 	{
-		if (Modes[i].Type == ETypeModeRoue::Vehicule && Modes[i].ClasseVehicule.IsValid())
+		if ((Modes[i].Type == ETypeModeRoue::Vehicule || Modes[i].Type == ETypeModeRoue::Personnage) && Modes[i].ClasseVehicule.IsValid())
 		{
 			ClassesVehicules[i] = Modes[i].ClasseVehicule.TryLoadClass<APawn>();
 			if (!ClassesVehicules[i])
@@ -274,6 +284,13 @@ void ARoueModes::LierClavier()
 			{
 				FInputKeyBinding& B = InputComponent->BindKey(K, IE_Pressed, this, &ARoueModes::SortMoins);
 				B.bConsumeInput = false;
+			}
+			// Molette de la souris : choisir le sort / l'objet (seulement dans les modes bSortsPlusMoins)
+			{
+				FInputKeyBinding& Haut = InputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &ARoueModes::SortPlus);
+				Haut.bConsumeInput = false;
+				FInputKeyBinding& Bas = InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &ARoueModes::SortMoins);
+				Bas.bConsumeInput = false;
 			}
 
 			const FKey Azerty[] = { EKeys::Ampersand, EKeys::E_AccentAigu, EKeys::Quote, EKeys::Apostrophe, EKeys::LeftParantheses };
@@ -449,6 +466,8 @@ bool ARoueModes::EstDisponible(int32 Index) const
 		return IsValid(Bascule);
 	case ETypeModeRoue::Vehicule:
 		return ClasseMotoneige != nullptr && ClassesVehicules.IsValidIndex(Index) && ClassesVehicules[Index] != nullptr;
+	case ETypeModeRoue::Personnage:
+		return ClassesVehicules.IsValidIndex(Index) && ClassesVehicules[Index] != nullptr;
 	case ETypeModeRoue::Libre:
 		return false;
 	}
@@ -461,6 +480,14 @@ int32 ARoueModes::ModeActuel() const
 	const APawn* Pion = PC ? PC->GetPawn() : nullptr;
 	for (int32 i = 0; i < Modes.Num(); ++i)
 	{
+		if (Modes[i].Type == ETypeModeRoue::Personnage)
+		{
+			if (Pion && Pion == PersoJoue.Get())
+			{
+				return i;
+			}
+			continue;
+		}
 		if (Modes[i].Type != ETypeModeRoue::Vehicule)
 		{
 			continue;
@@ -642,9 +669,9 @@ void ARoueModes::ToucheMonter()
 		return;
 	}
 	const int32 Avant = ModeActuel();
-	if (Modes.IsValidIndex(Avant) && Modes[Avant].Type == ETypeModeRoue::Vehicule)
+	if (Modes.IsValidIndex(Avant) && (Modes[Avant].Type == ETypeModeRoue::Vehicule || Modes[Avant].Type == ETypeModeRoue::Personnage))
 	{
-		return; // dans un autre vehicule
+		return; // dans un autre vehicule / perso de pack
 	}
 	for (int32 i = 0; i < Modes.Num(); ++i)
 	{
@@ -954,6 +981,11 @@ void ARoueModes::ChoisirMode(int32 Index)
 		}
 		CacherHudPack(RacinePack(Modes[Avant].ClasseVehicule));
 	}
+	else if (Modes.IsValidIndex(Avant) && Modes[Avant].Type == ETypeModeRoue::Personnage)
+	{
+		SortirPersonnage();
+		CacherHudPack(RacinePack(Modes[Avant].ClasseVehicule));
+	}
 
 	// 2. Nouveau mode
 	switch (Mode.Type)
@@ -1004,11 +1036,130 @@ void ARoueModes::ChoisirMode(int32 Index)
 		}
 		break;
 	}
+	case ETypeModeRoue::Personnage:
+		if (EntrerPersonnage(Index))
+		{
+			MontrerHudPack(RacinePack(Mode.ClasseVehicule));
+			MettreCostume(Mode);
+			SortCourant = 1;
+			if (APlayerController* PC = GetPC())
+			{
+				ACharacter* Perso = Cast<ACharacter>(PC->GetPawn());
+				USkeletalMesh* Corps = (Perso && Perso->GetMesh()) ? Perso->GetMesh()->SkeletalMesh : nullptr;
+				UE_LOG(LogTemp, Log, TEXT("[Roue] \"%s\" : on joue %s (corps %s, squelette %s)."), *Mode.Nom.ToString(),
+					*GetNameSafe(Perso), *GetNameSafe(Corps), Corps ? *GetNameSafe(Corps->GetSkeleton()) : TEXT("aucun"));
+			}
+		}
+		break;
+
 	default:
 		break;
 	}
 
 	RetirerAnciennesTouches();
+}
+
+// ---------------------------------------------------------------------------
+// Personnage de pack pris en main directement (DYNAMIC COMBAT)
+// ---------------------------------------------------------------------------
+
+static void CacherActeur(AActor* A, bool bCacher)
+{
+	if (!A)
+	{
+		return;
+	}
+	A->SetActorHiddenInGame(bCacher);
+	A->SetActorEnableCollision(!bCacher);
+	TArray<AActor*> Attaches;
+	A->GetAttachedActors(Attaches, true);
+	for (AActor* B : Attaches)
+	{
+		if (B)
+		{
+			B->SetActorHiddenInGame(bCacher);
+		}
+	}
+}
+
+bool ARoueModes::EntrerPersonnage(int32 Index)
+{
+	const FModeRoue& Mode = Modes[Index];
+	if (EstEnVol())
+	{
+		Appeler(Bascule, TEXT("Basculer")); // on se pose d'abord
+	}
+	APlayerController* PC = GetPC();
+	APawn* Pieton = PC ? PC->GetPawn() : nullptr;
+	UClass* Classe = ClassesVehicules.IsValidIndex(Index) ? ClassesVehicules[Index] : nullptr;
+	if (!Pieton || !Classe)
+	{
+		Message(FString::Printf(TEXT("%s : impossible de prendre le personnage."), *Mode.Nom.ToString()));
+		return false;
+	}
+
+	const FVector Lieu = Pieton->GetActorLocation();
+	const FRotator Rot(0.f, PC->GetControlRotation().Yaw, 0.f);
+	CacherActeur(Pieton, true); // avant d'apparaitre : pas de collision avec le soldat
+
+	FActorSpawnParameters P;
+	P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	APawn* Perso = GetWorld()->SpawnActor<APawn>(Classe, Lieu, Rot, P);
+	if (!Perso)
+	{
+		CacherActeur(Pieton, false);
+		Message(FString::Printf(TEXT("%s : le personnage n'a pas pu apparaitre."), *Mode.Nom.ToString()));
+		return false;
+	}
+
+	if (ACharacter* Soldat = Cast<ACharacter>(Pieton))
+	{
+		Soldat->GetCharacterMovement()->StopMovementImmediately();
+		Soldat->GetCharacterMovement()->DisableMovement();
+	}
+	PC->Possess(Perso);
+	PC->SetControlRotation(Rot);
+	PersoJoue = Perso;
+	PietonCache = Pieton;
+	return true;
+}
+
+void ARoueModes::SortirPersonnage()
+{
+	APawn* Perso = PersoJoue.Get();
+	APawn* Pieton = PietonCache.Get();
+	APlayerController* PC = GetPC();
+	if (Pieton)
+	{
+		if (Perso)
+		{
+			Pieton->SetActorLocation(Perso->GetActorLocation() + FVector(0.f, 0.f, 20.f), false, nullptr, ETeleportType::TeleportPhysics);
+		}
+		CacherActeur(Pieton, false);
+		if (ACharacter* Soldat = Cast<ACharacter>(Pieton))
+		{
+			Soldat->GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+		}
+		if (PC)
+		{
+			PC->Possess(Pieton);
+		}
+	}
+	if (Perso)
+	{
+		TArray<AActor*> Attaches;
+		Perso->GetAttachedActors(Attaches, true);
+		for (AActor* A : Attaches)
+		{
+			if (A)
+			{
+				A->Destroy();
+			}
+		}
+		Perso->Destroy();
+	}
+	PersoJoue.Reset();
+	PietonCache.Reset();
 }
 
 // ---------------------------------------------------------------------------
@@ -1276,6 +1427,10 @@ void ARoueModes::Tick(float DeltaSeconds)
 	}
 	RetirerAnciennesTouches();
 	SuivreMontures();
+	if (PietonCache.IsValid() && !PersoJoue.IsValid())
+	{
+		SortirPersonnage(); // le perso du pack a disparu : on rend le soldat
+	}
 	EmpecherChute();
 	if (!bOuverte)
 	{

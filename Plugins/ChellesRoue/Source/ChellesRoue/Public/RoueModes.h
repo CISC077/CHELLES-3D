@@ -20,6 +20,7 @@ enum class ETypeModeRoue : uint8
 	APied     UMETA(DisplayName = "A pied (soldat)"),
 	Vol       UMETA(DisplayName = "Vol (Spider-Man)"),
 	Vehicule  UMETA(DisplayName = "Vehicule"),
+	Personnage UMETA(DisplayName = "Personnage de pack (pris en main directement)"),
 	Libre     UMETA(DisplayName = "Libre (fonction a venir)")
 };
 
@@ -179,6 +180,8 @@ private:
 	void SortPlus() { SortSuivant(1); }
 	void SortMoins() { SortSuivant(-1); }
 	static void RendreSesReferences(APawn* Perso, APawn* Ancien);
+	bool EntrerPersonnage(int32 Index);
+	void SortirPersonnage();
 
 	void CacherHudPack(const FString& Racine);
 	void MontrerHudPack(const FString& Racine);
@@ -231,4 +234,8 @@ private:
 	int32 SortCourant = 1;
 	TArray<FInputActionKeyMapping> TouchesRetirees;
 	TArray<FInputActionKeyMapping> TouchesAjoutees;
+
+	/** Mode Personnage : le perso du pack pris en main, et le pieton (soldat) cache pendant ce temps. */
+	TWeakObjectPtr<APawn> PersoJoue;
+	TWeakObjectPtr<APawn> PietonCache;
 };
