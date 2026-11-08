@@ -172,7 +172,7 @@ private:
 	void SuivreMontures();
 	void JouerMontee(APawn* Monture, const FModeRoue& Mode);
 	void FinMontee();
-	void ChiffreAzerty(FKey Touche, bool bAppui);
+	void ChiffreAzerty(FKey ToucheAzerty, bool bAppui);
 	void EmpecherChute();
 	void AppliquerTouchesDuMode();
 	void RetablirTouches();

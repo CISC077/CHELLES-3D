@@ -757,7 +757,7 @@ void ARoueModes::SuivreMontures()
 	MontureActive = Active;
 }
 
-void ARoueModes::ChiffreAzerty(FKey Touche, bool bAppui)
+void ARoueModes::ChiffreAzerty(FKey ToucheAzerty, bool bAppui)
 {
 	APlayerController* PC = GetPC();
 	if (!PC || bOuverte)
@@ -765,11 +765,11 @@ void ARoueModes::ChiffreAzerty(FKey Touche, bool bAppui)
 		return;
 	}
 	FKey Chiffre;
-	if (Touche == EKeys::Ampersand) Chiffre = EKeys::One;
-	else if (Touche == EKeys::E_AccentAigu) Chiffre = EKeys::Two;
-	else if (Touche == EKeys::Quote) Chiffre = EKeys::Three;
-	else if (Touche == EKeys::Apostrophe) Chiffre = EKeys::Four;
-	else if (Touche == EKeys::LeftParantheses) Chiffre = EKeys::Five;
+	if (ToucheAzerty == EKeys::Ampersand) Chiffre = EKeys::One;
+	else if (ToucheAzerty == EKeys::E_AccentAigu) Chiffre = EKeys::Two;
+	else if (ToucheAzerty == EKeys::Quote) Chiffre = EKeys::Three;
+	else if (ToucheAzerty == EKeys::Apostrophe) Chiffre = EKeys::Four;
+	else if (ToucheAzerty == EKeys::LeftParantheses) Chiffre = EKeys::Five;
 	else return;
 	// Au tick suivant : on ne touche pas aux touches pendant que Unreal les traite
 	TWeakObjectPtr<APlayerController> PCFaible = PC;
