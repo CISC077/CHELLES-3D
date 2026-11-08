@@ -130,26 +130,27 @@ ARoueModes::ARoueModes()
 	Moto.ClasseVehicule = FSoftClassPath(FString(CHEMIN_MOTONEIGE));
 	Modes.Add(Moto);
 
-	FModeRoue Auto;
-	Auto.Nom = FText::FromString(TEXT("Automobile"));
-	Auto.Type = ETypeModeRoue::Vehicule;
-	Auto.Icone = EIconeRoue::Voiture;
-	Auto.Couleur = FLinearColor(1.f, 0.68f, 0.12f);
-	Auto.ClasseVehicule = FSoftClassPath(FString(CHEMIN_VOITURE));
-	Modes.Add(Auto);
+	// Deux personnages du pack SuperPowers (a la place des voitures, 2026-11-08)
+	FModeRoue Flash;
+	Flash.Nom = FText::FromString(TEXT("FLASH ECLAIR"));
+	Flash.Type = ETypeModeRoue::Vehicule; // personnage du pack, pris en main comme un vehicule
+	Flash.Icone = EIconeRoue::Eclair;
+	Flash.Couleur = FLinearColor(1.f, 0.85f, 0.1f);
+	Flash.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/SuperPowers/Powers/Speedster/BP_Speedster.BP_Speedster_C")));
+	Modes.Add(Flash);
 
-	FModeRoue Berline;
-	Berline.Nom = FText::FromString(TEXT("Berline"));
-	Berline.Type = ETypeModeRoue::Vehicule;
-	Berline.Icone = EIconeRoue::Voiture;
-	Berline.Couleur = FLinearColor(0.75f, 0.4f, 1.f);
-	Berline.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/Sedane_BP_child.Sedane_BP_child_C")));
-	Modes.Add(Berline);
+	FModeRoue Flamme;
+	Flamme.Nom = FText::FromString(TEXT("FLAMME FIRE"));
+	Flamme.Type = ETypeModeRoue::Vehicule;
+	Flamme.Icone = EIconeRoue::Flamme;
+	Flamme.Couleur = FLinearColor(1.f, 0.36f, 0.08f);
+	Flamme.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/SuperPowers/Powers/Flame/BP_Flame.BP_Flame_C")));
+	Modes.Add(Flamme);
 
 	FModeRoue Pouvoirs;
 	Pouvoirs.Nom = FText::FromString(TEXT("SuperPowers"));
 	Pouvoirs.Type = ETypeModeRoue::Vehicule; // personnage du pack, pris en main comme un vehicule
-	Pouvoirs.Icone = EIconeRoue::Eclair;
+	Pouvoirs.Icone = EIconeRoue::Etoile;
 	Pouvoirs.Couleur = FLinearColor(0.75f, 0.35f, 1.f);
 	Pouvoirs.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/SuperPowers/Powers/Super/BP_Super.BP_Super_C")));
 	Modes.Add(Pouvoirs);

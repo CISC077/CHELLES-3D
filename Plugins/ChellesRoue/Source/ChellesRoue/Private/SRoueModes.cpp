@@ -210,6 +210,24 @@ void SRoueModes::Icone(FSlateWindowElementList& Sortie, int32 Couche, const FGeo
 		Lignes(Sortie, Couche, G, Zigzag, Couleur, E);
 		break;
 	}
+	case EIconeRoue::Flamme:
+	{
+		// Flamme : une goutte pointue vers le haut, avec une petite flamme dedans
+		TArray<FVector2D> Exterieur;
+		TArray<FVector2D> Interieur;
+		const int32 Pas = 24;
+		for (int32 i = 0; i <= Pas; ++i)
+		{
+			const float T = Pi2 * i / Pas; // 0 = pointe en haut
+			const float X = FMath::Sin(T) * FMath::Sin(T * 0.5f);
+			const float Y = -FMath::Cos(T);
+			Exterieur.Add(C + FVector2D(X * 0.8f, Y * 0.95f) * S);
+			Interieur.Add(C + FVector2D(X * 0.38f, Y * 0.42f + 0.5f) * S);
+		}
+		Lignes(Sortie, Couche, G, Exterieur, Couleur, E);
+		Lignes(Sortie, Couche, G, Interieur, AvecAlpha(Couleur, 0.8f), E * 0.7f);
+		break;
+	}
 	case EIconeRoue::Question:
 	{
 		const FSlateFontInfo Police = FCoreStyle::GetDefaultFontStyle("Bold", FMath::Max(12, FMath::RoundToInt(S * 1.7f)));
