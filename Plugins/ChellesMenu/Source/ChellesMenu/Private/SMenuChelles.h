@@ -1,0 +1,123 @@
+// CHELLES 3D - Dessin du menu (Slate, sans asset), style cyberpunk
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/SLeafWidget.h"
+
+class AMenuChelles;
+class APlayerController;
+class SBox;
+class SEditableTextBox;
+class UWorld;
+
+enum class EEcranMenu : uint8
+{
+	Principal,
+	Mode,
+	Multi,
+	Serveurs,
+	AdresseIP,
+	Search,
+	Options,
+	OptControles,
+	OptGraphismes,
+	OptAudio,
+	OptDifficulte
+};
+
+/** Reglages du menu OPTIONS, enregistres dans GameUserSettings.ini (section ChellesMenu). */
+namespace ChellesOptions
+{
+	void AppliquerAuDemarrage(UWorld* Monde);
+	void AppliquerAuJoueur(APlayerController* Joueur);
+	bool ChatActif();
+	int32 Difficulte(); // 0 Facile, 1 Normal, 2 Difficile, 3 Extreme
+}
+
+/** Fond anime : grille neon, lignes de balayage, cadre. */
+class SDecorCyber : public SLeafWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SDecorCyber) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs);
+	virtual FVector2D ComputeDesiredSize(float) const override { return FVector2D(100.f, 100.f); }
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& Geometrie, const FSlateRect& Clip,
+		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override;
+};
+
+/** Bouton texte : neon cyan, cadre a coins coupes qui pulse au survol. */
+class SBoutonMenu : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SBoutonMenu)
+		: _TaillePolice(56)
+		, _Actif(true)
+		{}
+		SLATE_ATTRIBUTE(FText, Texte)
+		SLATE_ARGUMENT(int32, TaillePolice)
+		SLATE_ARGUMENT(bool, Actif)
+		SLATE_EVENT(FSimpleDelegate, OnClic)
+		SLATE_EVENT(FSimpleDelegate, OnClicDroit)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs);
+	virtual FReply OnMouseButtonDown(const FGeometry& Geometrie, const FPointerEvent& Evenement) override;
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& Geometrie, const FSlateRect& Clip,
+		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override;
+
+private:
+	FSimpleDelegate Clic;
+	FSimpleDelegate ClicDroit;
+	bool bActif = true;
+};
+
+class SMenuChelles : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SMenuChelles) {}
+		SLATE_ARGUMENT(TWeakObjectPtr<AMenuChelles>, Menu)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs);
+	void Afficher(EEcranMenu NouvelEcran);
+	/** Reconstruit l'ecran courant (apres une recherche de parties). */
+	void Rafraichir();
+
+	virtual bool SupportsKeyboardFocus() const override { return true; }
+	virtual FReply OnKeyDown(const FGeometry& Geometrie, const FKeyEvent& Touche) override;
+	virtual void Tick(const FGeometry& Geometrie, const double Temps, const float Delta) override;
+
+private:
+	TSharedRef<SWidget> Construire(EEcranMenu E);
+	TSharedRef<SWidget> EcranPrincipal();
+	TSharedRef<SWidget> EcranMode();
+	TSharedRef<SWidget> EcranMulti();
+	TSharedRef<SWidget> EcranServeurs();
+	TSharedRef<SWidget> EcranAdresseIP();
+	TSharedRef<SWidget> EcranSearch();
+	TSharedRef<SWidget> EcranOptions();
+	TSharedRef<SWidget> EcranControles();
+	TSharedRef<SWidget> EcranGraphismes();
+	TSharedRef<SWidget> EcranAudio();
+	TSharedRef<SWidget> EcranDifficulte();
+
+	TSharedRef<SWidget> Bouton(const FText& Texte, int32 Taille, TFunction<void()> Action, bool bActif = true);
+	TSharedRef<SWidget> Reglage(TFunction<FText()> Texte, TFunction<void(int32)> Changer);
+	TSharedRef<SWidget> Titre(const FText& Texte, const FText& SousTitre);
+	TSharedRef<SWidget> TexteEtat();
+	TSharedRef<SWidget> Petit(const FText& Texte);
+	TSharedRef<SWidget> BoutonRetour();
+
+	void Retour();
+	AMenuChelles* LeMenu() const;
+
+	TWeakObjectPtr<AMenuChelles> Menu;
+	EEcranMenu Ecran = EEcranMenu::Principal;
+	TSharedPtr<SBox> Zone;
+	TSharedPtr<SEditableTextBox> ChampIP;
+	FString TexteIP;
+	float Age = 0.f;
+};
