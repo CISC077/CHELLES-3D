@@ -154,6 +154,8 @@ private:
 	void SuivreMontures();
 	void JouerMontee(APawn* Monture, const FModeRoue& Mode);
 	void FinMontee();
+	void ChiffreAzerty(FKey Touche, bool bAppui);
+	void EmpecherChute();
 
 	void CacherHudPack(const FString& Racine);
 	void MontrerHudPack(const FString& Racine);
@@ -195,4 +197,9 @@ private:
 	int32 MontureActive = -1;
 	TWeakObjectPtr<APawn> MontureAnimee;
 	FTimerHandle MinuteurMontee;
+
+	/** Anti-chute sous la carte : dernier endroit ou le personnage joue touchait le sol. */
+	TWeakObjectPtr<APawn> PionSurveille;
+	FVector DernierSol = FVector::ZeroVector;
+	bool bSolConnu = false;
 };

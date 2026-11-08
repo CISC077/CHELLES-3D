@@ -9,6 +9,7 @@
 #include "Engine/Engine.h"
 #include "Engine/SkeletalMesh.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -243,6 +244,21 @@ void ARoueModes::LierClavier()
 			// E pres du cheval : monter (ne bloque pas la touche E pour le reste du jeu)
 			FInputKeyBinding& Monter = InputComponent->BindKey(EKeys::E, IE_Pressed, this, &ARoueModes::ToucheMonter);
 			Monter.bConsumeInput = false;
+
+			// Clavier AZERTY : la rangee & e " ' ( ne donne pas 1 2 3 4 5 a Unreal. On les traduit
+			// pour les packs qui ecoutent les chiffres (sorts de DYNAMIC COMBAT, armes...).
+			const FKey Azerty[] = { EKeys::Ampersand, EKeys::E_AccentAigu, EKeys::Quote, EKeys::Apostrophe, EKeys::LeftParantheses };
+			for (const FKey& K : Azerty)
+			{
+				FInputKeyBinding Appui(FInputChord(K), IE_Pressed);
+				Appui.bConsumeInput = false;
+				Appui.KeyDelegate.GetDelegateWithKeyForManualSet().BindUObject(this, &ARoueModes::ChiffreAzerty, true);
+				InputComponent->KeyBindings.Add(Appui);
+				FInputKeyBinding Lache(FInputChord(K), IE_Released);
+				Lache.bConsumeInput = false;
+				Lache.KeyDelegate.GetDelegateWithKeyForManualSet().BindUObject(this, &ARoueModes::ChiffreAzerty, false);
+				InputComponent->KeyBindings.Add(Lache);
+			}
 			bLieClavier = true;
 			UE_LOG(LogTemp, Log, TEXT("[Roue] Maintenir %s pour choisir le mode."), *Touche.ToString());
 		}
@@ -678,6 +694,62 @@ void ARoueModes::SuivreMontures()
 	MontureActive = Active;
 }
 
+void ARoueModes::ChiffreAzerty(FKey Touche, bool bAppui)
+{
+	APlayerController* PC = GetPC();
+	if (!PC || bOuverte)
+	{
+		return;
+	}
+	FKey Chiffre;
+	if (Touche == EKeys::Ampersand) Chiffre = EKeys::One;
+	else if (Touche == EKeys::E_AccentAigu) Chiffre = EKeys::Two;
+	else if (Touche == EKeys::Quote) Chiffre = EKeys::Three;
+	else if (Touche == EKeys::Apostrophe) Chiffre = EKeys::Four;
+	else if (Touche == EKeys::LeftParantheses) Chiffre = EKeys::Five;
+	else return;
+	// Au tick suivant : on ne touche pas aux touches pendant que Unreal les traite
+	TWeakObjectPtr<APlayerController> PCFaible = PC;
+	GetWorldTimerManager().SetTimerForNextTick([PCFaible, Chiffre, bAppui]()
+	{
+		if (APlayerController* P = PCFaible.Get())
+		{
+			P->InputKey(Chiffre, bAppui ? IE_Pressed : IE_Released, bAppui ? 1.f : 0.f, false);
+		}
+	});
+}
+
+void ARoueModes::EmpecherChute()
+{
+	APlayerController* PC = GetPC();
+	ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+	UCharacterMovementComponent* Mouvement = Perso ? Perso->GetCharacterMovement() : nullptr;
+	if (!Mouvement)
+	{
+		return; // vehicule a roues : pas concerne
+	}
+	if (PionSurveille.Get() != Perso)
+	{
+		PionSurveille = Perso;
+		bSolConnu = false;
+	}
+	const FVector Ici = Perso->GetActorLocation();
+	if (Mouvement->IsMovingOnGround())
+	{
+		DernierSol = Ici;
+		bSolConnu = true;
+		return;
+	}
+	// En vol (Spider-Man, pouvoirs) on peut monter haut : on ne surveille que la chute loin SOUS le dernier sol
+	if (bSolConnu && Ici.Z < DernierSol.Z - 2500.f && Mouvement->Velocity.Z < 0.f)
+	{
+		Perso->SetActorLocation(DernierSol + FVector(0.f, 0.f, 150.f), false, nullptr, ETeleportType::ResetPhysics);
+		Mouvement->Velocity = FVector::ZeroVector;
+		Mouvement->SetMovementMode(MOVE_Falling);
+		Message(TEXT("Tu etais passe sous la carte : retour au dernier endroit sur."));
+	}
+}
+
 void ARoueModes::ChoisirMode(int32 Index)
 {
 	if (!Modes.IsValidIndex(Index))
@@ -1045,6 +1117,7 @@ void ARoueModes::Tick(float DeltaSeconds)
 	}
 	RetirerAnciennesTouches();
 	SuivreMontures();
+	EmpecherChute();
 
 	if (bOuverte)
 	{
