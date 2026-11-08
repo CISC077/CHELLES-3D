@@ -195,6 +195,21 @@ void SRoueModes::Icone(FSlateWindowElementList& Sortie, int32 Couche, const FGeo
 		}
 		break;
 	}
+	case EIconeRoue::Eclair:
+	{
+		// Eclair en zigzag, ferme
+		const FVector2D P[] = {
+			FVector2D(0.18f, -1.f), FVector2D(-0.52f, 0.12f), FVector2D(-0.04f, 0.12f),
+			FVector2D(-0.22f, 1.f), FVector2D(0.52f, -0.16f), FVector2D(0.04f, -0.16f), FVector2D(0.18f, -1.f)
+		};
+		TArray<FVector2D> Zigzag;
+		for (const FVector2D& Q : P)
+		{
+			Zigzag.Add(C + Q * S);
+		}
+		Lignes(Sortie, Couche, G, Zigzag, Couleur, E);
+		break;
+	}
 	case EIconeRoue::Question:
 	{
 		const FSlateFontInfo Police = FCoreStyle::GetDefaultFontStyle("Bold", FMath::Max(12, FMath::RoundToInt(S * 1.7f)));

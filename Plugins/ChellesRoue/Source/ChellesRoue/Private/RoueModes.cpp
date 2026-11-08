@@ -146,13 +146,13 @@ ARoueModes::ARoueModes()
 	Berline.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/Sedane_BP_child.Sedane_BP_child_C")));
 	Modes.Add(Berline);
 
-	FModeRoue Suv;
-	Suv.Nom = FText::FromString(TEXT("SUV"));
-	Suv.Type = ETypeModeRoue::Vehicule;
-	Suv.Icone = EIconeRoue::Voiture;
-	Suv.Couleur = FLinearColor(0.2f, 0.85f, 0.6f);
-	Suv.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/SUV_BP_child.SUV_BP_child_C")));
-	Modes.Add(Suv);
+	FModeRoue Pouvoirs;
+	Pouvoirs.Nom = FText::FromString(TEXT("SuperPowers"));
+	Pouvoirs.Type = ETypeModeRoue::Vehicule; // personnage du pack, pris en main comme un vehicule
+	Pouvoirs.Icone = EIconeRoue::Eclair;
+	Pouvoirs.Couleur = FLinearColor(0.75f, 0.35f, 1.f);
+	Pouvoirs.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/SuperPowers/Powers/Super/BP_Super.BP_Super_C")));
+	Modes.Add(Pouvoirs);
 
 	// Dernier bouton : le cheval du pack HorseStarterKit (le cavalier fait partie du cheval)
 	FModeRoue Cheval;
