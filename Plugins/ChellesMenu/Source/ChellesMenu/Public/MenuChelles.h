@@ -10,6 +10,18 @@
 
 class SMenuChelles;
 class APlayerController;
+class UAudioComponent;
+class USoundBase;
+
+/** Sons du menu. */
+enum class ESonMenu : uint8
+{
+	Survol,
+	Clic,
+	Reglage,
+	Retour,
+	Sortie
+};
 
 /** Une partie trouvee sur le reseau local. */
 struct FPartieTrouvee
@@ -42,6 +54,29 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Chelles Menu")
 	int32 JoueursMax = 8;
 
+	/** Sons du menu : pris dans le pack Vehicle Game deja present dans le projet (modifiables). */
+	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
+	TSoftObjectPtr<USoundBase> MusiqueMenu = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/ChellesMenu/Audio/Musique_Menu.Musique_Menu")));
+	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
+	TSoftObjectPtr<USoundBase> SonSurvol = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/Sounds/InterfaceAudio/Stereo/MenuCursor_UpDown_Stereo_Cue.MenuCursor_UpDown_Stereo_Cue")));
+	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
+	TSoftObjectPtr<USoundBase> SonClic = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/Sounds/InterfaceAudio/Stereo/MenuAccept_Stereo_Cue.MenuAccept_Stereo_Cue")));
+	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
+	TSoftObjectPtr<USoundBase> SonReglage = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/Sounds/InterfaceAudio/Stereo/MenuCursor_Sides_Stereo_Cue.MenuCursor_Sides_Stereo_Cue")));
+	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
+	TSoftObjectPtr<USoundBase> SonRetour = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/Sounds/InterfaceAudio/Stereo/MenuBack_Stereo_Cue.MenuBack_Stereo_Cue")));
+	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
+	TSoftObjectPtr<USoundBase> SonSortie = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/Sounds/InterfaceAudio/Stereo/MenuExitStereo_Cue.MenuExitStereo_Cue")));
+
+	/** Musique de la partie (apres SOLO ou en multi). Page Haut / Page Bas = volume, N = couper. */
+	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
+	TSoftObjectPtr<USoundBase> MusiqueJeu = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/ChellesMenu/Audio/Musique_Jeu.Musique_Jeu")));
+
+	void JouerSon(ESonMenu Quel);
+	void MajVolumeMusique();
+	/** Relance la musique si elle s'est terminee (appele par le menu). */
+	void EntretenirMusique();
+
 	// Appeles par les boutons du menu
 	void Solo();
 	void Quitter();
@@ -61,6 +96,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float Delta) override;
 	virtual void EndPlay(const EEndPlayReason::Type Raison) override;
 
 private:
@@ -80,6 +116,22 @@ private:
 	void Message(const FString& Texte);
 	void Rafraichir();
 	void RetirerDelegues();
+	void LancerMusiqueJeu();
+	/** Charge le son choisi, sinon un son de secours deja present dans le projet. */
+	static USoundBase* Charger(TSoftObjectPtr<USoundBase>& Son, const TCHAR* Secours);
+	void MusiquePlus();
+	void MusiqueMoins();
+	void MusiqueCouper();
+	void AnnoncerMusique();
+
+	UPROPERTY(Transient)
+	UAudioComponent* Musique = nullptr;
+
+	UPROPERTY(Transient)
+	UAudioComponent* MusiquePartie = nullptr;
+
+	double DernierSurvol = 0.0;
+	bool bQuitteEnCours = false;
 
 	TSharedPtr<SMenuChelles> Widget;
 	TSharedPtr<FOnlineSessionSearch> Recherche;

@@ -3,6 +3,8 @@
 
 #include "SMenuChelles.h"
 
+#include "Components/AudioComponent.h"
+#include "Containers/Ticker.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Engine/GameViewportClient.h"
@@ -12,6 +14,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "OnlineSubsystemUtils.h"
+#include "Sound/SoundBase.h"
 #include "SocketSubsystem.h"
 #include "TimerManager.h"
 #include "UObject/Package.h"
@@ -46,7 +49,8 @@ namespace
 
 AMenuChelles::AMenuChelles()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.TickInterval = 0.5f; // seulement pour relancer la musique en boucle
 	SetCanBeDamaged(false);
 }
 
@@ -103,6 +107,11 @@ void AMenuChelles::EndPlay(const EEndPlayReason::Type Raison)
 	}
 	RetirerDelegues();
 	Fermer(false);
+	if (MusiquePartie)
+	{
+		MusiquePartie->Stop();
+		MusiquePartie = nullptr;
+	}
 	Super::EndPlay(Raison);
 }
 
@@ -123,6 +132,7 @@ void AMenuChelles::Attendre()
 		bSeulementRemettreLeJeu = false;
 		Joueur->SetInputMode(FInputModeGameOnly());
 		Joueur->bShowMouseCursor = false;
+		LancerMusiqueJeu();
 		return;
 	}
 	if (bOuvrirLeMenu)
@@ -148,6 +158,16 @@ void AMenuChelles::Ouvrir()
 	bOuvert = true;
 	ModeInterface();
 	Joueur->SetPause(true);
+
+	if (USoundBase* Son = Charger(MusiqueMenu, TEXT("/Game/Sounds/Music/Vehicle_Race_Cue.Vehicle_Race_Cue")))
+	{
+		Musique = UGameplayStatics::CreateSound2D(this, Son, ChellesOptions::VolumeMusique(), 1.f, 0.f, nullptr, false, true);
+		if (Musique)
+		{
+			Musique->bIsUISound = true; // continue pendant la pause
+			Musique->FadeIn(1.5f, ChellesOptions::VolumeMusique());
+		}
+	}
 
 	if (!GMessageEchec.IsEmpty())
 	{
@@ -182,6 +202,11 @@ void AMenuChelles::Fermer(bool bReprendreLeJeu)
 		}
 	}
 	Widget.Reset();
+	if (Musique)
+	{
+		Musique->FadeOut(1.f, 0.f);
+		Musique = nullptr;
+	}
 
 	const bool bEtaitOuvert = bOuvert;
 	bOuvert = false;
@@ -200,11 +225,184 @@ void AMenuChelles::Fermer(bool bReprendreLeJeu)
 void AMenuChelles::Solo()
 {
 	Fermer(true);
+	LancerMusiqueJeu();
+}
+
+void AMenuChelles::Tick(float Delta)
+{
+	Super::Tick(Delta);
+	// Les sons du pack ne bouclent pas tous : on relance la musique de la partie quand elle se termine.
+	if (MusiquePartie && !MusiquePartie->IsPlaying() && !ChellesOptions::MusiqueCoupee())
+	{
+		MusiquePartie->Play();
+	}
+}
+
+void AMenuChelles::LancerMusiqueJeu()
+{
+	APlayerController* Joueur = GetPC();
+	if (!Joueur)
+	{
+		return;
+	}
+	// Touches de la musique (libres dans le projet : + et - servent deja a la roue)
+	EnableInput(Joueur);
+	if (InputComponent)
+	{
+		InputComponent->BindKey(EKeys::PageUp, IE_Pressed, this, &AMenuChelles::MusiquePlus);
+		InputComponent->BindKey(EKeys::PageDown, IE_Pressed, this, &AMenuChelles::MusiqueMoins);
+		InputComponent->BindKey(EKeys::N, IE_Pressed, this, &AMenuChelles::MusiqueCouper);
+	}
+	if (MusiquePartie)
+	{
+		return;
+	}
+	if (USoundBase* Son = Charger(MusiqueJeu, TEXT("/Game/Audio/Starter_Music_Cue.Starter_Music_Cue")))
+	{
+		MusiquePartie = UGameplayStatics::CreateSound2D(this, Son, 1.f, 1.f, 0.f, nullptr, false, false);
+		if (MusiquePartie)
+		{
+			MusiquePartie->bIsUISound = true;
+			MajVolumeMusique();
+			if (!ChellesOptions::MusiqueCoupee())
+			{
+				MusiquePartie->FadeIn(2.f, FMath::Max(0.001f, ChellesOptions::VolumeMusique()));
+			}
+		}
+	}
+}
+
+USoundBase* AMenuChelles::Charger(TSoftObjectPtr<USoundBase>& Son, const TCHAR* Secours)
+{
+	if (USoundBase* Trouve = Son.LoadSynchronous())
+	{
+		return Trouve;
+	}
+	return LoadObject<USoundBase>(nullptr, Secours, nullptr, LOAD_NoWarn | LOAD_Quiet);
+}
+
+void AMenuChelles::MusiquePlus()
+{
+	ChellesOptions::DefinirMusiqueCoupee(false);
+	ChellesOptions::DefinirVolumeCanal(0, ChellesOptions::VolumeMusique() + 0.1f);
+	if (MusiquePartie && !MusiquePartie->IsPlaying())
+	{
+		MusiquePartie->Play();
+	}
+	AnnoncerMusique();
+}
+
+void AMenuChelles::MusiqueMoins()
+{
+	ChellesOptions::DefinirVolumeCanal(0, ChellesOptions::VolumeMusique() - 0.1f);
+	AnnoncerMusique();
+}
+
+void AMenuChelles::MusiqueCouper()
+{
+	const bool bCoupee = !ChellesOptions::MusiqueCoupee();
+	ChellesOptions::DefinirMusiqueCoupee(bCoupee);
+	if (MusiquePartie)
+	{
+		if (bCoupee)
+		{
+			MusiquePartie->FadeOut(0.5f, 0.f);
+		}
+		else
+		{
+			MusiquePartie->FadeIn(0.5f, FMath::Max(0.001f, ChellesOptions::VolumeMusique()));
+		}
+	}
+	AnnoncerMusique();
+}
+
+void AMenuChelles::AnnoncerMusique()
+{
+	if (GEngine)
+	{
+		const FString Texte = ChellesOptions::MusiqueCoupee()
+			? FString(TEXT("Musique : COUP\u00C9E  (N pour la remettre)"))
+			: FString::Printf(TEXT("Musique : %d %%  (Page Haut / Page Bas, N = couper)"), FMath::RoundToInt(ChellesOptions::VolumeMusique() * 100.f));
+		GEngine->AddOnScreenDebugMessage(77010, 2.5f, FColor(0, 240, 255), Texte);
+	}
 }
 
 void AMenuChelles::Quitter()
 {
-	UKismetSystemLibrary::QuitGame(this, GetPC(), EQuitPreference::Quit, false);
+	if (bQuitteEnCours)
+	{
+		return;
+	}
+	bQuitteEnCours = true;
+	JouerSon(ESonMenu::Sortie);
+	if (Musique)
+	{
+		Musique->FadeOut(0.7f, 0.f);
+	}
+	// On laisse le son de sortie se jouer avant de fermer (les minuteries du jeu sont en pause).
+	TWeakObjectPtr<AMenuChelles> Moi(this);
+	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([Moi](float)
+	{
+		if (Moi.IsValid())
+		{
+			UKismetSystemLibrary::QuitGame(Moi.Get(), Moi->GetPC(), EQuitPreference::Quit, false);
+		}
+		return false;
+	}), 0.8f);
+}
+
+void AMenuChelles::JouerSon(ESonMenu Quel)
+{
+	TSoftObjectPtr<USoundBase>* Choix = &SonClic;
+	switch (Quel)
+	{
+	case ESonMenu::Survol:  Choix = &SonSurvol; break;
+	case ESonMenu::Reglage: Choix = &SonReglage; break;
+	case ESonMenu::Retour:  Choix = &SonRetour; break;
+	case ESonMenu::Sortie:  Choix = &SonSortie; break;
+	default: break;
+	}
+	if (Quel == ESonMenu::Survol)
+	{
+		const double Maintenant = FPlatformTime::Seconds();
+		if (Maintenant - DernierSurvol < 0.06)
+		{
+			return; // pas de crepitement quand la souris passe vite sur plusieurs boutons
+		}
+		DernierSurvol = Maintenant;
+	}
+	USoundBase* Son = Choix->LoadSynchronous();
+	if (!Son)
+	{
+		return;
+	}
+	const float Volume = ChellesOptions::VolumeEffets() * (Quel == ESonMenu::Survol ? 0.5f : 1.f);
+	if (UAudioComponent* Lecteur = UGameplayStatics::CreateSound2D(this, Son, Volume, 1.f, 0.f, nullptr, false, true))
+	{
+		Lecteur->bIsUISound = true;
+		Lecteur->Play();
+	}
+}
+
+void AMenuChelles::MajVolumeMusique()
+{
+	const float Volume = FMath::Max(0.001f, ChellesOptions::VolumeMusique());
+	if (Musique)
+	{
+		Musique->SetVolumeMultiplier(Volume);
+	}
+	if (MusiquePartie)
+	{
+		MusiquePartie->SetVolumeMultiplier(Volume);
+	}
+}
+
+void AMenuChelles::EntretenirMusique()
+{
+	if (Musique && bOuvert && !bQuitteEnCours && !Musique->IsPlaying())
+	{
+		Musique->Play();
+	}
 }
 
 // ---------------------------------------------------------------- Multijoueur

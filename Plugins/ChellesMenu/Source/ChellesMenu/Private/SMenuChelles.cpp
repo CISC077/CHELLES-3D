@@ -11,17 +11,37 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerInput.h"
 #include "InputCoreTypes.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundClass.h"
+#include "Sound/SoundMix.h"
+#include "UObject/Package.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Rendering/DrawElements.h"
 #include "Styling/CoreStyle.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SSlider.h"
 #include "Widgets/Layout/SBackgroundBlur.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/Text/STextBlock.h"
+
+// ---------------------------------------------------------------- Sons
+
+namespace
+{
+	TWeakObjectPtr<AMenuChelles> GMenuSons;
+
+	void Son(ESonMenu Quel)
+	{
+		if (AMenuChelles* M = GMenuSons.Get())
+		{
+			M->JouerSon(Quel);
+		}
+	}
+}
 
 // ---------------------------------------------------------------- Couleurs et polices
 
@@ -119,6 +139,25 @@ namespace ChellesOptions
 		}
 	}
 
+	static FString LireTexte(const TCHAR* Cle)
+	{
+		FString V;
+		if (GConfig)
+		{
+			GConfig->GetString(Section, Cle, V, GGameUserSettingsIni);
+		}
+		return V;
+	}
+
+	static void EcrireTexte(const TCHAR* Cle, const FString& V)
+	{
+		if (GConfig)
+		{
+			GConfig->SetString(Section, Cle, *V, GGameUserSettingsIni);
+			GConfig->Flush(false, GGameUserSettingsIni);
+		}
+	}
+
 	static UGameUserSettings* Ecran()
 	{
 		return GEngine ? GEngine->GetGameUserSettings() : nullptr;
@@ -130,6 +169,55 @@ namespace ChellesOptions
 	// --- Audio
 	static float Volume() { return FMath::Clamp(LireFloat(TEXT("VolumeGeneral"), 1.f), 0.f, 1.f); }
 	static bool SonCoupe() { return LireBool(TEXT("SonCoupe"), false); }
+
+	/** Canaux du pack FPS_Game (SC_Music, SC_SFX, SC_Voice) : les sons ranges dans ces classes. */
+	struct FCanal
+	{
+		const TCHAR* Cle;
+		const TCHAR* Libelle;
+		const TCHAR* Classe;
+	};
+	static const FCanal Canaux[] = {
+		{ TEXT("VolumeMusique"), TEXT("MUSIQUE"), TEXT("SC_Music") },
+		{ TEXT("VolumeEffets"), TEXT("EFFETS (SFX)"), TEXT("SC_SFX") },
+		{ TEXT("VolumeVoix"), TEXT("VOIX"), TEXT("SC_Voice") },
+	};
+	static USoundMix* GMix = nullptr;
+	static TWeakObjectPtr<UWorld> GMondeMix;
+
+	static float VolumeCanal(int32 i) { return FMath::Clamp(LireFloat(Canaux[i].Cle, 1.f), 0.f, 1.f); }
+
+	static USoundClass* ClasseSon(const TCHAR* Nom)
+	{
+		const FString Chemin = FString::Printf(TEXT("/Game/FPS_Game/Blueprints/GameInstanceSettings/%s.%s"), Nom, Nom);
+		return LoadObject<USoundClass>(nullptr, *Chemin);
+	}
+
+	static void AppliquerCanaux()
+	{
+		UWorld* Monde = GMonde.Get();
+		if (!Monde)
+		{
+			return;
+		}
+		if (!GMix)
+		{
+			GMix = NewObject<USoundMix>(GetTransientPackage(), TEXT("ChellesMenuMix"));
+			GMix->AddToRoot();
+		}
+		for (int32 i = 0; i < (int32)UE_ARRAY_COUNT(Canaux); ++i)
+		{
+			if (USoundClass* Classe = ClasseSon(Canaux[i].Classe))
+			{
+				UGameplayStatics::SetSoundMixClassOverride(Monde, GMix, Classe, VolumeCanal(i), 1.f, 0.f, true);
+			}
+		}
+		if (GMondeMix.Get() != Monde)
+		{
+			UGameplayStatics::PushSoundMixModifier(Monde, GMix);
+			GMondeMix = Monde;
+		}
+	}
 
 	static void AppliquerVolume()
 	{
@@ -143,6 +231,7 @@ namespace ChellesOptions
 		{
 			Audio->SetTransientMasterVolume(V);
 		}
+		AppliquerCanaux();
 	}
 
 	// --- Souris / manette
@@ -181,6 +270,109 @@ namespace ChellesOptions
 		Entrees->ForceRebuildingKeyMaps(false);
 	}
 
+	/** Raccourcis clavier modifiables : une touche par defaut, et les actions/axes qui l'utilisent. */
+	struct FToucheChelles
+	{
+		FString Id;
+		FString Libelle;
+		FKey Defaut;
+		TArray<FName> Noms;
+	};
+
+	static const TArray<FToucheChelles>& ListeTouches()
+	{
+		static TArray<FToucheChelles> Liste;
+		if (Liste.Num() == 0)
+		{
+			auto Ajouter = [](const TCHAR* Id, const TCHAR* Libelle, const FKey& Defaut, const TCHAR* Noms)
+			{
+				FToucheChelles T;
+				T.Id = FString(TEXT("Touche_")) + Id;
+				T.Libelle = Libelle;
+				T.Defaut = Defaut;
+				TArray<FString> Morceaux;
+				FString(Noms).ParseIntoArray(Morceaux, TEXT(","), true);
+				for (const FString& M : Morceaux)
+				{
+					T.Noms.Add(FName(*M));
+				}
+				Liste.Add(T);
+			};
+			Ajouter(TEXT("Avancer"), TEXT("AVANCER"), EKeys::Z, TEXT("MoveForward,Throttle"));
+			Ajouter(TEXT("Reculer"), TEXT("RECULER"), EKeys::S, TEXT("MoveForward,Throttle"));
+			Ajouter(TEXT("Gauche"), TEXT("ALLER \u00C0 GAUCHE"), EKeys::Q, TEXT("MoveRight,Steer,Rotate"));
+			Ajouter(TEXT("Droite"), TEXT("ALLER \u00C0 DROITE"), EKeys::D, TEXT("MoveRight,Steer,Rotate"));
+			Ajouter(TEXT("Sauter"), TEXT("SAUTER"), EKeys::SpaceBar, TEXT("Jump"));
+			Ajouter(TEXT("Accroupir"), TEXT("S'ACCROUPIR"), EKeys::C, TEXT("Crouch"));
+			Ajouter(TEXT("Sprint"), TEXT("SPRINTER"), EKeys::LeftShift, TEXT("Sprint"));
+			Ajouter(TEXT("Tirer"), TEXT("TIRER"), EKeys::LeftMouseButton, TEXT("Fire"));
+			Ajouter(TEXT("Viser"), TEXT("VISER"), EKeys::RightMouseButton, TEXT("ADS,Aim"));
+			Ajouter(TEXT("Recharger"), TEXT("RECHARGER"), EKeys::R, TEXT("Reload"));
+			Ajouter(TEXT("Utiliser"), TEXT("UTILISER / PRENDRE"), EKeys::E, TEXT("Use,Interact"));
+			Ajouter(TEXT("Grenade"), TEXT("GRENADE"), EKeys::G, TEXT("GrenadeThrow"));
+			Ajouter(TEXT("CorpsACorps"), TEXT("CORPS \u00C0 CORPS"), EKeys::V, TEXT("Melee"));
+			Ajouter(TEXT("Inventaire"), TEXT("INVENTAIRE"), EKeys::I, TEXT("Inventory"));
+			Ajouter(TEXT("Camera"), TEXT("CAM\u00C9RA"), EKeys::X, TEXT("Camera"));
+		}
+		return Liste;
+	}
+
+	/** Touche choisie par le joueur (invalide = touche par defaut). */
+	static FKey ToucheChoisie(const FToucheChelles& T)
+	{
+		const FString Nom = LireTexte(*T.Id);
+		return Nom.IsEmpty() ? EKeys::Invalid : FKey(FName(*Nom));
+	}
+
+	static void AppliquerTouches(UPlayerInput* Entrees)
+	{
+		bool bChange = false;
+		for (const FToucheChelles& T : ListeTouches())
+		{
+			const FKey Nouvelle = ToucheChoisie(T);
+			if (!Nouvelle.IsValid() || Nouvelle == T.Defaut)
+			{
+				continue;
+			}
+			TArray<FInputActionKeyMapping> Actions;
+			for (const FInputActionKeyMapping& M : Entrees->ActionMappings)
+			{
+				if (M.Key == T.Defaut && T.Noms.Contains(M.ActionName))
+				{
+					Actions.Add(M);
+				}
+			}
+			for (const FInputActionKeyMapping& M : Actions)
+			{
+				Entrees->RemoveActionMapping(M);
+				FInputActionKeyMapping Nouveau = M;
+				Nouveau.Key = Nouvelle;
+				Entrees->AddActionMapping(Nouveau);
+				bChange = true;
+			}
+			TArray<FInputAxisKeyMapping> Axes;
+			for (const FInputAxisKeyMapping& M : Entrees->AxisMappings)
+			{
+				if (M.Key == T.Defaut && T.Noms.Contains(M.AxisName))
+				{
+					Axes.Add(M);
+				}
+			}
+			for (const FInputAxisKeyMapping& M : Axes)
+			{
+				Entrees->RemoveAxisMapping(M);
+				FInputAxisKeyMapping Nouveau = M;
+				Nouveau.Key = Nouvelle;
+				Entrees->AddAxisMapping(Nouveau);
+				bChange = true;
+			}
+		}
+		if (bChange)
+		{
+			Entrees->ForceRebuildingKeyMaps(false);
+		}
+	}
+
 	static void Inversion(UPlayerInput* Entrees, const FKey& Touche, bool bVoulu)
 	{
 		if (Entrees && Entrees->GetInvertAxisKey(Touche) != bVoulu)
@@ -198,10 +390,22 @@ namespace ChellesOptions
 		GJoueur = Joueur;
 		if (UPlayerInput* Entrees = Joueur->PlayerInput)
 		{
+			AppliquerTouches(Entrees);
+			Disposition(Entrees, Qwerty());
 			Entrees->SetMouseSensitivity(Sensibilite());
 			Inversion(Entrees, EKeys::MouseY, InverserSouris());
 			Inversion(Entrees, EKeys::Gamepad_RightY, InverserManette());
-			Disposition(Entrees, Qwerty());
+		}
+	}
+
+	/** Apres un changement de touche : on repart des touches du projet puis on reapplique tout. */
+	static void ReAppliquerTout()
+	{
+		APlayerController* Joueur = GJoueur.Get();
+		if (Joueur && Joueur->PlayerInput)
+		{
+			Joueur->PlayerInput->ForceRebuildingKeyMaps(true);
+			AppliquerAuJoueur(Joueur);
 		}
 	}
 
@@ -212,6 +416,29 @@ namespace ChellesOptions
 	}
 
 	bool ChatActif() { return LireBool(TEXT("Chat"), false); }
+	float VolumeMusique() { return VolumeCanal(0); }
+	float VolumeGeneral() { return Volume(); }
+	bool MusiqueCoupee() { return LireBool(TEXT("MusiqueCoupee"), false); }
+	void DefinirMusiqueCoupee(bool b) { EcrireBool(TEXT("MusiqueCoupee"), b); }
+	FString Version() { return TEXT("v0.1.0"); }
+	void DefinirVolumeGeneral(float V)
+	{
+		EcrireFloat(TEXT("VolumeGeneral"), FMath::Clamp(V, 0.f, 1.f));
+		AppliquerVolume();
+	}
+	void DefinirVolumeCanal(int32 Canal, float V)
+	{
+		if (Canal >= 0 && Canal < (int32)UE_ARRAY_COUNT(Canaux))
+		{
+			EcrireFloat(Canaux[Canal].Cle, FMath::Clamp(V, 0.f, 1.f));
+			AppliquerCanaux();
+			if (AMenuChelles* M = GMenuSons.Get())
+			{
+				M->MajVolumeMusique();
+			}
+		}
+	}
+	float VolumeEffets() { return VolumeCanal(1); }
 	bool Manette() { return LireBool(TEXT("Manette"), false); }
 	int32 Difficulte() { return FMath::Clamp(FMath::RoundToInt(LireFloat(TEXT("Difficulte"), 1.f)), 0, 3); }
 
@@ -367,6 +594,22 @@ namespace ChellesOptions
 		AppliquerVolume();
 	}
 
+	static FText TexteCanal(int32 i)
+	{
+		return Ligne(Canaux[i].Libelle, FString::Printf(TEXT("%d %%"), FMath::RoundToInt(VolumeCanal(i) * 100.f)));
+	}
+
+	static void ChangerCanal(int32 i, int32 Sens)
+	{
+		const int32 Pas = Boucle(FMath::RoundToInt(VolumeCanal(i) * 10.f), Sens, 11);
+		EcrireFloat(Canaux[i].Cle, Pas / 10.f);
+		AppliquerCanaux();
+		if (AMenuChelles* M = GMenuSons.Get())
+		{
+			M->MajVolumeMusique();
+		}
+	}
+
 	static FText TexteSon()
 	{
 		return Ligne(TEXT("SON"), SonCoupe() ? TEXT("COUP\u00C9") : TEXT("ACTIV\u00C9"));
@@ -432,7 +675,63 @@ namespace ChellesOptions
 	static void ChangerClavier(int32)
 	{
 		EcrireBool(TEXT("ClavierQwerty"), !Qwerty());
-		AppliquerAuJoueur(GJoueur.Get());
+		ReAppliquerTout();
+	}
+
+	static FText TexteTouche(int32 i, bool bEnAttente)
+	{
+		const TArray<FToucheChelles>& Liste = ListeTouches();
+		if (!Liste.IsValidIndex(i))
+		{
+			return FText::GetEmpty();
+		}
+		const FToucheChelles& T = Liste[i];
+		FString Nom;
+		if (bEnAttente)
+		{
+			Nom = TEXT("APPUIE SUR UNE TOUCHE...");
+		}
+		else
+		{
+			FKey K = ToucheChoisie(T);
+			if (!K.IsValid())
+			{
+				K = T.Defaut;
+				if (Qwerty() && K == EKeys::Z) { K = EKeys::W; }
+				if (Qwerty() && K == EKeys::Q) { K = EKeys::A; }
+			}
+			Nom = K.GetDisplayName().ToString().ToUpper();
+		}
+		return FText::FromString(FString::Printf(TEXT("%s   [ %s ]"), *T.Libelle, *Nom));
+	}
+
+	static void DefinirTouche(int32 i, const FKey& K)
+	{
+		const TArray<FToucheChelles>& Liste = ListeTouches();
+		if (Liste.IsValidIndex(i))
+		{
+			EcrireTexte(*Liste[i].Id, K == Liste[i].Defaut ? FString() : K.GetFName().ToString());
+			ReAppliquerTout();
+		}
+	}
+
+	static void ToucheParDefaut(int32 i)
+	{
+		const TArray<FToucheChelles>& Liste = ListeTouches();
+		if (Liste.IsValidIndex(i))
+		{
+			EcrireTexte(*Liste[i].Id, FString());
+			ReAppliquerTout();
+		}
+	}
+
+	static void ToutesLesTouchesParDefaut()
+	{
+		for (const FToucheChelles& T : ListeTouches())
+		{
+			EcrireTexte(*T.Id, FString());
+		}
+		ReAppliquerTout();
 	}
 
 	// --- Chat et difficulte
@@ -533,8 +832,31 @@ int32 SDecorCyber::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 	const FSlateFontInfo Mini = FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 10);
 	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(M + 40.f, M + 8.f), FVector2D(400.f, 20.f)),
 		FString(TEXT("CHELLES//3D  -  SYS.MENU v1.0")), Mini, ESlateDrawEffect::None, Alpha(Cyan, 0.6f));
-	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(T.X - M - 260.f, T.Y - M - 26.f), FVector2D(260.f, 20.f)),
+	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(M + 40.f, T.Y - M - 26.f), FVector2D(400.f, 20.f)),
 		FString(TEXT("\u00C9CHAP / B = RETOUR  //  A = VALIDER")), Mini, ESlateDrawEffect::None, Alpha(Magenta, 0.6f));
+
+	// Numero de version en bas a droite
+	const FSlateFontInfo PoliceVersion = FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 14);
+	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(T.X - M - 110.f, T.Y - M - 30.f), FVector2D(100.f, 24.f)),
+		ChellesOptions::Version(), PoliceVersion, ESlateDrawEffect::None, Alpha(Cyan, 0.85f));
+
+	// Etincelles neon qui montent derriere les boutons
+	const FSlateBrush* Blanc = FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
+	for (int32 i = 0; i < 70; ++i)
+	{
+		const float Graine = FMath::Frac(FMath::Sin(i * 12.9898f) * 43758.5453f);
+		const float Vitesse = 0.04f + 0.08f * FMath::Frac(Graine * 7.31f);
+		const float Vie = FMath::Frac(Temps * Vitesse + Graine);
+		const float X = T.X * (0.15f + 0.7f * FMath::Frac(Graine * 3.17f)) + FMath::Sin(Temps * 1.3f + i) * 18.f;
+		const float Y = T.Y * (1.05f - Vie * 1.1f);
+		const float Taille = 2.f + 3.f * FMath::Frac(Graine * 5.71f);
+		const float Eclat = FMath::Sin(Vie * PI) * (0.35f + 0.4f * FMath::Frac(Graine * 9.13f));
+		const FLinearColor Couleur = (i % 3 == 0) ? Magenta : Cyan;
+		FSlateDrawElement::MakeBox(Sortie, Couche + 1, G.ToPaintGeometry(FVector2D(X - Taille * 1.5f, Y - Taille * 1.5f), FVector2D(Taille * 3.f, Taille * 3.f)),
+			Blanc, ESlateDrawEffect::None, Alpha(Couleur, Eclat * 0.15f));
+		FSlateDrawElement::MakeBox(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(X - Taille * 0.5f, Y - Taille * 0.5f), FVector2D(Taille, Taille)),
+			Blanc, ESlateDrawEffect::None, Alpha(Couleur, Eclat));
+	}
 
 	return Couche + 3;
 }
@@ -547,6 +869,7 @@ void SBoutonMenu::Construct(const FArguments& InArgs)
 	ClicDroit = InArgs._OnClicDroit;
 	bActif = InArgs._Actif;
 	bReglage = InArgs._OnClicDroit.IsBound();
+	bOnglet = InArgs._Onglet;
 	SetCursor(EMouseCursor::Hand);
 
 	const int32 Taille = InArgs._TaillePolice;
@@ -566,7 +889,7 @@ void SBoutonMenu::Construct(const FArguments& InArgs)
 			{
 				return FSlateColor(Gris);
 			}
-			return FSlateColor((IsHovered() || bSelectionne) ? Blanc : Cyan);
+			return FSlateColor((IsHovered() || bSelectionne || bOnglet) ? Blanc : Cyan);
 		})
 	];
 }
@@ -579,15 +902,24 @@ FReply SBoutonMenu::OnMouseButtonDown(const FGeometry& Geometrie, const FPointer
 	}
 	if (Evenement.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
-		Clic.ExecuteIfBound();
+		Cliquer(1);
 		return FReply::Handled();
 	}
 	if (Evenement.GetEffectingButton() == EKeys::RightMouseButton)
 	{
-		ClicDroit.ExecuteIfBound();
+		Cliquer(-1);
 		return FReply::Handled();
 	}
 	return FReply::Unhandled();
+}
+
+void SBoutonMenu::OnMouseEnter(const FGeometry& Geometrie, const FPointerEvent& Evenement)
+{
+	SCompoundWidget::OnMouseEnter(Geometrie, Evenement);
+	if (bActif)
+	{
+		Son(ESonMenu::Survol);
+	}
 }
 
 int32 SBoutonMenu::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSlateRect& Clip,
@@ -617,6 +949,15 @@ int32 SBoutonMenu::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 		Marque[0].X = Marque[1].X = T.X + 14.f;
 		Ligne(Sortie, Couche + 2, G, Marque, Magenta, 4.f);
 	}
+	if (bOnglet)
+	{
+		const FVector2D T = G.GetLocalSize();
+		TArray<FVector2D> Trait;
+		Trait.Add(FVector2D(T.X * 0.15f, T.Y - 2.f));
+		Trait.Add(FVector2D(T.X * 0.85f, T.Y - 2.f));
+		Ligne(Sortie, Couche + 2, G, Trait, Alpha(Magenta, 0.35f), 9.f);
+		Ligne(Sortie, Couche + 2, G, Trait, Magenta, 3.f);
+	}
 	return SCompoundWidget::OnPaint(Args, G, Clip, Sortie, Couche + 3, Style, bParentEnabled);
 }
 
@@ -626,6 +967,7 @@ void SBoutonMenu::Cliquer(int32 Sens)
 	{
 		return;
 	}
+	Son(bReglage ? ESonMenu::Reglage : ESonMenu::Clic);
 	if (Sens < 0 && ClicDroit.IsBound())
 	{
 		ClicDroit.Execute();
@@ -641,6 +983,7 @@ void SBoutonMenu::Cliquer(int32 Sens)
 void SMenuChelles::Construct(const FArguments& InArgs)
 {
 	Menu = InArgs._Menu;
+	GMenuSons = Menu;
 
 	ChildSlot
 	[
@@ -689,6 +1032,7 @@ void SMenuChelles::Tick(const FGeometry& Geometrie, const double Temps, const fl
 	{
 		Joueur->bShowMouseCursor = true;
 	}
+	M->EntretenirMusique();
 	// ... et remettre les commandes au jeu : on reprend la main deux fois au debut.
 	const float Avant = Age;
 	Age += Delta;
@@ -701,6 +1045,26 @@ void SMenuChelles::Tick(const FGeometry& Geometrie, const double Temps, const fl
 FReply SMenuChelles::OnKeyDown(const FGeometry& Geometrie, const FKeyEvent& Touche)
 {
 	const FKey K = Touche.GetKey();
+	if (ToucheEnAttente != INDEX_NONE)
+	{
+		if (K == EKeys::Escape || K == EKeys::Gamepad_FaceButton_Right)
+		{
+			ToucheEnAttente = INDEX_NONE;
+			Son(ESonMenu::Retour);
+		}
+		else if (!K.IsGamepadKey())
+		{
+			ChellesOptions::DefinirTouche(ToucheEnAttente, K);
+			ToucheEnAttente = INDEX_NONE;
+			Son(ESonMenu::Clic);
+		}
+		return FReply::Handled();
+	}
+	if (Ecran == EEcranMenu::Options && (K == EKeys::Gamepad_LeftShoulder || K == EKeys::Gamepad_RightShoulder || K == EKeys::Tab))
+	{
+		ChangerOnglet(K == EKeys::Gamepad_LeftShoulder ? -1 : 1);
+		return FReply::Handled();
+	}
 	if (K == EKeys::Escape || K == EKeys::Gamepad_FaceButton_Right || K == EKeys::Gamepad_Special_Left)
 	{
 		Retour();
@@ -739,6 +1103,26 @@ FReply SMenuChelles::OnKeyDown(const FGeometry& Geometrie, const FKeyEvent& Touc
 	return FReply::Unhandled();
 }
 
+FReply SMenuChelles::OnPreviewMouseButtonDown(const FGeometry& Geometrie, const FPointerEvent& Evenement)
+{
+	if (ToucheEnAttente != INDEX_NONE)
+	{
+		ChellesOptions::DefinirTouche(ToucheEnAttente, Evenement.GetEffectingButton());
+		ToucheEnAttente = INDEX_NONE;
+		Son(ESonMenu::Clic);
+		return FReply::Handled();
+	}
+	return FReply::Unhandled();
+}
+
+void SMenuChelles::ChangerOnglet(int32 Sens)
+{
+	const int32 N = ((int32(Onglet) + Sens) % 4 + 4) % 4;
+	Onglet = EOngletOptions(N);
+	Son(ESonMenu::Reglage);
+	Afficher(EEcranMenu::Options);
+}
+
 void SMenuChelles::Deplacer(int32 Sens)
 {
 	bNavigation = true;
@@ -758,6 +1142,10 @@ void SMenuChelles::Deplacer(int32 Sens)
 	{
 		Nouveau->SetSelectionne(true);
 	}
+	if (Sens != 0)
+	{
+		Son(ESonMenu::Survol);
+	}
 }
 
 TSharedRef<SBoutonMenu> SMenuChelles::Enregistrer(TSharedRef<SBoutonMenu> Nouveau)
@@ -771,6 +1159,7 @@ void SMenuChelles::Afficher(EEcranMenu NouvelEcran)
 	const bool bMemeEcran = (Ecran == NouvelEcran);
 	const int32 AncienneSelection = Selection;
 	Ecran = NouvelEcran;
+	ToucheEnAttente = INDEX_NONE;
 	Boutons.Reset();
 	Selection = INDEX_NONE;
 	if (Zone.IsValid())
@@ -806,11 +1195,20 @@ void SMenuChelles::Rafraichir()
 
 void SMenuChelles::Retour()
 {
+	if (Ecran != EEcranMenu::Principal)
+	{
+		Son(ESonMenu::Retour);
+	}
 	switch (Ecran)
 	{
 	case EEcranMenu::Mode:
 	case EEcranMenu::Options:
+	case EEcranMenu::ConfirmerQuitter:
+	case EEcranMenu::Credits:
 		Afficher(EEcranMenu::Principal);
+		break;
+	case EEcranMenu::Touches:
+		Afficher(EEcranMenu::Options);
 		break;
 	case EEcranMenu::Multi:
 		Afficher(EEcranMenu::Mode);
@@ -819,12 +1217,6 @@ void SMenuChelles::Retour()
 	case EEcranMenu::AdresseIP:
 	case EEcranMenu::Search:
 		Afficher(EEcranMenu::Multi);
-		break;
-	case EEcranMenu::OptControles:
-	case EEcranMenu::OptGraphismes:
-	case EEcranMenu::OptAudio:
-	case EEcranMenu::OptDifficulte:
-		Afficher(EEcranMenu::Options);
 		break;
 	default:
 		break;
@@ -936,10 +1328,9 @@ TSharedRef<SWidget> SMenuChelles::Construire(EEcranMenu E)
 	case EEcranMenu::AdresseIP:     return EcranAdresseIP();
 	case EEcranMenu::Search:        return EcranSearch();
 	case EEcranMenu::Options:       return EcranOptions();
-	case EEcranMenu::OptControles:  return EcranControles();
-	case EEcranMenu::OptGraphismes: return EcranGraphismes();
-	case EEcranMenu::OptAudio:      return EcranAudio();
-	case EEcranMenu::OptDifficulte: return EcranDifficulte();
+	case EEcranMenu::Touches:       return EcranTouches();
+	case EEcranMenu::ConfirmerQuitter: return EcranQuitter();
+	case EEcranMenu::Credits:       return EcranCredits();
 	default:                        return EcranPrincipal();
 	}
 }
@@ -950,7 +1341,8 @@ TSharedRef<SWidget> SMenuChelles::EcranPrincipal()
 		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("CHELLES 3D")), FText::FromString(TEXT("// FPS  -  QUARTIER DE CHELLES"))) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("JOUER")), 64, [this]() { Afficher(EEcranMenu::Mode); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("OPTIONS")), 64, [this]() { Afficher(EEcranMenu::Options); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("QUITTER")), 64, [this]() { if (AMenuChelles* M = LeMenu()) { M->Quitter(); } }) ];
+		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("CR\u00C9DITS")), 30, [this]() { Afficher(EEcranMenu::Credits); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("QUITTER")), 64, [this]() { Afficher(EEcranMenu::ConfirmerQuitter); }) ];
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranMode()
@@ -1094,65 +1486,200 @@ TSharedRef<SWidget> SMenuChelles::EcranSearch()
 		+ SVerticalBox::Slot().AutoHeight()[ BoutonRetour() ];
 }
 
-TSharedRef<SWidget> SMenuChelles::EcranOptions()
+TSharedRef<SWidget> SMenuChelles::BoutonOnglet(const FText& Texte, EOngletOptions Cible)
 {
-	return SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("OPTIONS")), FText::FromString(TEXT("// R\u00C9GLAGES DU JEU"))) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("CLAVIER OU JOYSTICK")), 40, [this]() { Afficher(EEcranMenu::OptControles); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("AFFICHAGE & GRAPHISME")), 40, [this]() { Afficher(EEcranMenu::OptGraphismes); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("AUDIO")), 40, [this]() { Afficher(EEcranMenu::OptAudio); }) ]
-		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 5.f))
+	return SNew(SBox)
+		.Padding(FMargin(4.f, 0.f))
 		[
 			Enregistrer(SNew(SBoutonMenu)
-			.Texte_Lambda([]() { return ChellesOptions::TexteChat(); })
-			.TaillePolice(40)
-			.OnClic(FSimpleDelegate::CreateLambda([]() { ChellesOptions::ChangerChat(); }))
-			.OnClicDroit(FSimpleDelegate::CreateLambda([]() { ChellesOptions::ChangerChat(); })))
-		]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("DIFFICULT\u00C9S")), 40, [this]() { Afficher(EEcranMenu::OptDifficulte); }) ]
-		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 18.f, 0.f, 0.f))[ BoutonRetour() ];
+			.Texte(Texte)
+			.TaillePolice(28)
+			.Onglet(Onglet == Cible)
+			.OnClic(FSimpleDelegate::CreateLambda([this, Cible]()
+			{
+				Onglet = Cible;
+				Afficher(EEcranMenu::Options);
+			})))
+		];
 }
 
-TSharedRef<SWidget> SMenuChelles::EcranControles()
+TSharedRef<SWidget> SMenuChelles::EcranOptions()
+{
+	TSharedRef<SWidget> Contenu = OngletControles();
+	switch (Onglet)
+	{
+	case EOngletOptions::Graphismes: Contenu = OngletGraphismes(); break;
+	case EOngletOptions::Audio:      Contenu = OngletAudio(); break;
+	case EOngletOptions::Jeu:        Contenu = OngletJeu(); break;
+	default: break;
+	}
+
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("OPTIONS")), FText::FromString(TEXT("// CLIC GAUCHE = SUIVANT   CLIC DROIT = PR\u00C9C\u00C9DENT   LB / RB / TAB = ONGLET"))) ]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 0.f, 0.f, 18.f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()[ BoutonOnglet(FText::FromString(TEXT("CONTR\u00D4LES")), EOngletOptions::Controles) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ BoutonOnglet(FText::FromString(TEXT("GRAPHISMES")), EOngletOptions::Graphismes) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ BoutonOnglet(FText::FromString(TEXT("AUDIO")), EOngletOptions::Audio) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ BoutonOnglet(FText::FromString(TEXT("JEU")), EOngletOptions::Jeu) ]
+		]
+		+ SVerticalBox::Slot().AutoHeight()
+		[
+			SNew(SBox)
+			.MinDesiredHeight(380.f)
+			.VAlign(VAlign_Top)
+			[
+				Contenu
+			]
+		]
+		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 12.f, 0.f, 0.f))[ BoutonRetour() ];
+}
+
+TSharedRef<SWidget> SMenuChelles::OngletControles()
 {
 	return SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("CLAVIER / JOYSTICK")), FText::FromString(TEXT("// CLIC GAUCHE = SUIVANT   CLIC DROIT = PR\u00C9C\u00C9DENT"))) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteControle(); }, [](int32 S) { ChellesOptions::ChangerControle(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteClavier(); }, [](int32 S) { ChellesOptions::ChangerClavier(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteSensibilite(); }, [](int32 S) { ChellesOptions::ChangerSensibilite(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteInverserSouris(); }, [](int32 S) { ChellesOptions::ChangerInverserSouris(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteInverserManette(); }, [](int32 S) { ChellesOptions::ChangerInverserManette(S); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Clavier et manette marchent tous les deux en jeu. Manette : croix = choisir, A = valider, B = retour, gauche/droite = changer un r\u00E9glage."))) ]
-		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 18.f, 0.f, 0.f))[ BoutonRetour() ];
+		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("RACCOURCIS CLAVIER >")), 30, [this]() { Afficher(EEcranMenu::Touches); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Clavier et manette marchent tous les deux en jeu. Manette : croix = choisir, A = valider, B = retour, gauche/droite = changer un r\u00E9glage."))) ];
 }
 
-TSharedRef<SWidget> SMenuChelles::EcranGraphismes()
+TSharedRef<SWidget> SMenuChelles::OngletGraphismes()
 {
 	return SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("AFFICHAGE & GRAPHISME")), FText::FromString(TEXT("// CLIC GAUCHE = SUIVANT   CLIC DROIT = PR\u00C9C\u00C9DENT"))) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteQualite(); }, [](int32 S) { ChellesOptions::ChangerQualite(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteAffichage(); }, [](int32 S) { ChellesOptions::ChangerAffichage(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteResolution(); }, [](int32 S) { ChellesOptions::ChangerResolution(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteVSync(); }, [](int32 S) { ChellesOptions::ChangerVSync(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteFPS(); }, [](int32 S) { ChellesOptions::ChangerFPS(S); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Affichage et r\u00E9solution ne changent que dans le jeu lanc\u00E9 seul (pas dans la fen\u00EAtre de l'\u00E9diteur)."))) ]
-		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 12.f, 0.f, 0.f))[ BoutonRetour() ];
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Enregistr\u00E9 automatiquement (GameUserSettings). Affichage et r\u00E9solution ne changent que dans le jeu lanc\u00E9 seul, pas dans la fen\u00EAtre de l'\u00E9diteur."))) ];
 }
 
-TSharedRef<SWidget> SMenuChelles::EcranAudio()
+TSharedRef<SWidget> SMenuChelles::OngletAudio()
 {
 	return SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("AUDIO")), FText::FromString(TEXT("// CLIC GAUCHE = SUIVANT   CLIC DROIT = PR\u00C9C\u00C9DENT"))) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteVolume(); }, [](int32 S) { ChellesOptions::ChangerVolume(S); }) ]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Reglage([]() { return ChellesOptions::TexteVolume(); }, [](int32 S) { ChellesOptions::ChangerVolume(S); }) ]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Curseur([]() { return ChellesOptions::VolumeGeneral(); }, [](float V) { ChellesOptions::DefinirVolumeGeneral(V); }) ]
+		]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Reglage([]() { return ChellesOptions::TexteCanal(0); }, [](int32 S) { ChellesOptions::ChangerCanal(0, S); }) ]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Curseur([]() { return ChellesOptions::VolumeMusique(); }, [](float V) { ChellesOptions::DefinirVolumeCanal(0, V); }) ]
+		]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Reglage([]() { return ChellesOptions::TexteCanal(1); }, [](int32 S) { ChellesOptions::ChangerCanal(1, S); }) ]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Curseur([]() { return ChellesOptions::VolumeEffets(); }, [](float V) { ChellesOptions::DefinirVolumeCanal(1, V); }) ]
+		]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Reglage([]() { return ChellesOptions::TexteCanal(2); }, [](int32 S) { ChellesOptions::ChangerCanal(2, S); }) ]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Curseur([]() { return ChellesOptions::VolumeCanal(2); }, [](float V) { ChellesOptions::DefinirVolumeCanal(2, V); }) ]
+		]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteSon(); }, [](int32 S) { ChellesOptions::ChangerSon(S); }) ]
-		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 18.f, 0.f, 0.f))[ BoutonRetour() ];
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Le volume g\u00E9n\u00E9ral agit sur tout le jeu. Musique / effets / voix agissent sur les sons class\u00E9s comme tels dans le pack FPS, et sur les sons de ce menu."))) ];
 }
 
-TSharedRef<SWidget> SMenuChelles::EcranDifficulte()
+TSharedRef<SWidget> SMenuChelles::OngletJeu()
 {
 	return SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("DIFFICULT\u00C9S")), FText::FromString(TEXT("// CLIC GAUCHE = SUIVANT   CLIC DROIT = PR\u00C9C\u00C9DENT"))) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteChat(); }, [](int32) { ChellesOptions::ChangerChat(); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteDifficulte(); }, [](int32 S) { ChellesOptions::ChangerDifficulte(S); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Le choix est enregistr\u00E9. Son effet sur les ennemis sera branch\u00E9 \u00E0 l'\u00E9tape suivante."))) ]
-		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 18.f, 0.f, 0.f))[ BoutonRetour() ];
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Chat et difficult\u00E9 sont enregistr\u00E9s. La fen\u00EAtre de chat et l'effet sur les ennemis seront branch\u00E9s \u00E0 l'\u00E9tape suivante."))) ];
+}
+
+TSharedRef<SWidget> SMenuChelles::EcranTouches()
+{
+	TSharedRef<SVerticalBox> Liste = SNew(SVerticalBox);
+	const int32 Nombre = ChellesOptions::ListeTouches().Num();
+	for (int32 i = 0; i < Nombre; ++i)
+	{
+		Liste->AddSlot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 1.f))
+		[
+			Enregistrer(SNew(SBoutonMenu)
+			.Texte_Lambda([this, i]() { return ChellesOptions::TexteTouche(i, ToucheEnAttente == i); })
+			.TaillePolice(24)
+			.OnClic(FSimpleDelegate::CreateLambda([this, i]() { ToucheEnAttente = i; }))
+			.OnClicDroit(FSimpleDelegate::CreateLambda([i]() { ChellesOptions::ToucheParDefaut(i); })))
+		];
+	}
+
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("RACCOURCIS CLAVIER")), FText::FromString(TEXT("// CLIC = CHANGER LA TOUCHE   CLIC DROIT = TOUCHE D'ORIGINE   \u00C9CHAP = ANNULER"))) ]
+		+ SVerticalBox::Slot().AutoHeight()
+		[
+			SNew(SBox)
+			.MaxDesiredHeight(470.f)
+			[
+				SNew(SScrollBox)
+				+ SScrollBox::Slot()[ Liste ]
+			]
+		]
+		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 10.f, 0.f, 0.f))[ Bouton(FText::FromString(TEXT("TOUT REMETTRE PAR D\u00C9FAUT")), 28, []() { ChellesOptions::ToutesLesTouchesParDefaut(); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ BoutonRetour() ];
+}
+
+TSharedRef<SWidget> SMenuChelles::EcranQuitter()
+{
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("QUITTER ?")), FText::FromString(TEXT("// \u00CATES-VOUS S\u00DBR DE VOULOIR QUITTER ?"))) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("NON, RESTER")), 56, [this]() { Retour(); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("OUI, QUITTER")), 56, [this]() { if (AMenuChelles* M = LeMenu()) { M->Quitter(); } }) ];
+}
+
+TSharedRef<SWidget> SMenuChelles::Curseur(TFunction<float()> Lire, TFunction<void(float)> Ecrire)
+{
+	return SNew(SBox)
+		.WidthOverride(260.f)
+		.Padding(FMargin(10.f, 0.f, 0.f, 0.f))
+		[
+			SNew(SSlider)
+			.Value_Lambda(MoveTemp(Lire))
+			.StepSize(0.05f)
+			.SliderBarColor(Alpha(Magenta, 0.8f))
+			.SliderHandleColor(Cyan)
+			.OnValueChanged_Lambda([Ecrire](float V) { Ecrire(FMath::RoundToFloat(V * 20.f) / 20.f); })
+			.OnMouseCaptureEnd_Lambda([]() { Son(ESonMenu::Reglage); })
+		];
+}
+
+TSharedRef<SWidget> SMenuChelles::EcranCredits()
+{
+	auto LigneCredit = [](const TCHAR* Role, const TCHAR* Nom)
+	{
+		return SNew(SVerticalBox)
+			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 8.f, 0.f, 0.f))
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(Role))
+				.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 16))
+				.ColorAndOpacity(Alpha(Magenta, 0.9f))
+			]
+			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(Nom))
+				.Font(Police(30, Magenta))
+				.ColorAndOpacity(Cyan)
+			];
+	};
+
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("CR\u00C9DITS")), FText::FromString(TEXT("// CHELLES 3D  -  ") + ChellesOptions::Version())) ]
+		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("ID\u00C9E, CR\u00C9ATION ET QUARTIER"), TEXT("MERIDJA")) ]
+		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("CONSEILS DE DESIGN"), TEXT("SA FILLE")) ]
+		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("MOTEUR"), TEXT("UNREAL ENGINE 4.27")) ]
+		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("PACKS UTILIS\u00C9S"), TEXT("FPS GAME  -  VEHICLE GAME  -  MARKETPLACE")) ]
+		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("AIDE AU CODE"), TEXT("CLAUDE")) ]
+		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 24.f, 0.f, 0.f))[ BoutonRetour() ];
 }

@@ -20,11 +20,19 @@ enum class EEcranMenu : uint8
 	AdresseIP,
 	Search,
 	Options,
-	OptControles,
-	OptGraphismes,
-	OptAudio,
-	OptDifficulte
+	Touches,
+	ConfirmerQuitter,
+	Credits
 };
+
+enum class EOngletOptions : uint8
+{
+	Controles,
+	Graphismes,
+	Audio,
+	Jeu
+};
+
 
 /** Reglages du menu OPTIONS, enregistres dans GameUserSettings.ini (section ChellesMenu). */
 namespace ChellesOptions
@@ -34,6 +42,14 @@ namespace ChellesOptions
 	bool ChatActif();
 	bool Manette();
 	int32 Difficulte(); // 0 Facile, 1 Normal, 2 Difficile, 3 Extreme
+	float VolumeMusique();
+	float VolumeEffets();
+	float VolumeGeneral();
+	void DefinirVolumeGeneral(float V);
+	void DefinirVolumeCanal(int32 Canal, float V);
+	bool MusiqueCoupee();
+	void DefinirMusiqueCoupee(bool b);
+	FString Version();
 }
 
 /** Fond anime : grille neon, lignes de balayage, cadre. */
@@ -56,16 +72,19 @@ public:
 	SLATE_BEGIN_ARGS(SBoutonMenu)
 		: _TaillePolice(56)
 		, _Actif(true)
+		, _Onglet(false)
 		{}
 		SLATE_ATTRIBUTE(FText, Texte)
 		SLATE_ARGUMENT(int32, TaillePolice)
 		SLATE_ARGUMENT(bool, Actif)
+		SLATE_ARGUMENT(bool, Onglet)
 		SLATE_EVENT(FSimpleDelegate, OnClic)
 		SLATE_EVENT(FSimpleDelegate, OnClicDroit)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
 	virtual FReply OnMouseButtonDown(const FGeometry& Geometrie, const FPointerEvent& Evenement) override;
+	virtual void OnMouseEnter(const FGeometry& Geometrie, const FPointerEvent& Evenement) override;
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& Geometrie, const FSlateRect& Clip,
 		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override;
 
@@ -80,6 +99,7 @@ private:
 	bool bActif = true;
 	bool bReglage = false;
 	bool bSelectionne = false;
+	bool bOnglet = false;
 };
 
 class SMenuChelles : public SCompoundWidget
@@ -96,6 +116,7 @@ public:
 
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 	virtual FReply OnKeyDown(const FGeometry& Geometrie, const FKeyEvent& Touche) override;
+	virtual FReply OnPreviewMouseButtonDown(const FGeometry& Geometrie, const FPointerEvent& Evenement) override;
 	virtual void Tick(const FGeometry& Geometrie, const double Temps, const float Delta) override;
 
 private:
@@ -107,10 +128,16 @@ private:
 	TSharedRef<SWidget> EcranAdresseIP();
 	TSharedRef<SWidget> EcranSearch();
 	TSharedRef<SWidget> EcranOptions();
-	TSharedRef<SWidget> EcranControles();
-	TSharedRef<SWidget> EcranGraphismes();
-	TSharedRef<SWidget> EcranAudio();
-	TSharedRef<SWidget> EcranDifficulte();
+	TSharedRef<SWidget> EcranTouches();
+	TSharedRef<SWidget> EcranQuitter();
+	TSharedRef<SWidget> EcranCredits();
+	TSharedRef<SWidget> Curseur(TFunction<float()> Lire, TFunction<void(float)> Ecrire);
+	TSharedRef<SWidget> OngletControles();
+	TSharedRef<SWidget> OngletGraphismes();
+	TSharedRef<SWidget> OngletAudio();
+	TSharedRef<SWidget> OngletJeu();
+	TSharedRef<SWidget> BoutonOnglet(const FText& Texte, EOngletOptions Cible);
+	void ChangerOnglet(int32 Sens);
 
 	TSharedRef<SWidget> Bouton(const FText& Texte, int32 Taille, TFunction<void()> Action, bool bActif = true);
 	TSharedRef<SWidget> Reglage(TFunction<FText()> Texte, TFunction<void(int32)> Changer);
@@ -133,4 +160,6 @@ private:
 	TArray<TWeakPtr<SBoutonMenu>> Boutons;
 	int32 Selection = INDEX_NONE;
 	bool bNavigation = false;
+	EOngletOptions Onglet = EOngletOptions::Controles;
+	int32 ToucheEnAttente = INDEX_NONE;
 };
