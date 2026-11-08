@@ -58,6 +58,10 @@ struct FModeRoue
 	/** Pour un vehicule : le Blueprint a conduire (WheeledVehicle). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue", meta = (MetaClass = "Pawn"))
 	FSoftClassPath ClasseVehicule;
+
+	/** Optionnel : mesh (SkeletalMesh) a mettre sur le personnage choisi, ex. le costume Spider-Man. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue", meta = (AllowedClasses = "SkeletalMesh"))
+	FSoftObjectPath Costume;
 };
 
 /**
@@ -133,6 +137,7 @@ private:
 	AActor* ControleurVehicule(int32 Index);
 	bool EstDisponible(int32 Index) const;
 	bool EstEnVol() const;
+	void MettreCostume(const FModeRoue& Mode);
 
 	void CacherHudPack(const FString& Racine);
 	void MontrerHudPack(const FString& Racine);

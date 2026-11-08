@@ -5,7 +5,10 @@
 
 #include "Blueprint/UserWidget.h"
 #include "Components/InputComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
+#include "Engine/SkeletalMesh.h"
+#include "GameFramework/Character.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -17,7 +20,8 @@
 #include "UObject/UnrealType.h"
 
 #define CHEMIN_MOTONEIGE TEXT("/Game/DV_Snowmobile/Blueprints/BP_Snowmobile.BP_Snowmobile_C")
-#define CHEMIN_VOITURE TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/Hatchback_BP_Child.Hatchback_BP_Child_C")
+// Spider-Man sur le squelette du pack SuperPowers (cree par Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py)
+#define CHEMIN_COSTUME_SPIDERMAN TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Pouvoirs.SK_SpiderMan_Pouvoirs")
 
 // ---------------------------------------------------------------------------
 // Appels par reflexion vers ChellesBasculeVol et ChellesMotoneige (aucune dependance)
@@ -137,6 +141,7 @@ ARoueModes::ARoueModes()
 	Flash.Icone = EIconeRoue::Eclair;
 	Flash.Couleur = FLinearColor(1.f, 0.85f, 0.1f);
 	Flash.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/SuperPowers/Powers/Speedster/BP_Speedster.BP_Speedster_C")));
+	Flash.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDERMAN));
 	Modes.Add(Flash);
 
 	FModeRoue Flamme;
@@ -145,6 +150,7 @@ ARoueModes::ARoueModes()
 	Flamme.Icone = EIconeRoue::Flamme;
 	Flamme.Couleur = FLinearColor(1.f, 0.36f, 0.08f);
 	Flamme.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/SuperPowers/Powers/Flame/BP_Flame.BP_Flame_C")));
+	Flamme.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDERMAN));
 	Modes.Add(Flamme);
 
 	FModeRoue Pouvoirs;
@@ -153,6 +159,7 @@ ARoueModes::ARoueModes()
 	Pouvoirs.Icone = EIconeRoue::Etoile;
 	Pouvoirs.Couleur = FLinearColor(0.75f, 0.35f, 1.f);
 	Pouvoirs.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/SuperPowers/Powers/Super/BP_Super.BP_Super_C")));
+	Pouvoirs.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDERMAN));
 	Modes.Add(Pouvoirs);
 
 	// Dernier bouton : le cheval du pack HorseStarterKit (le cavalier fait partie du cheval)
@@ -408,6 +415,40 @@ int32 ARoueModes::ModeActuel() const
 // Changer de mode
 // ---------------------------------------------------------------------------
 
+void ARoueModes::MettreCostume(const FModeRoue& Mode)
+{
+	if (Mode.Costume.IsNull())
+	{
+		return;
+	}
+	APlayerController* PC = GetPC();
+	ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+	USkeletalMeshComponent* Corps = Perso ? Perso->GetMesh() : nullptr;
+	if (!Corps)
+	{
+		return;
+	}
+	USkeletalMesh* Costume = Cast<USkeletalMesh>(Mode.Costume.TryLoad());
+	if (!Costume)
+	{
+		Message(TEXT("Costume Spider-Man introuvable : lance Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py dans Unreal."));
+		return;
+	}
+	USkeletalMesh* Actuel = Corps->SkeletalMesh;
+	if (Actuel == Costume)
+	{
+		return;
+	}
+	if (Actuel && Actuel->GetSkeleton() != Costume->GetSkeleton())
+	{
+		// Autre squelette : les animations du pack ne marcheraient plus, on garde le perso d'origine
+		Message(TEXT("Costume Spider-Man : squelette different de celui du personnage, costume non applique."));
+		return;
+	}
+	Corps->SetSkeletalMesh(Costume);
+	Corps->EmptyOverrideMaterials();
+}
+
 void ARoueModes::ChoisirMode(int32 Index)
 {
 	if (!Modes.IsValidIndex(Index))
@@ -490,6 +531,7 @@ void ARoueModes::ChoisirMode(int32 Index)
 		if (AppelerBool(Controleur, TEXT("EstSurMoto")))
 		{
 			MontrerHudPack(RacinePack(Mode.ClasseVehicule));
+			MettreCostume(Mode);
 		}
 		else
 		{
