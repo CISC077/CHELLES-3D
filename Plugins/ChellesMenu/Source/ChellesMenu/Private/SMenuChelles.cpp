@@ -2126,10 +2126,9 @@ TSharedRef<SWidget> SMenuChelles::EcranCredits()
 
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("CR\u00C9DITS")), FText::FromString(TEXT("// CHELLES 3D  -  ") + ChellesOptions::Version())) ]
-		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("ID\u00C9E, CR\u00C9ATION ET QUARTIER"), TEXT("MERIDJA")) ]
-		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("CONSEILS DE DESIGN"), TEXT("SA FILLE")) ]
+		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("CR\u00C9ATION"), TEXT("MERIDJA RACHID")) ]
+		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("DESIGN"), TEXT("MERIDJA DYLAN")) ]
 		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("MOTEUR"), TEXT("UNREAL ENGINE 4.27")) ]
 		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("PACKS UTILIS\u00C9S"), TEXT("FPS GAME  -  VEHICLE GAME  -  MARKETPLACE")) ]
-		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("AIDE AU CODE"), TEXT("CLAUDE")) ]
 		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 24.f, 0.f, 0.f))[ BoutonRetour() ];
 }
