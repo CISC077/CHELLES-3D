@@ -156,6 +156,7 @@ private:
 
 	TSharedPtr<SMenuChelles> Widget;
 	TSharedPtr<SChatChelles> PanneauChat;
+	TSharedPtr<SWidget> IconeJeu;
 	void CreerChat();
 	void OuvrirChat();
 	void RetirerChat();

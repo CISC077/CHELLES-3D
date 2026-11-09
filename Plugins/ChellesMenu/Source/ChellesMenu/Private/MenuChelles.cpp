@@ -6,6 +6,10 @@
 #include "ChatChelles.h"
 
 #include "Components/AudioComponent.h"
+#include "Styling/CoreStyle.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
 #include "Containers/Ticker.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
@@ -387,6 +391,33 @@ void AMenuChelles::CreerChat()
 		PanneauChat = SNew(SChatChelles).Menu(this);
 		Vue->AddViewportWidgetContent(PanneauChat.ToSharedRef(), 900);
 	}
+	// Logo son en jeu (sous la mini-carte, a droite) : N = couper / remettre ;
+	// cliquable quand la souris est visible (menu pause Echap du jeu).
+	if (Vue && !IconeJeu.IsValid())
+	{
+		TWeakObjectPtr<AMenuChelles> Moi(this);
+		IconeJeu = SNew(SBox)
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Top)
+			.Padding(FMargin(0.f, 205.f, 34.f, 0.f))
+			.Visibility_Lambda([Moi]() { return (Moi.IsValid() && !Moi->Widget.IsValid()) ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed; })
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+				[
+					SNew(SIconeSon)
+					.OnClic(FSimpleDelegate::CreateLambda([Moi]() { if (Moi.IsValid()) { Moi->MusiqueCouper(); } }))
+				]
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 2.f, 0.f, 0.f))
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(TEXT("N")))
+					.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 12))
+					.ColorAndOpacity(FLinearColor(0.f, 0.94f, 1.f, 0.8f))
+				]
+			];
+		Vue->AddViewportWidgetContent(IconeJeu.ToSharedRef(), 850);
+	}
 }
 
 void AMenuChelles::OuvrirChat()
@@ -413,6 +444,14 @@ void AMenuChelles::RetirerChat()
 			Vue->RemoveViewportWidgetContent(PanneauChat.ToSharedRef());
 		}
 		PanneauChat.Reset();
+	}
+	if (IconeJeu.IsValid())
+	{
+		if (UGameViewportClient* Vue = GetWorld() ? GetWorld()->GetGameViewport() : nullptr)
+		{
+			Vue->RemoveViewportWidgetContent(IconeJeu.ToSharedRef());
+		}
+		IconeJeu.Reset();
 	}
 }
 

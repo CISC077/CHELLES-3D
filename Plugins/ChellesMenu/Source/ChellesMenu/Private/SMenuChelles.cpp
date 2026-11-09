@@ -394,7 +394,8 @@ namespace ChellesOptions
 		{
 			AppliquerTouches(Entrees);
 			Disposition(Entrees, Qwerty());
-			Entrees->SetMouseSensitivity(Sensibilite());
+			// 1.0 = vitesse standard d'Unreal (0.07). Avant, 1.0 etait applique tel quel : souris 14 fois trop rapide.
+			Entrees->SetMouseSensitivity(Sensibilite() * 0.07f);
 			Inversion(Entrees, EKeys::MouseY, InverserSouris());
 			Inversion(Entrees, EKeys::Gamepad_RightY, InverserManette());
 		}
