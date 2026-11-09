@@ -12,6 +12,10 @@
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/GameUserSettings.h"
+#include "Misc/ConfigCacheIni.h"
 #include "IPAddress.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -233,6 +237,23 @@ void AMenuChelles::Solo()
 {
 	Fermer(true);
 	LancerMusiqueJeu();
+	DebutSolo = FPlatformTime::Seconds();
+}
+
+void AMenuChelles::MemoriserDepart()
+{
+	if (bDepartMemorise || DebutSolo < 0.0 || FPlatformTime::Seconds() - DebutSolo < 4.0)
+	{
+		return;
+	}
+	APlayerController* Joueur = GetPC();
+	ACharacter* Perso = Joueur ? Cast<ACharacter>(Joueur->GetPawn()) : nullptr;
+	if (Perso && Perso->GetCharacterMovement() && Perso->GetCharacterMovement()->IsMovingOnGround() && GConfig)
+	{
+		GConfig->SetString(TEXT("ChellesMenu"), TEXT("Depart"), *Perso->GetActorLocation().ToString(), GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+		bDepartMemorise = true;
+	}
 }
 
 void AMenuChelles::Tick(float Delta)
@@ -240,6 +261,7 @@ void AMenuChelles::Tick(float Delta)
 	Super::Tick(Delta);
 	// Serveur : chaque joueur connecte recoit son composant de chat
 	UChatChelles::EquiperJoueurs(GetWorld());
+	MemoriserDepart();
 	// Les sons du pack ne bouclent pas tous : on relance la musique de la partie quand elle se termine.
 	// Quand une piste est finie, on passe a la suivante de la playlist.
 	if (MusiquePartie && !MusiquePartie->IsPlaying() && !ChellesOptions::MusiqueCoupee())

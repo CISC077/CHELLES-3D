@@ -133,6 +133,10 @@ private:
 	USoundBase* PisteDeLaPlaylist(int32& Index);
 	void AnnoncerMusique();
 	int32 Piste = 0;
+	/** Solo : l'endroit ou le joueur marche est memorise pour les departs du multijoueur. */
+	void MemoriserDepart();
+	bool bDepartMemorise = false;
+	double DebutSolo = -1.0;
 
 	UPROPERTY(Transient)
 	UAudioComponent* Musique = nullptr;
