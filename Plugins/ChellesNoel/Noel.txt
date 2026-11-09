@@ -26,3 +26,9 @@ Enfoncement=4
 ; Si le bonnet est tourne de travers : rotation en degres
 TournerBonnet=0
 PencherBonnet=0
+
+; Cadeaux eparpilles par terre et sur les trottoirs (nouvelles places chaque jour)
+Cadeaux=80
+
+; Taille des cadeaux en cm : mini-maxi
+TailleCadeau=30-60

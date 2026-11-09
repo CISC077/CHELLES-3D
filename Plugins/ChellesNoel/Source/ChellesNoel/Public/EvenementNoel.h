@@ -17,7 +17,9 @@ class UMaterialParameterCollection;
  *    Tools/Noel/INSTALLER_NOEL.bat) sont montres ; le reste de l'annee ils sont caches et arretes ;
  *  - le sol devient blanc : parametre "SaisonNeige" de la collection /Game/Chelles/Neige/MPC_Empreintes (0 ou 1),
  *    lu par le materiau du Landscape cree par l'installation ;
- *  - chaque passant (classe dont le nom contient "Passant") recoit un bonnet de Noel du pack Christmas_pack.
+ *  - chaque passant (classe dont le nom contient "Passant") recoit un bonnet de Noel du pack Christmas_pack ;
+ *  - des cadeaux (SM_decoration_present_1..8 du pack) sont eparpilles sur le sol et les trottoirs
+ *    (nouvelles places chaque jour, les memes pour tous les joueurs).
  *  - le ciel orange le soir vient du cycle jour/nuit GoodSky deja installe (on n'y touche pas).
  */
 UCLASS(meta = (DisplayName = "Evenement de Noel (Chelles)"))
@@ -63,6 +65,7 @@ private:
 	void LireReglages();
 	void AppliquerSaison();
 	void HabillerLesPassants();
+	void EparpillerLesCadeaux();
 	bool PoserBonnet(ACharacter* Passant);
 
 	// reglages lus dans Noel.txt
@@ -76,11 +79,15 @@ private:
 	float Enfoncement = 4.f;
 	float TournerBonnet = 0.f;
 	float PencherBonnet = 0.f;
+	int32 NombreCadeaux = 80;
+	float TailleCadeauMin = 30.f;
+	float TailleCadeauMax = 60.f;
 
 	UPROPERTY()
 	TArray<UStaticMesh*> Bonnets;
 
 	FTimerHandle Minuterie;
 	FTimerHandle MinuterieSaison;
+	FTimerHandle MinuterieCadeaux;
 	int32 NbBonnets = 0;
 };

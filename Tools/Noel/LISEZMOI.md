@@ -6,6 +6,8 @@ Du **1er décembre au 1er janvier** (date du PC), le jeu passe tout seul en mode
 - le **sol devient blanc** (seulement les parties à peu près plates du Landscape) ;
 - chaque **passant porte un bonnet de Noël** (pack `Content/Christmas_pack`, bonnets `SM_decoration_hat_1` à `4`).
   La Christmas Girl est déjà en tenue : elle n'en reçoit pas ;
+- des **cadeaux** (pack `Christmas_pack`, `SM_decoration_present_1` à `8`) sont **éparpillés** par terre et sur
+  les trottoirs, jamais sur les routes ni les toits ; ils changent de place chaque jour (80 par défaut) ;
 - le **ciel orangé le soir** vient du cycle jour/nuit GoodSky déjà installé (rien à faire).
 
 Le reste de l'année, tout est comme avant : pas de neige, sol d'origine, pas de bonnet.
@@ -26,7 +28,7 @@ Pas besoin de recompiler : arrêtez Play et relancez-le.
 ## Régler
 
 Ouvrez `Plugins\ChellesNoel\Noel.txt` avec le Bloc-notes : dates, bonnets utilisés, taille du bonnet,
-enfoncement, rotation. Enregistrez puis relancez Play.
+enfoncement, rotation, nombre et taille des cadeaux. Enregistrez puis relancez Play.
 
 ## Retirer
 

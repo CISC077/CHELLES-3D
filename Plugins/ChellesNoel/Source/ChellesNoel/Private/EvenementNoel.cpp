@@ -14,6 +14,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "TimerManager.h"
+#include "CollisionQueryParams.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogNoel, Log, All);
 
@@ -123,6 +124,8 @@ void AEvenementNoel::BeginPlay()
 			// les passants apparaissent petit a petit : on regarde regulierement
 			GetWorldTimerManager().SetTimer(Minuterie, this, &AEvenementNoel::HabillerLesPassants, 1.5f, true, 1.f);
 		}
+		// cadeaux : un peu apres le debut, quand tout le decor est en place
+		GetWorldTimerManager().SetTimer(MinuterieCadeaux, this, &AEvenementNoel::EparpillerLesCadeaux, 1.f, false);
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 8.f, FColor(255, 60, 60),
@@ -135,6 +138,7 @@ void AEvenementNoel::EndPlay(const EEndPlayReason::Type Raison)
 {
 	GetWorldTimerManager().ClearTimer(Minuterie);
 	GetWorldTimerManager().ClearTimer(MinuterieSaison);
+	GetWorldTimerManager().ClearTimer(MinuterieCadeaux);
 	Super::EndPlay(Raison);
 }
 
@@ -206,6 +210,24 @@ void AEvenementNoel::LireReglages()
 		else if (Cle.Equals(TEXT("PencherBonnet"), ESearchCase::IgnoreCase))
 		{
 			PencherBonnet = FCString::Atof(*Valeur);
+		}
+		else if (Cle.Equals(TEXT("Cadeaux"), ESearchCase::IgnoreCase))
+		{
+			NombreCadeaux = FMath::Clamp(FCString::Atoi(*Valeur), 0, 1000);
+		}
+		else if (Cle.Equals(TEXT("TailleCadeau"), ESearchCase::IgnoreCase))
+		{
+			// "30-60" (cm) ou une seule valeur
+			FString A, B;
+			if (Valeur.Split(TEXT("-"), &A, &B))
+			{
+				TailleCadeauMin = FMath::Clamp(FCString::Atof(*A), 5.f, 300.f);
+				TailleCadeauMax = FMath::Clamp(FCString::Atof(*B), TailleCadeauMin, 300.f);
+			}
+			else
+			{
+				TailleCadeauMin = TailleCadeauMax = FMath::Clamp(FCString::Atof(*Valeur), 5.f, 300.f);
+			}
 		}
 	}
 }
@@ -327,4 +349,96 @@ bool AEvenementNoel::PoserBonnet(ACharacter* Passant)
 
 	Passant->Tags.AddUnique(TagBonnet);
 	return true;
+}
+
+void AEvenementNoel::EparpillerLesCadeaux()
+{
+	if (NombreCadeaux <= 0)
+	{
+		return;
+	}
+	TArray<UStaticMesh*> Paquets;
+	for (int32 Numero = 1; Numero <= 8; ++Numero)
+	{
+		const FString Chemin = FString::Printf(
+			TEXT("/Game/Christmas_pack/Mesh/Decoration/SM_decoration_present_%d.SM_decoration_present_%d"), Numero, Numero);
+		if (UStaticMesh* Paquet = LoadObject<UStaticMesh>(nullptr, *Chemin, nullptr, LOAD_NoWarn))
+		{
+			Paquets.Add(Paquet);
+		}
+	}
+	if (Paquets.Num() == 0)
+	{
+		UE_LOG(LogNoel, Warning, TEXT("[Noel] aucun cadeau trouve dans /Game/Christmas_pack/Mesh/Decoration"));
+		return;
+	}
+
+	// zone de la ville = le Landscape (sinon 400 m autour du centre)
+	FBox Zone(ForceInit);
+	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+	{
+		if (*It && It->GetClass()->GetName().Contains(TEXT("Landscape")))
+		{
+			Zone += It->GetComponentsBoundingBox();
+		}
+	}
+	if (!Zone.IsValid || Zone.GetSize().X < 1000.f)
+	{
+		Zone = FBox(FVector(-40000.f, -40000.f, -10000.f), FVector(40000.f, 40000.f, 10000.f));
+	}
+
+	// memes places pour tous les joueurs, nouvelles places chaque jour
+	const FDateTime Jour = FDateTime::Now();
+	FRandomStream Hasard(Jour.GetYear() * 1000 + Jour.GetDayOfYear());
+
+	FCollisionQueryParams Requete(TEXT("CadeauxNoel"), false, this);
+	const float Haut = Zone.Max.Z + 50000.f;
+	const float Bas = Zone.Min.Z - 50000.f;
+	int32 Poses = 0;
+	for (int32 Essai = 0; Essai < NombreCadeaux * 30 && Poses < NombreCadeaux; ++Essai)
+	{
+		const float X = Hasard.FRandRange(Zone.Min.X, Zone.Max.X);
+		const float Y = Hasard.FRandRange(Zone.Min.Y, Zone.Max.Y);
+		FHitResult Impact;
+		if (!GetWorld()->LineTraceSingleByChannel(Impact, FVector(X, Y, Haut), FVector(X, Y, Bas), ECC_Visibility, Requete))
+		{
+			continue;
+		}
+		// seulement par terre (Landscape) ou sur un trottoir : pas sur les toits ni sur les routes
+		const AActor* Touche = Impact.GetActor();
+		const FString NomActeur = Touche ? Touche->GetName() + Touche->GetClass()->GetName() : FString();
+		const FString NomMesh = Impact.GetComponent() ? Impact.GetComponent()->GetName() : FString();
+		const UStaticMeshComponent* SurMesh = Cast<UStaticMeshComponent>(Impact.GetComponent());
+		const FString NomForme = (SurMesh && SurMesh->GetStaticMesh()) ? SurMesh->GetStaticMesh()->GetName() : FString();
+		const bool bSol = NomActeur.Contains(TEXT("Landscape"));
+		const bool bTrottoir = NomActeur.Contains(TEXT("Trottoir")) || NomMesh.Contains(TEXT("Trottoir")) || NomForme.Contains(TEXT("Trottoir"));
+		if ((!bSol && !bTrottoir) || Impact.ImpactNormal.Z < 0.85f)
+		{
+			continue;
+		}
+
+		UStaticMesh* Paquet = Paquets[Hasard.RandRange(0, Paquets.Num() - 1)];
+		const FBox Boite = Paquet->GetBoundingBox();
+		const float Largeur = FMath::Max(Boite.GetSize().X, Boite.GetSize().Y);
+		if (Largeur < 0.1f)
+		{
+			continue;
+		}
+		const float Echelle = Hasard.FRandRange(TailleCadeauMin, TailleCadeauMax) / Largeur;
+		const FRotator Orientation(0.f, Hasard.FRandRange(0.f, 360.f), 0.f);
+		const FVector Bas3(Boite.GetCenter().X, Boite.GetCenter().Y, Boite.Min.Z);
+		const FVector Position = Impact.ImpactPoint - Orientation.RotateVector(Bas3 * Echelle);
+
+		UStaticMeshComponent* Cadeau = NewObject<UStaticMeshComponent>(this);
+		Cadeau->SetStaticMesh(Paquet);
+		Cadeau->SetMobility(EComponentMobility::Movable);
+		Cadeau->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Cadeau->SetGenerateOverlapEvents(false);
+		Cadeau->SetCanEverAffectNavigation(false);
+		Cadeau->SetWorldTransform(FTransform(Orientation, Position, FVector(Echelle)));
+		Cadeau->RegisterComponent();
+		++Poses;
+	}
+	UE_LOG(LogNoel, Log, TEXT("[Noel] %d cadeau(x) eparpille(s) (zone %.0f x %.0f m)"),
+		Poses, Zone.GetSize().X / 100.f, Zone.GetSize().Y / 100.f);
 }
