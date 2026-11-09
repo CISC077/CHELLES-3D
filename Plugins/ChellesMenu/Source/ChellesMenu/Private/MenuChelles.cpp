@@ -182,6 +182,11 @@ void AMenuChelles::Ouvrir()
 	Vue->AddViewportWidgetContent(Widget.ToSharedRef(), 1000);
 
 	bOuvert = true;
+	// Cache les messages techniques en haut a gauche (texture pool, passants...) pendant le menu
+	if (GEngine)
+	{
+		GEngine->bEnableOnScreenDebugMessagesDisplay = false;
+	}
 	ModeInterface();
 	Joueur->SetPause(true);
 
@@ -231,6 +236,10 @@ void AMenuChelles::Fermer(bool bReprendreLeJeu)
 		}
 	}
 	Widget.Reset();
+	if (GEngine)
+	{
+		GEngine->bEnableOnScreenDebugMessagesDisplay = true;
+	}
 	if (Musique)
 	{
 		Musique->bAutoDestroy = true;
