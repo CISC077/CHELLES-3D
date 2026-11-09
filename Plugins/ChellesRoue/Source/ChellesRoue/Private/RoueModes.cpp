@@ -146,6 +146,15 @@ ARoueModes::ARoueModes()
 	Moto.ClasseVehicule = FSoftClassPath(FString(CHEMIN_MOTONEIGE));
 	Modes.Add(Moto);
 
+	// SUV du pack DriveableCar_basic (remis sur la roue le 2026-11-09, seule voiture)
+	FModeRoue Suv;
+	Suv.Nom = FText::FromString(TEXT("SUV"));
+	Suv.Type = ETypeModeRoue::Vehicule;
+	Suv.Icone = EIconeRoue::Voiture;
+	Suv.Couleur = FLinearColor(0.2f, 0.85f, 0.6f);
+	Suv.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/SUV_BP_child.SUV_BP_child_C")));
+	Modes.Add(Suv);
+
 	// Deux personnages du pack SuperPowers (a la place des voitures, 2026-11-08)
 	FModeRoue Flash;
 	Flash.Nom = FText::FromString(TEXT("FLASH ECLAIR"));
