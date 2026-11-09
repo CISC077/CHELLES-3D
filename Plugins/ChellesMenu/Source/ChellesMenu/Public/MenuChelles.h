@@ -124,7 +124,7 @@ private:
 	void RetirerDelegues();
 	void LancerMusiqueJeu();
 	/** Charge le son choisi, sinon un son de secours deja present dans le projet. */
-	static USoundBase* Charger(TSoftObjectPtr<USoundBase>& Son, const TCHAR* Secours);
+	static USoundBase* Charger(TSoftObjectPtr<USoundBase>& SonCharge, const TCHAR* Secours);
 	void MusiquePlus();
 	void MusiqueMoins();
 	void MusiqueCouper();

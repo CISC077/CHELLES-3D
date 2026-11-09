@@ -106,16 +106,16 @@ namespace
 		FSujetAide* Courant = nullptr;
 		for (const FString& Brute : Lignes)
 		{
-			const FString Ligne = Brute.TrimStartAndEnd();
-			if (Ligne.StartsWith(TEXT("#")))
+			const FString Txt = Brute.TrimStartAndEnd();
+			if (Txt.StartsWith(TEXT("#")))
 			{
 				continue;
 			}
-			if (Ligne.StartsWith(TEXT("[")) && Ligne.EndsWith(TEXT("]")))
+			if (Txt.StartsWith(TEXT("[")) && Txt.EndsWith(TEXT("]")))
 			{
 				FSujetAide& Sujet = GBible.AddDefaulted_GetRef();
 				TArray<FString> Mots;
-				Ligne.Mid(1, Ligne.Len() - 2).ParseIntoArray(Mots, TEXT(","), true);
+				Txt.Mid(1, Txt.Len() - 2).ParseIntoArray(Mots, TEXT(","), true);
 				for (const FString& Mot : Mots)
 				{
 					const FString Propre = Mot.TrimStartAndEnd();
@@ -131,9 +131,9 @@ namespace
 				Courant = &Sujet;
 				continue;
 			}
-			if (Courant && !Ligne.IsEmpty())
+			if (Courant && !Txt.IsEmpty())
 			{
-				Courant->Reponse += (Courant->Reponse.IsEmpty() ? TEXT("") : TEXT("\n")) + Ligne;
+				Courant->Reponse += (Courant->Reponse.IsEmpty() ? TEXT("") : TEXT("\n")) + Txt;
 			}
 		}
 		GBible.RemoveAll([](const FSujetAide& S) { return S.Reponse.IsEmpty(); });
@@ -210,7 +210,7 @@ namespace ChellesChat
 void SChatChelles::Construct(const FArguments& InArgs)
 {
 	Menu = InArgs._Menu;
-	const FSlateBrush* Blanc = FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
+	const FSlateBrush* Pinceau = FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
 
 	ChildSlot
 	.HAlign(HAlign_Right)
@@ -222,7 +222,7 @@ void SChatChelles::Construct(const FArguments& InArgs)
 		.Visibility(this, &SChatChelles::Visibilite)
 		[
 			SNew(SBorder)
-			.BorderImage(Blanc)
+			.BorderImage(Pinceau)
 			.BorderBackgroundColor(CFond)
 			.Padding(FMargin(12.f))
 			[
@@ -239,7 +239,7 @@ void SChatChelles::Construct(const FArguments& InArgs)
 				[
 					SNew(SBox).HeightOverride(2.f)
 					[
-						SNew(SImage).Image(Blanc).ColorAndOpacity_Lambda([this]() { return FSlateColor(bAide ? COr : CCyan); })
+						SNew(SImage).Image(Pinceau).ColorAndOpacity_Lambda([this]() { return FSlateColor(bAide ? COr : CCyan); })
 					]
 				]
 				// Messages

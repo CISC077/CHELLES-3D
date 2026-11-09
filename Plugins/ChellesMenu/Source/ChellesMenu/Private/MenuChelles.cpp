@@ -166,9 +166,9 @@ void AMenuChelles::Ouvrir()
 	ModeInterface();
 	Joueur->SetPause(true);
 
-	if (USoundBase* Son = Charger(MusiqueMenu, TEXT("/Game/Sounds/Music/Vehicle_Race_Cue.Vehicle_Race_Cue")))
+	if (USoundBase* SonCharge = Charger(MusiqueMenu, TEXT("/Game/Sounds/Music/Vehicle_Race_Cue.Vehicle_Race_Cue")))
 	{
-		Musique = UGameplayStatics::CreateSound2D(this, Son, ChellesOptions::VolumeMusique(), 1.f, 0.f, nullptr, false, true);
+		Musique = UGameplayStatics::CreateSound2D(this, SonCharge, ChellesOptions::VolumeMusique(), 1.f, 0.f, nullptr, false, true);
 		if (Musique)
 		{
 			Musique->bIsUISound = true; // continue pendant la pause
@@ -254,10 +254,10 @@ USoundBase* AMenuChelles::PisteDeLaPlaylist(int32& Index)
 	for (int32 Essai = 0; Essai < Nombre; ++Essai)
 	{
 		const int32 i = ((Index + Essai) % Nombre + Nombre) % Nombre;
-		if (USoundBase* Son = MusiquesJeu[i].LoadSynchronous())
+		if (USoundBase* SonCharge = MusiquesJeu[i].LoadSynchronous())
 		{
 			Index = i;
-			return Son;
+			return SonCharge;
 		}
 	}
 	return LoadObject<USoundBase>(nullptr, TEXT("/Game/Audio/Starter_Music_Cue.Starter_Music_Cue"), nullptr, LOAD_NoWarn | LOAD_Quiet);
@@ -270,10 +270,10 @@ void AMenuChelles::MusiqueSuivante()
 		return;
 	}
 	++Piste;
-	if (USoundBase* Son = PisteDeLaPlaylist(Piste))
+	if (USoundBase* SonCharge = PisteDeLaPlaylist(Piste))
 	{
 		MusiquePartie->Stop();
-		MusiquePartie->SetSound(Son);
+		MusiquePartie->SetSound(SonCharge);
 		MajVolumeMusique();
 		if (!ChellesOptions::MusiqueCoupee())
 		{
@@ -309,9 +309,9 @@ void AMenuChelles::LancerMusiqueJeu()
 	{
 		return;
 	}
-	if (USoundBase* Son = PisteDeLaPlaylist(Piste))
+	if (USoundBase* SonCharge = PisteDeLaPlaylist(Piste))
 	{
-		MusiquePartie = UGameplayStatics::CreateSound2D(this, Son, 1.f, 1.f, 0.f, nullptr, false, false);
+		MusiquePartie = UGameplayStatics::CreateSound2D(this, SonCharge, 1.f, 1.f, 0.f, nullptr, false, false);
 		if (MusiquePartie)
 		{
 			MusiquePartie->bIsUISound = true;
@@ -324,9 +324,9 @@ void AMenuChelles::LancerMusiqueJeu()
 	}
 }
 
-USoundBase* AMenuChelles::Charger(TSoftObjectPtr<USoundBase>& Son, const TCHAR* Secours)
+USoundBase* AMenuChelles::Charger(TSoftObjectPtr<USoundBase>& SonCharge, const TCHAR* Secours)
 {
-	if (USoundBase* Trouve = Son.LoadSynchronous())
+	if (USoundBase* Trouve = SonCharge.LoadSynchronous())
 	{
 		return Trouve;
 	}
@@ -460,13 +460,13 @@ void AMenuChelles::JouerSon(ESonMenu Quel)
 		}
 		DernierSurvol = Maintenant;
 	}
-	USoundBase* Son = Choix->LoadSynchronous();
-	if (!Son)
+	USoundBase* SonCharge = Choix->LoadSynchronous();
+	if (!SonCharge)
 	{
 		return;
 	}
 	const float Volume = ChellesOptions::VolumeEffets() * (Quel == ESonMenu::Survol ? 0.5f : 1.f);
-	if (UAudioComponent* Lecteur = UGameplayStatics::CreateSound2D(this, Son, Volume, 1.f, 0.f, nullptr, false, true))
+	if (UAudioComponent* Lecteur = UGameplayStatics::CreateSound2D(this, SonCharge, Volume, 1.f, 0.f, nullptr, false, true))
 	{
 		Lecteur->bIsUISound = true;
 		Lecteur->Play();

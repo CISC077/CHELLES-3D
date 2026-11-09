@@ -865,7 +865,7 @@ int32 SDecorCyber::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 		ChellesOptions::Version(), PoliceVersion, ESlateDrawEffect::None, Alpha(Cyan, 0.85f));
 
 	// Etincelles neon et dorees qui montent derriere les boutons
-	const FSlateBrush* Blanc = FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
+	const FSlateBrush* Pinceau = FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
 	for (int32 i = 0; i < 100; ++i)
 	{
 		const float Graine = FMath::Frac(FMath::Sin(i * 12.9898f) * 43758.5453f);
@@ -877,9 +877,9 @@ int32 SDecorCyber::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 		const float Eclat = FMath::Sin(Vie * PI) * (0.35f + 0.4f * FMath::Frac(Graine * 9.13f));
 		const FLinearColor Couleur = (i % 3 == 0) ? Or : ((i % 3 == 1) ? Cyan : Magenta);
 		FSlateDrawElement::MakeBox(Sortie, Couche + 1, G.ToPaintGeometry(FVector2D(X - Taille * 1.5f, Y - Taille * 1.5f), FVector2D(Taille * 3.f, Taille * 3.f)),
-			Blanc, ESlateDrawEffect::None, Alpha(Couleur, Eclat * 0.15f));
+			Pinceau, ESlateDrawEffect::None, Alpha(Couleur, Eclat * 0.15f));
 		FSlateDrawElement::MakeBox(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(X - Taille * 0.5f, Y - Taille * 0.5f), FVector2D(Taille, Taille)),
-			Blanc, ESlateDrawEffect::None, Alpha(Couleur, Eclat));
+			Pinceau, ESlateDrawEffect::None, Alpha(Couleur, Eclat));
 	}
 
 	return Couche + 3;
