@@ -1,0 +1,28 @@
+; ============================================================
+;  EVENEMENT DE NOEL - CHELLES 3D
+;  Modifiez une valeur, enregistrez, puis relancez Play.
+;  (pas besoin de recompiler)
+; ============================================================
+
+; Auto = selon la date du PC (entre Debut et Fin)
+; Oui  = Noel tout le temps (pour tester)
+; Non  = jamais Noel
+Mode=Auto
+
+; Dates de l'evenement : JJ/MM (Fin comprise)
+Debut=01/12
+Fin=01/01
+
+; Bonnets du pack Christmas_pack a utiliser (numeros 1 a 4, separes par des virgules)
+; Exemple : Bonnets=2  -> tous les passants ont le bonnet no 2
+Bonnets=1,2,3,4
+
+; Largeur du bonnet en cm (pour une personne de 1m80)
+TailleBonnet=24
+
+; Combien le bonnet s'enfonce sur la tete (cm)
+Enfoncement=4
+
+; Si le bonnet est tourne de travers : rotation en degres
+TournerBonnet=0
+PencherBonnet=0
