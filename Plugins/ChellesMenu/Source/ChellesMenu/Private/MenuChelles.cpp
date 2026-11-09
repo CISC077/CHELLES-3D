@@ -60,7 +60,8 @@ AMenuChelles::AMenuChelles()
 	PrimaryActorTick.TickInterval = 0.5f; // seulement pour relancer la musique en boucle
 	SetCanBeDamaged(false);
 	// Bibliotheque de sons de MERIDJA (importee par Tools/Menu/importer_musiques.py)
-	const TCHAR* Menu[] = { TEXT("Menu_1_RetroGame1"), TEXT("Menu_2_RetroGame2"), TEXT("Menu_3_RetroGame3"), TEXT("Menu_4_Junkala") };
+	// Junkala d'abord : c'est la musique qui accompagne l'ouverture du menu JOUER / OPTIONS / QUITTER
+	const TCHAR* Menu[] = { TEXT("Menu_4_Junkala"), TEXT("Menu_1_RetroGame1"), TEXT("Menu_2_RetroGame2"), TEXT("Menu_3_RetroGame3") };
 	for (const TCHAR* Nom : Menu)
 	{
 		MusiquesMenu.Add(TSoftObjectPtr<USoundBase>(FSoftObjectPath(FString::Printf(TEXT("/Game/ChellesMenu/Audio/%s.%s"), Nom, Nom))));
@@ -186,7 +187,10 @@ void AMenuChelles::Ouvrir()
 		if (Musique)
 		{
 			Musique->bIsUISound = true; // continue pendant la pause
-			Musique->FadeIn(1.5f, ChellesOptions::VolumeMusique());
+			if (!ChellesOptions::MusiqueCoupee())
+			{
+				Musique->FadeIn(1.5f, ChellesOptions::VolumeMusique());
+			}
 		}
 	}
 
@@ -429,21 +433,31 @@ void AMenuChelles::MusiqueMoins()
 	AnnoncerMusique();
 }
 
-void AMenuChelles::MusiqueCouper()
+void AMenuChelles::BasculerMusique()
 {
 	const bool bCoupee = !ChellesOptions::MusiqueCoupee();
 	ChellesOptions::DefinirMusiqueCoupee(bCoupee);
-	if (MusiquePartie)
+	const float Volume = FMath::Max(0.001f, ChellesOptions::VolumeMusique());
+	for (UAudioComponent* Lecteur : { Musique, MusiquePartie })
 	{
+		if (!Lecteur)
+		{
+			continue;
+		}
 		if (bCoupee)
 		{
-			MusiquePartie->FadeOut(0.5f, 0.f);
+			Lecteur->FadeOut(0.5f, 0.f);
 		}
 		else
 		{
-			MusiquePartie->FadeIn(0.5f, FMath::Max(0.001f, ChellesOptions::VolumeMusique()));
+			Lecteur->FadeIn(0.5f, Volume);
 		}
 	}
+}
+
+void AMenuChelles::MusiqueCouper()
+{
+	BasculerMusique();
 	AnnoncerMusique();
 }
 
@@ -531,7 +545,7 @@ void AMenuChelles::MajVolumeMusique()
 void AMenuChelles::EntretenirMusique()
 {
 	// Morceau du menu termine : on passe au suivant de la playlist du menu
-	if (Musique && bOuvert && !bQuitteEnCours && !Musique->IsPlaying())
+	if (Musique && bOuvert && !bQuitteEnCours && !Musique->IsPlaying() && !ChellesOptions::MusiqueCoupee())
 	{
 		++PisteMenu;
 		if (USoundBase* SonCharge = PisteDe(MusiquesMenu, PisteMenu, TEXT("/Game/Sounds/Music/Vehicle_Race_Cue.Vehicle_Race_Cue")))

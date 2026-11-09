@@ -1034,8 +1034,80 @@ void SMenuChelles::Construct(const FArguments& InArgs)
 		[
 			SAssignNew(Zone, SBox)
 		]
+		// Logo son en haut a droite : clic = couper / remettre la musique
+		+ SOverlay::Slot()
+		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Top)
+		.Padding(FMargin(0.f, 30.f, 34.f, 0.f))
+		[
+			SNew(SIconeSon)
+			.OnClic(FSimpleDelegate::CreateLambda([this]()
+			{
+				if (AMenuChelles* M = LeMenu())
+				{
+					M->BasculerMusique();
+				}
+			}))
+		]
 	];
 	Afficher(EEcranMenu::Principal);
+}
+
+// ---------------------------------------------------------------- Logo son
+
+void SIconeSon::Construct(const FArguments& InArgs)
+{
+	Clic = InArgs._OnClic;
+	SetCursor(EMouseCursor::Hand);
+}
+
+FReply SIconeSon::OnMouseButtonDown(const FGeometry& Geometrie, const FPointerEvent& Evenement)
+{
+	if (Evenement.GetEffectingButton() == EKeys::LeftMouseButton)
+	{
+		Son(ESonMenu::Clic);
+		Clic.ExecuteIfBound();
+		return FReply::Handled();
+	}
+	return FReply::Unhandled();
+}
+
+int32 SIconeSon::OnPaint(const FPaintArgs& Args, const FGeometry& Geometrie, const FSlateRect& Clip,
+	FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const
+{
+	const bool bCoupe = ChellesOptions::MusiqueCoupee();
+	const float Eclat = IsHovered() ? 1.f : 0.75f;
+	const FLinearColor Couleur = Alpha(bCoupe ? Gris : Cyan, Eclat);
+
+	// Cadre a coins coupes, comme les boutons
+	Ligne(Sortie, Couche, Geometrie, Chanfrein(Geometrie.GetLocalSize(), 8.f), Alpha(Cyan, IsHovered() ? 0.9f : 0.35f), 1.5f);
+
+	// Haut-parleur
+	TArray<FVector2D> Corps = { FVector2D(10.f, 18.f), FVector2D(17.f, 18.f), FVector2D(25.f, 10.f), FVector2D(25.f, 36.f),
+		FVector2D(17.f, 28.f), FVector2D(10.f, 28.f), FVector2D(10.f, 18.f) };
+	Ligne(Sortie, Couche + 1, Geometrie, Corps, Couleur, 2.f);
+
+	if (bCoupe)
+	{
+		// Barre magenta
+		TArray<FVector2D> Barre = { FVector2D(8.f, 38.f), FVector2D(39.f, 8.f) };
+		Ligne(Sortie, Couche + 2, Geometrie, Barre, Magenta, 3.f);
+	}
+	else
+	{
+		// Ondes sonores
+		for (float Rayon : { 6.f, 11.f })
+		{
+			TArray<FVector2D> Onde;
+			for (int32 i = -3; i <= 3; ++i)
+			{
+				const float Angle = FMath::DegreesToRadians(i * 15.f);
+				Onde.Add(FVector2D(27.f + Rayon * FMath::Cos(Angle), 23.f + Rayon * FMath::Sin(Angle)));
+			}
+			Ligne(Sortie, Couche + 1, Geometrie, Onde, Couleur, 2.f);
+		}
+	}
+	return Couche + 3;
 }
 
 AMenuChelles* SMenuChelles::LeMenu() const

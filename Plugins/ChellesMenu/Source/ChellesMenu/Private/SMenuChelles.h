@@ -67,6 +67,24 @@ public:
 		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override;
 };
 
+/** Petit logo haut-parleur (barre quand la musique est coupee), en haut a droite du menu. */
+class SIconeSon : public SLeafWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SIconeSon) {}
+		SLATE_EVENT(FSimpleDelegate, OnClic)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs);
+	virtual FVector2D ComputeDesiredSize(float) const override { return FVector2D(46.f, 46.f); }
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& Geometrie, const FSlateRect& Clip,
+		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override;
+	virtual FReply OnMouseButtonDown(const FGeometry& Geometrie, const FPointerEvent& Evenement) override;
+
+private:
+	FSimpleDelegate Clic;
+};
+
 /** Bouton texte : neon cyan, cadre a coins coupes qui pulse au survol. */
 class SBoutonMenu : public SCompoundWidget
 {

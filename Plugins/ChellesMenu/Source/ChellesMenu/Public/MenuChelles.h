@@ -84,6 +84,8 @@ public:
 	void MajVolumeMusique();
 	/** Relance la musique si elle s'est terminee (appele par le menu). */
 	void EntretenirMusique();
+	/** Coupe / remet la musique (menu et partie). Logo haut-parleur du menu et touche N. */
+	void BasculerMusique();
 
 	// Appeles par les boutons du menu
 	void Solo();
