@@ -9,6 +9,7 @@
 #include "MenuChelles.generated.h"
 
 class SMenuChelles;
+class SChatChelles;
 class APlayerController;
 class UAudioComponent;
 class USoundBase;
@@ -31,6 +32,7 @@ struct FPartieTrouvee
 	int32 Joueurs = 0;
 	int32 Places = 0;
 	int32 Ping = 0;
+	bool bPvp = true;
 };
 
 /**
@@ -142,6 +144,10 @@ private:
 	bool bQuitteEnCours = false;
 
 	TSharedPtr<SMenuChelles> Widget;
+	TSharedPtr<SChatChelles> PanneauChat;
+	void CreerChat();
+	void OuvrirChat();
+	void RetirerChat();
 	TSharedPtr<FOnlineSessionSearch> Recherche;
 	FOnlineSessionSearchResult PartieChoisie;
 	TArray<FPartieTrouvee> PartiesTrouvees;

@@ -417,7 +417,9 @@ namespace ChellesOptions
 		AppliquerVolume();
 	}
 
-	bool ChatActif() { return LireBool(TEXT("Chat"), false); }
+	bool ChatActif() { return LireBool(TEXT("Chat"), true); }
+	bool AideActive() { return LireBool(TEXT("Aide"), true); }
+	bool PvpActif() { return LireBool(TEXT("Pvp"), true); }
 	float VolumeMusique() { return VolumeCanal(0); }
 	float VolumeGeneral() { return Volume(); }
 	bool MusiqueCoupee() { return LireBool(TEXT("MusiqueCoupee"), false); }
@@ -739,12 +741,32 @@ namespace ChellesOptions
 	// --- Chat et difficulte
 	static FText TexteChat()
 	{
-		return FText::FromString(FString::Printf(TEXT("CHAT : %s"), ChatActif() ? TEXT("ON") : TEXT("OFF")));
+		return FText::FromString(FString::Printf(TEXT("CHAT JOUEURS (MULTI) : %s"), ChatActif() ? TEXT("ON") : TEXT("OFF")));
 	}
 
 	static void ChangerChat()
 	{
 		EcrireBool(TEXT("Chat"), !ChatActif());
+	}
+
+	static FText TexteAide()
+	{
+		return FText::FromString(FString::Printf(TEXT("AIDE TUTO & ASTUCES : %s"), AideActive() ? TEXT("ON") : TEXT("OFF")));
+	}
+
+	static void ChangerAide()
+	{
+		EcrireBool(TEXT("Aide"), !AideActive());
+	}
+
+	static FText TextePvp()
+	{
+		return FText::FromString(FString::Printf(TEXT("PVP (SI TU H\u00C9BERGES) : %s"), PvpActif() ? TEXT("ON") : TEXT("OFF")));
+	}
+
+	static void ChangerPvp()
+	{
+		EcrireBool(TEXT("Pvp"), !PvpActif());
 	}
 
 	static const TCHAR* NomsDifficulte[] = { TEXT("FACILE"), TEXT("NORMAL"), TEXT("DIFFICILE"), TEXT("EXTR\u00CAME") };
@@ -1411,6 +1433,7 @@ TSharedRef<SWidget> SMenuChelles::EcranMulti()
 				if (AMenuChelles* Mn = LeMenu()) { Mn->Rechercher(); }
 			}) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("ADRESSE IP SERVEUR")), 46, [this]() { Afficher(EEcranMenu::AdresseIP); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TextePvp(); }, [](int32) { ChellesOptions::ChangerPvp(); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("LAN LOCAL")), 46, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->HebergerLAN(); } }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("LAN LOCAL = cr\u00E9er ta partie : les autres PC de la maison pourront la rejoindre."))) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("SEARCH")), 46, [this]()
@@ -1437,7 +1460,7 @@ TSharedRef<SWidget> SMenuChelles::EcranServeurs()
 		for (int32 i = 0; i < M->Parties().Num(); ++i)
 		{
 			const FPartieTrouvee& P = M->Parties()[i];
-			const FText Libelle = FText::FromString(FString::Printf(TEXT("%s    %d/%d JOUEURS    %d ms"), *P.Hote.ToUpper(), P.Joueurs, P.Places, P.Ping));
+			const FText Libelle = FText::FromString(FString::Printf(TEXT("%s    %d/%d JOUEURS    PVP %s    %d ms"), *P.Hote.ToUpper(), P.Joueurs, P.Places, P.bPvp ? TEXT("ON") : TEXT("OFF"), P.Ping));
 			Liste->AddSlot().AutoHeight()[ Bouton(Libelle, 30, [this, i]() { if (AMenuChelles* Mn = LeMenu()) { Mn->RejoindrePartie(i); } }) ];
 		}
 	}
@@ -1636,8 +1659,10 @@ TSharedRef<SWidget> SMenuChelles::OngletJeu()
 {
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteChat(); }, [](int32) { ChellesOptions::ChangerChat(); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteAide(); }, [](int32) { ChellesOptions::ChangerAide(); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TextePvp(); }, [](int32) { ChellesOptions::ChangerPvp(); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteDifficulte(); }, [](int32 S) { ChellesOptions::ChangerDifficulte(S); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Chat et difficult\u00E9 sont enregistr\u00E9s. La fen\u00EAtre de chat et l'effet sur les ennemis seront branch\u00E9s \u00E0 l'\u00E9tape suivante."))) ];
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("En jeu, ENTR\u00C9E ouvre le panneau de droite : chat entre joueurs (en multi) et aide Tuto & Astuces. Le PVP est choisi par celui qui h\u00E9berge la partie. L'effet de la difficult\u00E9 sur les ennemis viendra apr\u00E8s le test LAN."))) ];
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranTouches()

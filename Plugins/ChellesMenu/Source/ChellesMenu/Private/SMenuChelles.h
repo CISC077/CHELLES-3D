@@ -40,6 +40,8 @@ namespace ChellesOptions
 	void AppliquerAuDemarrage(UWorld* Monde);
 	void AppliquerAuJoueur(APlayerController* Joueur);
 	bool ChatActif();
+	bool AideActive();
+	bool PvpActif();
 	bool Manette();
 	int32 Difficulte(); // 0 Facile, 1 Normal, 2 Difficile, 3 Extreme
 	float VolumeMusique();

@@ -2,6 +2,8 @@
 #include "MenuChelles.h"
 
 #include "SMenuChelles.h"
+#include "SChatChelles.h"
+#include "ChatChelles.h"
 
 #include "Components/AudioComponent.h"
 #include "Containers/Ticker.h"
@@ -30,6 +32,7 @@ namespace
 	bool GEchecsBranches = false;
 
 	const FName CleJeu(TEXT("JEU"));
+	const FName ClePvp(TEXT("PVP"));
 	const FString ValeurJeu(TEXT("CHELLES3D"));
 
 	void SurEchecReseau(UWorld*, UNetDriver*, ENetworkFailure::Type, const FString& Erreur)
@@ -109,6 +112,7 @@ void AMenuChelles::EndPlay(const EEndPlayReason::Type Raison)
 		Monde->GetTimerManager().ClearTimer(Minuterie);
 	}
 	RetirerDelegues();
+	RetirerChat();
 	Fermer(false);
 	if (MusiquePartie)
 	{
@@ -234,6 +238,8 @@ void AMenuChelles::Solo()
 void AMenuChelles::Tick(float Delta)
 {
 	Super::Tick(Delta);
+	// Serveur : chaque joueur connecte recoit son composant de chat
+	UChatChelles::EquiperJoueurs(GetWorld());
 	// Les sons du pack ne bouclent pas tous : on relance la musique de la partie quand elle se termine.
 	// Quand une piste est finie, on passe a la suivante de la playlist.
 	if (MusiquePartie && !MusiquePartie->IsPlaying() && !ChellesOptions::MusiqueCoupee())
@@ -295,7 +301,10 @@ void AMenuChelles::LancerMusiqueJeu()
 		InputComponent->BindKey(EKeys::PageDown, IE_Pressed, this, &AMenuChelles::MusiqueMoins);
 		InputComponent->BindKey(EKeys::N, IE_Pressed, this, &AMenuChelles::MusiqueCouper);
 		InputComponent->BindKey(EKeys::End, IE_Pressed, this, &AMenuChelles::MusiqueSuivante);
+		// Entree = panneau de droite (chat entre joueurs / aide Tuto & Astuces)
+		InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AMenuChelles::OuvrirChat);
 	}
+	CreerChat();
 	if (MusiquePartie)
 	{
 		return;
@@ -322,6 +331,43 @@ USoundBase* AMenuChelles::Charger(TSoftObjectPtr<USoundBase>& Son, const TCHAR* 
 		return Trouve;
 	}
 	return LoadObject<USoundBase>(nullptr, Secours, nullptr, LOAD_NoWarn | LOAD_Quiet);
+}
+
+void AMenuChelles::CreerChat()
+{
+	UGameViewportClient* Vue = GetWorld() ? GetWorld()->GetGameViewport() : nullptr;
+	if (Vue && !PanneauChat.IsValid())
+	{
+		PanneauChat = SNew(SChatChelles).Menu(this);
+		Vue->AddViewportWidgetContent(PanneauChat.ToSharedRef(), 900);
+	}
+}
+
+void AMenuChelles::OuvrirChat()
+{
+	if (Widget.IsValid())
+	{
+		return; // pas pendant le menu
+	}
+	CreerChat();
+	if (PanneauChat.IsValid() && !PanneauChat->EstOuvert())
+	{
+		PanneauChat->Ouvrir();
+	}
+}
+
+void AMenuChelles::RetirerChat()
+{
+	if (PanneauChat.IsValid())
+	{
+		PanneauChat->Fermer();
+		UGameViewportClient* Vue = GetWorld() ? GetWorld()->GetGameViewport() : nullptr;
+		if (Vue)
+		{
+			Vue->RemoveViewportWidgetContent(PanneauChat.ToSharedRef());
+		}
+		PanneauChat.Reset();
+	}
 }
 
 void AMenuChelles::MusiquePlus()
@@ -580,6 +626,7 @@ void AMenuChelles::Creer()
 	Reglages.bAllowJoinViaPresence = true;
 	Reglages.Set(SETTING_MAPNAME, CheminCarte(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	Reglages.Set(CleJeu, ValeurJeu, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	Reglages.Set(ClePvp, FString(ChellesOptions::PvpActif() ? TEXT("1") : TEXT("0")), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 	HCreation = S->AddOnCreateSessionCompleteDelegate_Handle(
 		FOnCreateSessionCompleteDelegate::CreateUObject(this, &AMenuChelles::FinCreation));
@@ -668,6 +715,9 @@ void AMenuChelles::FinRecherche(bool bOk)
 			Partie.Places = Resultat.Session.SessionSettings.NumPublicConnections;
 			Partie.Joueurs = FMath::Max(1, Partie.Places - Resultat.Session.NumOpenPublicConnections);
 			Partie.Ping = Resultat.PingInMs;
+			FString Pvp;
+			Resultat.Session.SessionSettings.Get(ClePvp, Pvp);
+			Partie.bPvp = (Pvp != TEXT("0"));
 			PartiesTrouvees.Add(Partie);
 		}
 	}
