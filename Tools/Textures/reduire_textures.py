@@ -1,5 +1,5 @@
-"""NE PAS LANCER A LA MAIN : double-cliquer sur Tools/Textures/Textures_1_SIMULATION.bat
-(liste seulement), puis Textures_2_REDUIRE.bat (applique). UNREAL DOIT ETRE FERME.
+"""A LANCER DANS UNREAL : File > Execute Python Script... > ce fichier (il demande Oui/Non),
+OU, Unreal ferme : Textures_1_SIMULATION.bat (liste seulement) puis Textures_2_REDUIRE.bat.
 
 REDUIT LES TEXTURES TROP GROSSES (4K, 8K...) utilisees par la carte Maps/Rachid.
 C'est ce qui provoque l'alerte rouge "TEXTURE STREAMING POOL OVER ... GiB" et les ralentissements.
@@ -208,7 +208,14 @@ def main():
     if not a_reduire:
         log("Aucune texture au-dessus de %d px : rien a faire." % LIMITE)
         return
-    if os.environ.get("CHELLES_TEXTURES", "").lower() != "reduire":
+    mode = os.environ.get("CHELLES_TEXTURES", "").lower()
+    if not mode:   # lance depuis l'editeur (File > Execute Python Script) : on demande Oui/Non
+        question = ("%d texture(s) depassent %d px.\nGain estime : environ %.1f Go de memoire video.\n\n"
+                    "Les reduire maintenant ? (restaurer_textures.py remet tout comme avant)" % (len(a_reduire), LIMITE, gain))
+        if unreal.EditorDialog.show_message("Reduire les textures", question,
+                                            unreal.AppMsgType.YES_NO) == unreal.AppReturnType.YES:
+            mode = "reduire"
+    if mode != "reduire":
         log("SIMULATION : rien n'a ete modifie. Pour appliquer : Textures_2_REDUIRE.bat")
         return
     faites = appliquer(a_reduire)
