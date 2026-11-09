@@ -28,6 +28,10 @@
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/Text/STextBlock.h"
+#include "GameFramework/Character.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "HabillageChelles.h"
 
 // ---------------------------------------------------------------- Sons
 
@@ -1253,6 +1257,10 @@ TSharedRef<SBoutonMenu> SMenuChelles::Enregistrer(TSharedRef<SBoutonMenu> Nouvea
 
 void SMenuChelles::Afficher(EEcranMenu NouvelEcran)
 {
+	if (NouvelEcran != EEcranMenu::Habillage)
+	{
+		RetirerApercu(); // le personnage d'apercu n'existe que sur l'ecran HABILLAGE
+	}
 	const bool bMemeEcran = (Ecran == NouvelEcran);
 	const int32 AncienneSelection = Selection;
 	Ecran = NouvelEcran;
@@ -1299,6 +1307,9 @@ void SMenuChelles::Retour()
 	switch (Ecran)
 	{
 	case EEcranMenu::Mode:
+		Afficher(EEcranMenu::Habillage);
+		break;
+	case EEcranMenu::Habillage:
 	case EEcranMenu::Options:
 	case EEcranMenu::ConfirmerQuitter:
 	case EEcranMenu::Credits:
@@ -1419,6 +1430,7 @@ TSharedRef<SWidget> SMenuChelles::Construire(EEcranMenu E)
 {
 	switch (E)
 	{
+	case EEcranMenu::Habillage:     return EcranHabillage();
 	case EEcranMenu::Mode:          return EcranMode();
 	case EEcranMenu::Multi:         return EcranMulti();
 	case EEcranMenu::Serveurs:      return EcranServeurs();
@@ -1436,7 +1448,7 @@ TSharedRef<SWidget> SMenuChelles::EcranPrincipal()
 {
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("CHELLES 3D")), FText::FromString(TEXT("// FPS  -  QUARTIER DE CHELLES"))) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("JOUER")), 64, [this]() { Afficher(EEcranMenu::Mode); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("JOUER")), 64, [this]() { Afficher(EEcranMenu::Habillage); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("OPTIONS")), 64, [this]() { Afficher(EEcranMenu::Options); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("CR\u00C9DITS")), 30, [this]() { Afficher(EEcranMenu::Credits); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("QUITTER")), 64, [this]() { Afficher(EEcranMenu::ConfirmerQuitter); }) ]
@@ -1489,6 +1501,304 @@ TSharedRef<SWidget> SMenuChelles::EcranMode()
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("SOLO")), 64, [this]() { if (AMenuChelles* M = LeMenu()) { M->Solo(); } }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("MULTI-PLAYER")), 64, [this]() { Afficher(EEcranMenu::Multi); }) ]
 		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 24.f, 0.f, 0.f))[ BoutonRetour() ];
+}
+
+// ---------------------------------------------------------------- HABILLAGE (sexe, tenue, look)
+
+/** Zone de l'apercu 3D : glisser a la souris pour faire tourner le personnage. */
+class SZoneApercuChelles : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SZoneApercuChelles) {}
+		SLATE_ARGUMENT(TWeakObjectPtr<AApercuHabillage>, Acteur)
+		SLATE_ARGUMENT(const FSlateBrush*, Image)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		Acteur = InArgs._Acteur;
+		SetCursor(EMouseCursor::GrabHand);
+		ChildSlot
+		[
+			SNew(SImage).Image(InArgs._Image)
+		];
+	}
+
+	virtual FReply OnMouseButtonDown(const FGeometry& Geometrie, const FPointerEvent& Evenement) override
+	{
+		bTire = true;
+		return FReply::Handled().CaptureMouse(SharedThis(this));
+	}
+
+	virtual FReply OnMouseButtonUp(const FGeometry& Geometrie, const FPointerEvent& Evenement) override
+	{
+		bTire = false;
+		return FReply::Handled().ReleaseMouseCapture();
+	}
+
+	virtual FReply OnMouseMove(const FGeometry& Geometrie, const FPointerEvent& Evenement) override
+	{
+		if (bTire && Acteur.IsValid())
+		{
+			Acteur->Tourner(Evenement.GetCursorDelta().X * 0.6f);
+			return FReply::Handled();
+		}
+		return FReply::Unhandled();
+	}
+
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSlateRect& Clip,
+		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override
+	{
+		const int32 Suite = SCompoundWidget::OnPaint(Args, G, Clip, Sortie, Couche, Style, bParentEnabled);
+		const FVector2D T = G.GetLocalSize();
+		const float Pulse = 0.6f + 0.3f * FMath::Sin(Horloge() * 2.f);
+		const TArray<FVector2D> Contour = Chanfrein(T, 26.f);
+		Ligne(Sortie, Suite + 1, G, Contour, Alpha(Cyan, 0.2f * Pulse), 8.f);
+		Ligne(Sortie, Suite + 2, G, Contour, Alpha(Cyan, Pulse), 2.f);
+		TArray<FVector2D> Sol;
+		Sol.Add(FVector2D(T.X * 0.2f, T.Y * 0.93f));
+		Sol.Add(FVector2D(T.X * 0.8f, T.Y * 0.93f));
+		Ligne(Sortie, Suite + 2, G, Sol, Alpha(Magenta, 0.7f), 3.f);
+		return Suite + 3;
+	}
+
+private:
+	TWeakObjectPtr<AApercuHabillage> Acteur;
+	bool bTire = false;
+};
+
+SMenuChelles::~SMenuChelles()
+{
+	RetirerApercu();
+}
+
+void SMenuChelles::RetirerApercu()
+{
+	if (AApercuHabillage* A = ApercuActeur.Get())
+	{
+		UWorld* Monde = A->GetWorld();
+		if (Monde && !Monde->bIsTearingDown && !A->IsPendingKill())
+		{
+			A->Destroy();
+		}
+	}
+	ApercuActeur.Reset();
+	if (PinceauApercu.IsValid())
+	{
+		PinceauApercu->SetResourceObject(nullptr);
+	}
+}
+
+void SMenuChelles::MontrerApercu()
+{
+	AMenuChelles* M = LeMenu();
+	UWorld* Monde = M ? M->GetWorld() : nullptr;
+	if (!Monde)
+	{
+		return;
+	}
+	if (!ApercuActeur.IsValid())
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		// Tres haut au-dessus de la carte : rien d'autre dans l'image
+		ApercuActeur = Monde->SpawnActor<AApercuHabillage>(AApercuHabillage::StaticClass(), FTransform(FVector(0.f, 0.f, 150000.f)), Params);
+	}
+	AApercuHabillage* A = ApercuActeur.Get();
+	if (!A)
+	{
+		return;
+	}
+	if (!PinceauApercu.IsValid())
+	{
+		PinceauApercu = MakeShared<FSlateBrush>();
+		PinceauApercu->DrawAs = ESlateBrushDrawType::Image;
+		PinceauApercu->ImageSize = FVector2D(512.f, 768.f);
+	}
+	PinceauApercu->SetResourceObject(A->Image());
+
+	// Spider-Man : on montre le corps du joueur tel qu'il est dans la carte
+	USkeletalMesh* MeshSpider = nullptr;
+	UClass* AnimSpider = nullptr;
+	APlayerController* PC = M->GetPC();
+	if (ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr)
+	{
+		if (Perso->GetMesh())
+		{
+			MeshSpider = Perso->GetMesh()->SkeletalMesh;
+			AnimSpider = Perso->GetMesh()->GetAnimClass();
+		}
+	}
+	A->Montrer(TenueChoisie, MeshSpider, AnimSpider);
+}
+
+void SMenuChelles::ModifierTenue(TFunction<void(ChellesHabillage::FTenue&)> Changement)
+{
+	Changement(TenueChoisie);
+	ChellesHabillage::Completer(TenueChoisie);
+	ChellesHabillage::EnregistrerTenue(TenueChoisie);
+	MontrerApercu();
+	Afficher(EEcranMenu::Habillage);
+}
+
+TSharedRef<SWidget> SMenuChelles::ReglageHabillage(const FString& NomReglage, const FString& ValeurReglage, TFunction<void(int32)> Modifier)
+{
+	const FText Libelle = FText::FromString(FString::Printf(TEXT("%s   < %s >"), *NomReglage, *ValeurReglage));
+	return SNew(SBox)
+		.Padding(FMargin(0.f, 1.f))
+		.HAlign(HAlign_Center)
+		[
+			Enregistrer(SNew(SBoutonMenu)
+			.Texte(Libelle)
+			.TaillePolice(22)
+			.OnClic(FSimpleDelegate::CreateLambda([Modifier]() { Modifier(1); }))
+			.OnClicDroit(FSimpleDelegate::CreateLambda([Modifier]() { Modifier(-1); })))
+		];
+}
+
+TSharedRef<SWidget> SMenuChelles::EcranHabillage()
+{
+	if (!bTenueLue)
+	{
+		TenueChoisie = ChellesHabillage::TenueLocale();
+		bTenueLue = true;
+	}
+	if (!ApercuActeur.IsValid())
+	{
+		MontrerApercu();
+	}
+	const int32 SexeActuel = TenueChoisie.EstSpiderMan() ? int32(ChellesHabillage::SpiderMan) : TenueChoisie.Sexe;
+
+	TSharedRef<SVerticalBox> Gauche = SNew(SVerticalBox);
+	Gauche->AddSlot().AutoHeight()[ Titre(FText::FromString(TEXT("HABILLAGE")), FText::FromString(TEXT("// SEXE, TENUE ET LOOK DE TON JOUEUR"))) ];
+
+	// SEXE : trois gros boutons
+	auto BoutonSexe = [this, SexeActuel](const TCHAR* Nom, int32 Sexe) -> TSharedRef<SWidget>
+	{
+		const FString Libelle = (SexeActuel == Sexe) ? FString::Printf(TEXT("[ %s ]"), Nom) : FString(Nom);
+		return Bouton(FText::FromString(Libelle), 34, [this, Sexe]()
+		{
+			ModifierTenue([Sexe](ChellesHabillage::FTenue& T)
+			{
+				if (T.Sexe != Sexe)
+				{
+					T.Sexe = Sexe;
+					T.Modele.Reset();
+				}
+			});
+		});
+	};
+	Gauche->AddSlot().AutoHeight().HAlign(HAlign_Center)
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("F\u00C9MININ"), ChellesHabillage::Feminin) ]
+		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("MASCULIN"), ChellesHabillage::Masculin) ]
+		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("SPIDER-MAN"), ChellesHabillage::SpiderMan) ]
+	];
+
+	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
+	if (TenueChoisie.EstSpiderMan())
+	{
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues SPIDER-MAN, le h\u00E9ros que tu as d\u00E9j\u00E0 dans tout le jeu.\nChoisis F\u00C9MININ ou MASCULIN pour cr\u00E9er ton propre look : visage, cheveux, haut, bas, chaussures, chapeau, lunettes..."))) ];
+	}
+	else if (!Modele)
+	{
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Packs de personnages introuvables dans Content (Action_Male_and_Female, Female_Mannequin). Tu restes en Spider-Man."))) ];
+	}
+	else
+	{
+		Gauche->AddSlot().AutoHeight().Padding(FMargin(0.f, 6.f, 0.f, 0.f))
+		[
+			ReglageHabillage(TEXT("MOD\u00C8LE"), Modele->Nom, [this](int32 Sens)
+			{
+				ModifierTenue([Sens](ChellesHabillage::FTenue& T)
+				{
+					const TArray<const ChellesHabillage::FModele*> Liste = ChellesHabillage::ModelesDuSexe(T.Sexe);
+					if (Liste.Num() == 0)
+					{
+						return;
+					}
+					int32 i = Liste.IndexOfByPredicate([&T](const ChellesHabillage::FModele* X) { return X->Id == T.Modele; });
+					i = ((FMath::Max(i, 0) + Sens) % Liste.Num() + Liste.Num()) % Liste.Num();
+					T.Modele = Liste[i]->Id;
+				});
+			})
+		];
+		if (Modele->bMannequin)
+		{
+			Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Mannequin tout fait du pack Female Mannequin : sa tenue ne change pas. Choisis un mod\u00E8le CLASSIQUE, GRANDE ou ATHL\u00C9TIQUE pour habiller ton joueur pi\u00E8ce par pi\u00E8ce."))) ];
+		}
+		for (const ChellesHabillage::FEmplacement& E : Modele->Emplacements)
+		{
+			const FString* Actuel = TenueChoisie.Choix.Find(E.Cle);
+			const int32 Index = FMath::Max(0, E.IndexDe(Actuel ? *Actuel : FString()));
+			const ChellesHabillage::FEmplacement* PE = &E;
+			Gauche->AddSlot().AutoHeight()
+			[
+				ReglageHabillage(E.Titre, E.Noms.IsValidIndex(Index) ? E.Noms[Index] : FString(), [this, PE](int32 Sens)
+				{
+					ModifierTenue([PE, Sens](ChellesHabillage::FTenue& T)
+					{
+						const FString* Ici = T.Choix.Find(PE->Cle);
+						const int32 N = PE->Lignes.Num();
+						if (N == 0)
+						{
+							return;
+						}
+						const int32 i = ((FMath::Max(0, PE->IndexDe(Ici ? *Ici : FString())) + Sens) % N + N) % N;
+						T.Choix.Add(PE->Cle, PE->Lignes[i].IsNone() ? FString() : PE->Lignes[i].ToString());
+					});
+				})
+			];
+		}
+	}
+
+	Gauche->AddSlot().AutoHeight().Padding(FMargin(0.f, 14.f, 0.f, 0.f)).HAlign(HAlign_Center)
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot().AutoWidth()
+		[
+			Bouton(FText::FromString(TEXT("AL\u00C9ATOIRE")), 30, [this]()
+			{
+				ModifierTenue([](ChellesHabillage::FTenue& T) { ChellesHabillage::Hasard(T); });
+			}, !TenueChoisie.EstSpiderMan() && Modele != nullptr)
+		]
+		+ SHorizontalBox::Slot().AutoWidth()
+		[
+			Bouton(FText::FromString(TEXT("VALIDER >")), 30, [this]()
+			{
+				ChellesHabillage::EnregistrerTenue(TenueChoisie);
+				Afficher(EEcranMenu::Mode);
+			})
+		]
+	];
+	Gauche->AddSlot().AutoHeight()[ BoutonRetour() ];
+	Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Clic gauche / droite (ou fl\u00E8ches) pour changer. Ton look est vu par les autres joueurs en multi. La roue TAB garde Spider-Man, motoneige, cheval..."))) ];
+
+	TSharedRef<SWidget> Droite = PinceauApercu.IsValid()
+		? StaticCastSharedRef<SWidget>(SNew(SZoneApercuChelles).Acteur(ApercuActeur).Image(PinceauApercu.Get()))
+		: StaticCastSharedRef<SWidget>(SNew(SBox));
+
+	return SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(0.f, 0.f, 40.f, 0.f))
+		[
+			SNew(SBox).MinDesiredWidth(760.f)[ Gauche ]
+		]
+		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(SBox).WidthOverride(400.f).HeightOverride(600.f)[ Droite ]
+			]
+			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 8.f))
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(TEXT("< GLISSE POUR TOURNER >")))
+				.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 12))
+				.ColorAndOpacity(Alpha(Magenta, 0.8f))
+			]
+		];
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranMulti()

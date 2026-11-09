@@ -7,6 +7,7 @@
 #include "GameFramework/GameUserSettings.h"
 #include "Misc/ConfigCacheIni.h"
 #include "MenuChelles.h"
+#include "HabillageChelles.h"
 
 class FChellesMenuModule : public IModuleInterface
 {
@@ -30,6 +31,12 @@ private:
 			return;
 		}
 		PoserDeparts(Monde);
+		if (!TActorIterator<AHabillageChelles>(Monde))
+		{
+			FActorSpawnParameters ParamsHabillage;
+			ParamsHabillage.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			Monde->SpawnActor<AHabillageChelles>(AHabillageChelles::StaticClass(), FTransform::Identity, ParamsHabillage);
+		}
 		if (TActorIterator<AMenuChelles>(Monde))
 		{
 			return; // deja un menu pose dans le niveau (reglages personnalises)

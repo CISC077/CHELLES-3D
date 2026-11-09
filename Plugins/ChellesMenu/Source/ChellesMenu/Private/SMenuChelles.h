@@ -4,16 +4,20 @@
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/SLeafWidget.h"
+#include "HabillageChelles.h"
 
 class AMenuChelles;
 class APlayerController;
 class SBox;
+class AApercuHabillage;
+struct FSlateBrush;
 class SEditableTextBox;
 class UWorld;
 
 enum class EEcranMenu : uint8
 {
 	Principal,
+	Habillage,
 	Mode,
 	Multi,
 	Serveurs,
@@ -129,6 +133,7 @@ public:
 		SLATE_ARGUMENT(TWeakObjectPtr<AMenuChelles>, Menu)
 	SLATE_END_ARGS()
 
+	virtual ~SMenuChelles();
 	void Construct(const FArguments& InArgs);
 	void Afficher(EEcranMenu NouvelEcran);
 	/** Reconstruit l'ecran courant (apres une recherche de parties). */
@@ -144,6 +149,16 @@ private:
 	TSharedRef<SWidget> EcranPrincipal();
 	void OuvrirLien(const TCHAR* Cle, const TCHAR* Nom);
 	TSharedRef<SWidget> EcranMode();
+	// HABILLAGE (apres JOUER) : sexe, tenue, look ; apercu 3D a droite
+	TSharedRef<SWidget> EcranHabillage();
+	TSharedRef<SWidget> ReglageHabillage(const FString& NomReglage, const FString& ValeurReglage, TFunction<void(int32)> Modifier);
+	void ModifierTenue(TFunction<void(ChellesHabillage::FTenue&)> Changement);
+	void MontrerApercu();
+	void RetirerApercu();
+	ChellesHabillage::FTenue TenueChoisie;
+	bool bTenueLue = false;
+	TWeakObjectPtr<AApercuHabillage> ApercuActeur;
+	TSharedPtr<FSlateBrush> PinceauApercu;
 	TSharedRef<SWidget> EcranMulti();
 	TSharedRef<SWidget> EcranServeurs();
 	TSharedRef<SWidget> EcranAdresseIP();
