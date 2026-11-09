@@ -59,9 +59,19 @@ AMenuChelles::AMenuChelles()
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.TickInterval = 0.5f; // seulement pour relancer la musique en boucle
 	SetCanBeDamaged(false);
-	MusiquesJeu.Add(TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/ChellesMenu/Audio/Musique_Jeu.Musique_Jeu"))));
-	MusiquesJeu.Add(TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/ChellesMenu/Audio/Musique_Jeu2.Musique_Jeu2"))));
-	MusiquesJeu.Add(TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/ChellesMenu/Audio/Musique_Jeu3.Musique_Jeu3"))));
+	// Bibliotheque de sons de MERIDJA (importee par Tools/Menu/importer_musiques.py)
+	const TCHAR* Menu[] = { TEXT("Menu_1_RetroGame1"), TEXT("Menu_2_RetroGame2"), TEXT("Menu_3_RetroGame3"), TEXT("Menu_4_Junkala") };
+	for (const TCHAR* Nom : Menu)
+	{
+		MusiquesMenu.Add(TSoftObjectPtr<USoundBase>(FSoftObjectPath(FString::Printf(TEXT("/Game/ChellesMenu/Audio/%s.%s"), Nom, Nom))));
+	}
+	// Jeu_0 = courte intro jouee une fois au lancement, puis les morceaux s'enchainent
+	const TCHAR* Jeu[] = { TEXT("Jeu_0_Juhani"), TEXT("Jeu_1_AiFight"), TEXT("Jeu_2_ElectricStream"), TEXT("Jeu_3_Factory"),
+		TEXT("Jeu_4_JumpingCyborg"), TEXT("Jeu_5_Overload"), TEXT("Jeu_6_SpaceRay"), TEXT("Jeu_7_Spaceship") };
+	for (const TCHAR* Nom : Jeu)
+	{
+		MusiquesJeu.Add(TSoftObjectPtr<USoundBase>(FSoftObjectPath(FString::Printf(TEXT("/Game/ChellesMenu/Audio/%s.%s"), Nom, Nom))));
+	}
 }
 
 APlayerController* AMenuChelles::GetPC() const
@@ -170,9 +180,9 @@ void AMenuChelles::Ouvrir()
 	ModeInterface();
 	Joueur->SetPause(true);
 
-	if (USoundBase* SonCharge = Charger(MusiqueMenu, TEXT("/Game/Sounds/Music/Vehicle_Race_Cue.Vehicle_Race_Cue")))
+	if (USoundBase* SonCharge = PisteDe(MusiquesMenu, PisteMenu, TEXT("/Game/Sounds/Music/Vehicle_Race_Cue.Vehicle_Race_Cue")))
 	{
-		Musique = UGameplayStatics::CreateSound2D(this, SonCharge, ChellesOptions::VolumeMusique(), 1.f, 0.f, nullptr, false, true);
+		Musique = UGameplayStatics::CreateSound2D(this, SonCharge, ChellesOptions::VolumeMusique(), 1.f, 0.f, nullptr, false, false);
 		if (Musique)
 		{
 			Musique->bIsUISound = true; // continue pendant la pause
@@ -215,6 +225,7 @@ void AMenuChelles::Fermer(bool bReprendreLeJeu)
 	Widget.Reset();
 	if (Musique)
 	{
+		Musique->bAutoDestroy = true;
 		Musique->FadeOut(1.f, 0.f);
 		Musique = nullptr;
 	}
@@ -270,19 +281,24 @@ void AMenuChelles::Tick(float Delta)
 	}
 }
 
-USoundBase* AMenuChelles::PisteDeLaPlaylist(int32& Index)
+USoundBase* AMenuChelles::PisteDe(TArray<TSoftObjectPtr<USoundBase>>& Liste, int32& Index, const TCHAR* Secours)
 {
-	const int32 Nombre = MusiquesJeu.Num();
+	const int32 Nombre = Liste.Num();
 	for (int32 Essai = 0; Essai < Nombre; ++Essai)
 	{
 		const int32 i = ((Index + Essai) % Nombre + Nombre) % Nombre;
-		if (USoundBase* SonCharge = MusiquesJeu[i].LoadSynchronous())
+		if (USoundBase* SonCharge = Liste[i].LoadSynchronous())
 		{
 			Index = i;
 			return SonCharge;
 		}
 	}
-	return LoadObject<USoundBase>(nullptr, TEXT("/Game/Audio/Starter_Music_Cue.Starter_Music_Cue"), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	return LoadObject<USoundBase>(nullptr, Secours, nullptr, LOAD_NoWarn | LOAD_Quiet);
+}
+
+USoundBase* AMenuChelles::PisteDeLaPlaylist(int32& Index)
+{
+	return PisteDe(MusiquesJeu, Index, TEXT("/Game/Audio/Starter_Music_Cue.Starter_Music_Cue"));
 }
 
 void AMenuChelles::MusiqueSuivante()
@@ -292,6 +308,10 @@ void AMenuChelles::MusiqueSuivante()
 		return;
 	}
 	++Piste;
+	if (Piste >= MusiquesJeu.Num())
+	{
+		Piste = MusiquesJeu.Num() > 1 ? 1 : 0; // l'intro (piste 0) ne passe qu'au lancement
+	}
 	if (USoundBase* SonCharge = PisteDeLaPlaylist(Piste))
 	{
 		MusiquePartie->Stop();
@@ -510,8 +530,14 @@ void AMenuChelles::MajVolumeMusique()
 
 void AMenuChelles::EntretenirMusique()
 {
+	// Morceau du menu termine : on passe au suivant de la playlist du menu
 	if (Musique && bOuvert && !bQuitteEnCours && !Musique->IsPlaying())
 	{
+		++PisteMenu;
+		if (USoundBase* SonCharge = PisteDe(MusiquesMenu, PisteMenu, TEXT("/Game/Sounds/Music/Vehicle_Race_Cue.Vehicle_Race_Cue")))
+		{
+			Musique->SetSound(SonCharge);
+		}
 		Musique->Play();
 	}
 }

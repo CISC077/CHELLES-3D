@@ -56,9 +56,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Chelles Menu")
 	int32 JoueursMax = 8;
 
-	/** Sons du menu : pris dans le pack Vehicle Game deja present dans le projet (modifiables). */
+	/** Playlist du menu, jouee a la suite pendant que le menu est ouvert. */
 	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
-	TSoftObjectPtr<USoundBase> MusiqueMenu = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/ChellesMenu/Audio/Musique_Menu.Musique_Menu")));
+	TArray<TSoftObjectPtr<USoundBase>> MusiquesMenu;
+
+	/** Sons du menu : pris dans le pack Vehicle Game deja present dans le projet (modifiables). */
 	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
 	TSoftObjectPtr<USoundBase> SonSurvol = TSoftObjectPtr<USoundBase>(FSoftObjectPath(TEXT("/Game/Sounds/InterfaceAudio/Stereo/MenuCursor_UpDown_Stereo_Cue.MenuCursor_UpDown_Stereo_Cue")));
 	UPROPERTY(EditAnywhere, Category = "Chelles Menu|Sons")
@@ -131,6 +133,9 @@ private:
 	void MusiqueSuivante();
 	/** Charge la piste Index de la playlist (saute celles qui manquent). */
 	USoundBase* PisteDeLaPlaylist(int32& Index);
+	/** Charge la piste Index d'une liste (saute celles qui manquent), sinon le son de secours. */
+	static USoundBase* PisteDe(TArray<TSoftObjectPtr<USoundBase>>& Liste, int32& Index, const TCHAR* Secours);
+	int32 PisteMenu = 0;
 	void AnnoncerMusique();
 	int32 Piste = 0;
 	/** Solo : l'endroit ou le joueur marche est memorise pour les departs du multijoueur. */
