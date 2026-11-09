@@ -1,4 +1,4 @@
-"""SCRIPT A LANCER DANS UNREAL 4.27 : File > Execute Python Script... > ce fichier.
+"""NE PAS LANCER A LA MAIN : double-cliquer sur Tools/Textures/Textures_3_RESTAURER.bat (Unreal ferme).
 
 Remet les textures comme avant reduire_textures.py, grace a Tools/Textures/journal_textures.json.
 Journal : Tools/out/textures.log
@@ -13,7 +13,6 @@ FICHIER_LOG = os.path.join(PROJET, "Tools", "out", "textures.log")
 
 def main():
     if not os.path.exists(JOURNAL_JSON):
-        unreal.EditorDialog.show_message("Textures", "Pas de journal : rien a restaurer.", unreal.AppMsgType.OK)
         return 0, 0
     with open(JOURNAL_JSON, "r", encoding="utf-8") as f:
         journal = json.load(f)
@@ -37,9 +36,6 @@ def main():
             json.dump(restantes, f, indent=1, ensure_ascii=False)
     else:
         os.replace(JOURNAL_JSON, JOURNAL_JSON + ".restaure")
-    unreal.EditorDialog.show_message("Textures", "%d texture(s) remises comme avant.%s" % (
-        remises, ("\n%d non restaurees (relancer le script)." % len(restantes)) if restantes else ""),
-        unreal.AppMsgType.OK)
     return remises, len(restantes)
 
 

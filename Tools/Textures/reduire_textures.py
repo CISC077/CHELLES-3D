@@ -1,4 +1,5 @@
-"""SCRIPT A LANCER DANS UNREAL 4.27 : File > Execute Python Script... > ce fichier.
+"""NE PAS LANCER A LA MAIN : double-cliquer sur Tools/Textures/Textures_1_SIMULATION.bat
+(liste seulement), puis Textures_2_REDUIRE.bat (applique). UNREAL DOIT ETRE FERME.
 
 REDUIT LES TEXTURES TROP GROSSES (4K, 8K...) utilisees par la carte Maps/Rachid.
 C'est ce qui provoque l'alerte rouge "TEXTURE STREAMING POOL OVER ... GiB" et les ralentissements.
@@ -7,8 +8,8 @@ Comment ca marche :
   - le script cherche toutes les textures dont la carte Rachid a besoin (meme indirectement :
     batiments, materiaux, personnages, voitures, effets...) ;
   - il garde celles qui depassent LIMITE pixels (2048 par defaut) ;
-  - il affiche le resultat (nombre de textures, gain estime) et DEMANDE Oui/Non avant de toucher a quoi que ce soit ;
-  - si Oui : il regle "Maximum Texture Size" de chaque texture sur LIMITE, puis enregistre.
+  - en SIMULATION il affiche seulement le resultat (nombre de textures, gain estime) ;
+  - en mode REDUIRE il regle "Maximum Texture Size" de chaque texture sur LIMITE, puis enregistre.
 
 C'est SANS RISQUE : l'image d'origine reste dans le fichier, Unreal en fait seulement une copie plus petite
 pour le jeu. Les anciennes valeurs sont notees dans Tools/Textures/journal_textures.json ;
@@ -56,6 +57,7 @@ def ecrire_log():
 def paquets_de_la_carte():
     """Tous les paquets /Game dont la carte depend (dependances dures et souples, en cascade)."""
     reg = unreal.AssetRegistryHelpers.get_asset_registry()
+    reg.search_all_assets(True)   # hors editeur, le registre n'est pas rempli tout seul
     opts = unreal.AssetRegistryDependencyOptions(
         include_soft_package_references=True,
         include_hard_package_references=True,
@@ -204,22 +206,13 @@ def main():
     if len(a_reduire) > 40:
         log("  ... et %d autre(s)." % (len(a_reduire) - 40))
     if not a_reduire:
-        unreal.EditorDialog.show_message("Textures", "Aucune texture au-dessus de %d px : rien a faire." % LIMITE,
-                                         unreal.AppMsgType.OK)
+        log("Aucune texture au-dessus de %d px : rien a faire." % LIMITE)
         return
-    question = ("%d texture(s) depassent %d px.\nGain estime : environ %.1f Go de memoire video.\n\n"
-                "Les reduire maintenant ? (l'image d'origine est gardee, restaurer_textures.py remet tout)\n\n"
-                "La liste est dans Window > Developer Tools > Output Log et dans Tools/out/textures.log."
-                % (len(a_reduire), LIMITE, gain))
-    r = unreal.EditorDialog.show_message("Reduire les textures", question, unreal.AppMsgType.YES_NO)
-    if r != unreal.AppReturnType.YES:
-        log("Annule par l'utilisateur : rien n'a ete modifie.")
+    if os.environ.get("CHELLES_TEXTURES", "").lower() != "reduire":
+        log("SIMULATION : rien n'a ete modifie. Pour appliquer : Textures_2_REDUIRE.bat")
         return
     faites = appliquer(a_reduire)
-    log("Termine : %d texture(s) reduites a %d px. Relancez le jeu (Play) pour verifier." % (faites, LIMITE))
-    unreal.EditorDialog.show_message("Textures", "%d texture(s) reduites a %d px.\nLancez Play pour verifier."
-                                     % (faites, LIMITE), unreal.AppMsgType.OK)
-
+    log("Termine : %d texture(s) reduites a %d px. Ouvre Unreal et lance Play pour verifier." % (faites, LIMITE))
 
 try:
     main()
