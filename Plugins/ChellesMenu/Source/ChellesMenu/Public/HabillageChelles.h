@@ -152,7 +152,9 @@ private:
 
 	void GererRelais();
 	void EnvoyerMaTenue();
-	void Habiller(APawn* Pion, const FString& Texte);
+	void Habiller(APawn* Pion, const FString& Texte, USkeletalMeshComponent* Chef);
+	/** Cavalier d'une monture (composant Horse_Rider du cheval HorseStarterKit), sinon nullptr. */
+	static USkeletalMeshComponent* Cavalier(APawn* Pion);
 	void Deshabiller(APawn* Pion);
 	void Suivre();
 	bool EstSoldat(APawn* Pion) const;

@@ -1241,11 +1241,29 @@ void AHabillageChelles::Deshabiller(APawn* Pion)
 	Habilles.Remove(Pion);
 }
 
-void AHabillageChelles::Habiller(APawn* Pion, const FString& Texte)
+USkeletalMeshComponent* AHabillageChelles::Cavalier(APawn* Pion)
+{
+	if (!Pion)
+	{
+		return nullptr;
+	}
+	TArray<USkeletalMeshComponent*> Composants;
+	Pion->GetComponents<USkeletalMeshComponent>(Composants);
+	for (USkeletalMeshComponent* C : Composants)
+	{
+		if (C && C->GetName().Contains(TEXT("Rider")) && HabillageInterne::AUnBassin(C->SkeletalMesh))
+		{
+			return C;
+		}
+	}
+	return nullptr;
+}
+
+void AHabillageChelles::Habiller(APawn* Pion, const FString& Texte, USkeletalMeshComponent* Chef)
 {
 	if (FHabille* Deja = Habilles.Find(Pion))
 	{
-		if (Deja->Texte == Texte)
+		if (Deja->Texte == Texte && Deja->Chef.Get() == Chef)
 		{
 			return;
 		}
@@ -1257,23 +1275,27 @@ void AHabillageChelles::Habiller(APawn* Pion, const FString& Texte)
 	UClass* Anim = nullptr;
 	USkeletalMesh* Squelette = nullptr;
 	ACharacter* Perso = Cast<ACharacter>(Pion);
-	if (!Perso || !ChellesHabillage::Assembler(Tenue, Pieces, Anim, Squelette))
+	if (!Chef || !ChellesHabillage::Assembler(Tenue, Pieces, Anim, Squelette))
 	{
 		return;
 	}
 	FHabille H;
 	H.Texte = Texte;
-	H.Chef = Perso->GetMesh();
-	H.bChefOmbre = Perso->GetMesh()->CastShadow;
+	H.Chef = Chef;
+	H.bChefOmbre = Chef->CastShadow;
 	USkeletalMeshComponent* Jambes = nullptr;
-	TArray<USkeletalMeshComponent*> Composants;
-	Perso->GetComponents<USkeletalMeshComponent>(Composants);
-	for (USkeletalMeshComponent* C : Composants)
+	if (Perso && Chef == Perso->GetMesh())
 	{
-		if (C && C != Perso->GetMesh() && C->GetName().Contains(TEXT("Legs")) && HabillageInterne::AUnBassin(C->SkeletalMesh))
+		// Soldat : jambes vues en vue a la 1re personne (pas pour le cavalier du cheval)
+		TArray<USkeletalMeshComponent*> Composants;
+		Perso->GetComponents<USkeletalMeshComponent>(Composants);
+		for (USkeletalMeshComponent* C : Composants)
 		{
-			Jambes = C;
-			break;
+			if (C && C != Chef && C->GetName().Contains(TEXT("Legs")) && HabillageInterne::AUnBassin(C->SkeletalMesh))
+			{
+				Jambes = C;
+				break;
+			}
 		}
 	}
 	if (Jambes)
@@ -1282,7 +1304,7 @@ void AHabillageChelles::Habiller(APawn* Pion, const FString& Texte)
 		H.bJambesOmbre = Jambes->CastShadow;
 	}
 	TArray<USkeletalMeshComponent*> Crees;
-	ChellesHabillage::Construire(Perso, Perso->GetMesh(), Jambes, Pieces, Crees, false);
+	ChellesHabillage::Construire(Pion, Chef, Jambes, Pieces, Crees, false);
 	for (USkeletalMeshComponent* C : Crees)
 	{
 		if (C->ComponentHasTag(FName(TEXT("ChellesJambes"))))
@@ -1294,7 +1316,7 @@ void AHabillageChelles::Habiller(APawn* Pion, const FString& Texte)
 			H.Corps.Add(C);
 		}
 	}
-	HabillageInterne::RenduCache(Perso->GetMesh(), true, false);
+	HabillageInterne::RenduCache(Chef, true, false);
 	HabillageInterne::RenduCache(Jambes, true, false);
 	Habilles.Add(Pion, MoveTemp(H));
 	UE_LOG(LogTemp, Log, TEXT("[Habillage] %s habille : %s (%d morceaux)."), *Pion->GetName(), *Tenue.Modele, Crees.Num());
@@ -1326,6 +1348,10 @@ void AHabillageChelles::Suivre()
 			if (C->bOnlyOwnerSee != Source->bOnlyOwnerSee)
 			{
 				C->SetOnlyOwnerSee(Source->bOnlyOwnerSee);
+			}
+			if (C->bHiddenInGame != Source->bHiddenInGame)
+			{
+				C->SetHiddenInGame(Source->bHiddenInGame); // cavalier cache tant qu'on n'est pas en selle
 			}
 			if (C->IsVisible() != Source->IsVisible())
 			{
@@ -1391,9 +1417,23 @@ void AHabillageChelles::Tick(float Delta)
 		{
 			APawn* Pion = *It;
 			const FString* Texte = Pion->GetPlayerState() ? Tenues.Find(Pion->GetPlayerState()) : nullptr;
-			if (Texte && !ChellesHabillage::FTenue::DepuisTexte(*Texte).EstSpiderMan() && EstSoldat(Pion))
+			USkeletalMeshComponent* Chef = nullptr;
+			if (EstSoldat(Pion))
 			{
-				Habiller(Pion, *Texte);
+				Chef = CastChecked<ACharacter>(Pion)->GetMesh();
+			}
+			else if (USkeletalMeshComponent* Selle = Cavalier(Pion))
+			{
+				// Cheval : le cavalier porte la tenue du joueur (sinon la roue TAB lui met Spider-Man)
+				Chef = Selle;
+				if (!Texte && Mode == NM_Standalone && !Selle->bHiddenInGame && Tenues.Num() > 0)
+				{
+					Texte = &Tenues.CreateConstIterator().Value(); // en solo, le cavalier visible, c'est nous
+				}
+			}
+			if (Chef && Texte && !ChellesHabillage::FTenue::DepuisTexte(*Texte).EstSpiderMan())
+			{
+				Habiller(Pion, *Texte, Chef);
 				Vus.Add(Pion);
 			}
 		}
