@@ -2,7 +2,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Input/Events.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
+#include "Types/SlateEnums.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
+#include "UObject/WeakObjectPtrTemplates.h"
 
 class AMenuChelles;
 class SEditableTextBox;
