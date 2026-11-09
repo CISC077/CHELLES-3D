@@ -13,6 +13,7 @@ class APlayerController;
 class UInputComponent;
 class UUserWidget;
 class SRoueModes;
+class ARoueRelais;
 
 UENUM(BlueprintType)
 enum class ETypeModeRoue : uint8
@@ -103,6 +104,8 @@ class CHELLESROUE_API ARoueModes : public AActor
 {
 	GENERATED_BODY()
 
+	friend class ARoueRelais;
+
 public:
 	ARoueModes();
 
@@ -182,6 +185,15 @@ private:
 	static void RendreSesReferences(APawn* Perso, APawn* Ancien);
 	bool EntrerPersonnage(int32 Index);
 	void SortirPersonnage();
+	void HabillerPion(APawn* Pion, const FModeRoue& Mode, bool bAvertir);
+
+	// Multijoueur : chaque joueur a un ARoueRelais, le serveur fait les changements de mode
+	bool EstMultijoueur() const;
+	ARoueRelais* MonRelais() const;
+	int32 IndexDuType(ETypeModeRoue Type) const;
+	void ChoisirModeReseau(ARoueRelais* Relais, int32 Index);
+	void GererRelaisServeur();
+	void SuivreJoueursReseau();
 
 	void CacherHudPack(const FString& Racine);
 	void MontrerHudPack(const FString& Racine);
@@ -238,4 +250,9 @@ private:
 	/** Mode Personnage : le perso du pack pris en main, et le pieton (soldat) cache pendant ce temps. */
 	TWeakObjectPtr<APawn> PersoJoue;
 	TWeakObjectPtr<APawn> PietonCache;
+
+	/** Multijoueur : mode vu au tick precedent (pour cacher / montrer le HUD des packs). */
+	int32 ModeVuReseau = INDEX_NONE;
+	/** Multijoueur : soldats caches des joueurs dont on a coupe la collision sur cette machine. */
+	TArray<TWeakObjectPtr<APawn>> CollisionsCoupees;
 };

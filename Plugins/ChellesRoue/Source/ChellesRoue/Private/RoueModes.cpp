@@ -1,5 +1,6 @@
 // CHELLES 3D - Roue des modes : maintenir Tab pour choisir Soldat / Spider-Man / Motoneige / Automobile (UE 4.27)
 #include "RoueModes.h"
+#include "RoueRelais.h"
 
 #include "SRoueModes.h"
 
@@ -15,6 +16,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/GameModeBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Animation/AnimInstance.h"
 #include "TimerManager.h"
@@ -23,6 +25,8 @@
 #include "UObject/UnrealType.h"
 
 #define CHEMIN_MOTONEIGE TEXT("/Game/DV_Snowmobile/Blueprints/BP_Snowmobile.BP_Snowmobile_C")
+// Spider-Man volant (pack SuperheroFlight) : en solo c'est ChellesBasculeVol qui le gere, en multijoueur la roue
+#define CHEMIN_SPIDERMAN_VOL TEXT("/Game/SuperheroFlight/Blueprints/Characters/BP_SpiderMan_Vol.BP_SpiderMan_Vol_C")
 // Spider-Man sur le squelette du pack SuperPowers (cree par Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py)
 #define CHEMIN_COSTUME_SPIDERMAN TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Pouvoirs.SK_SpiderMan_Pouvoirs")
 // Spider-Man sur le squelette du cavalier HorseStarterKit (meme script)
@@ -131,6 +135,7 @@ ARoueModes::ARoueModes()
 	Vol.Type = ETypeModeRoue::Vol;
 	Vol.Icone = EIconeRoue::Toile;
 	Vol.Couleur = FLinearColor(0.95f, 0.18f, 0.22f);
+	Vol.ClasseVehicule = FSoftClassPath(FString(CHEMIN_SPIDERMAN_VOL)); // utilise en multijoueur seulement
 	Modes.Add(Vol);
 
 	FModeRoue Moto;
@@ -233,7 +238,7 @@ void ARoueModes::BeginPlay()
 	ClassesVehicules.SetNum(Modes.Num());
 	for (int32 i = 0; i < Modes.Num(); ++i)
 	{
-		if ((Modes[i].Type == ETypeModeRoue::Vehicule || Modes[i].Type == ETypeModeRoue::Personnage) && Modes[i].ClasseVehicule.IsValid())
+		if (Modes[i].Type != ETypeModeRoue::Libre && Modes[i].ClasseVehicule.IsValid())
 		{
 			ClassesVehicules[i] = Modes[i].ClasseVehicule.TryLoadClass<APawn>();
 			if (!ClassesVehicules[i])
@@ -458,6 +463,15 @@ bool ARoueModes::EstDisponible(int32 Index) const
 	{
 		return false;
 	}
+	if (EstMultijoueur())
+	{
+		// En multijoueur, le serveur fait apparaitre directement le personnage de chaque case
+		if (Modes[Index].Type == ETypeModeRoue::APied)
+		{
+			return true;
+		}
+		return Modes[Index].Type != ETypeModeRoue::Libre && ClassesVehicules.IsValidIndex(Index) && ClassesVehicules[Index] != nullptr;
+	}
 	switch (Modes[Index].Type)
 	{
 	case ETypeModeRoue::APied:
@@ -476,6 +490,15 @@ bool ARoueModes::EstDisponible(int32 Index) const
 
 int32 ARoueModes::ModeActuel() const
 {
+	if (EstMultijoueur())
+	{
+		const ARoueRelais* Relais = MonRelais();
+		if (Relais && Modes.IsValidIndex(Relais->Mode))
+		{
+			return Relais->Mode;
+		}
+		return IndexDuType(ETypeModeRoue::APied);
+	}
 	const APlayerController* PC = GetPC();
 	const APawn* Pion = PC ? PC->GetPawn() : nullptr;
 	for (int32 i = 0; i < Modes.Num(); ++i)
@@ -523,7 +546,21 @@ void ARoueModes::MettreCostume(const FModeRoue& Mode)
 		return; // costume sur un composant (cavalier) : gere par SuivreMontures
 	}
 	APlayerController* PC = GetPC();
-	ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+	HabillerPion(PC ? PC->GetPawn() : nullptr, Mode, true);
+}
+
+void ARoueModes::HabillerPion(APawn* Pion, const FModeRoue& Mode, bool bAvertir)
+{
+	if (!IsValid(Pion) || Mode.Costume.IsNull())
+	{
+		return;
+	}
+	if (!Mode.ComposantCostume.IsNone())
+	{
+		HabillerComposant(Pion, Mode, true); // cavalier du cheval
+		return;
+	}
+	ACharacter* Perso = Cast<ACharacter>(Pion);
 	USkeletalMeshComponent* Corps = Perso ? Perso->GetMesh() : nullptr;
 	if (!Corps)
 	{
@@ -532,7 +569,10 @@ void ARoueModes::MettreCostume(const FModeRoue& Mode)
 	USkeletalMesh* Costume = Cast<USkeletalMesh>(Mode.Costume.TryLoad());
 	if (!Costume)
 	{
-		Message(TEXT("Costume Spider-Man introuvable : lance Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py dans Unreal."));
+		if (bAvertir)
+		{
+			Message(TEXT("Costume Spider-Man introuvable : lance Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py dans Unreal."));
+		}
 		return;
 	}
 	USkeletalMesh* Actuel = Corps->SkeletalMesh;
@@ -543,7 +583,10 @@ void ARoueModes::MettreCostume(const FModeRoue& Mode)
 	if (Actuel && Actuel->GetSkeleton() != Costume->GetSkeleton())
 	{
 		// Autre squelette : les animations du pack ne marcheraient plus, on garde le perso d'origine
-		Message(TEXT("Costume Spider-Man : squelette different de celui du personnage, costume non applique."));
+		if (bAvertir)
+		{
+			Message(TEXT("Costume Spider-Man : squelette different de celui du personnage, costume non applique."));
+		}
 		return;
 	}
 	Corps->SetSkeletalMesh(Costume);
@@ -658,9 +701,9 @@ void ARoueModes::AppelerVehicule(int32 Index)
 
 void ARoueModes::ToucheMonter()
 {
-	if (bOuverte || MontureActive != INDEX_NONE)
+	if (bOuverte || MontureActive != INDEX_NONE || EstMultijoueur())
 	{
-		return; // deja en selle : E sert a descendre (plugin Motoneige)
+		return; // deja en selle : E sert a descendre (plugin Motoneige). En multijoueur on monte directement.
 	}
 	APlayerController* PC = GetPC();
 	APawn* Pieton = PC ? PC->GetPawn() : nullptr;
@@ -784,6 +827,10 @@ void ARoueModes::ChiffreAzerty(FKey ToucheAzerty, bool bAppui)
 
 void ARoueModes::EmpecherChute()
 {
+	if (GetNetMode() == NM_Client)
+	{
+		return; // le serveur decide de la position
+	}
 	APlayerController* PC = GetPC();
 	ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
 	UCharacterMovementComponent* Mouvement = Perso ? Perso->GetCharacterMovement() : nullptr;
@@ -933,6 +980,18 @@ void ARoueModes::ChoisirMode(int32 Index)
 {
 	if (!Modes.IsValidIndex(Index))
 	{
+		return;
+	}
+	if (EstMultijoueur())
+	{
+		if (ARoueRelais* Relais = MonRelais())
+		{
+			Relais->ServeurChoisir(Index); // le serveur fait le changement pour ce joueur
+		}
+		else
+		{
+			Message(TEXT("Roue : connexion au serveur en cours, reessaie dans une seconde."));
+		}
 		return;
 	}
 	ChercherPlugins();
@@ -1273,7 +1332,7 @@ void ARoueModes::Ouvrir()
 	bIgnoreVue = true;
 
 	AncienRalenti = UGameplayStatics::GetGlobalTimeDilation(Monde);
-	if (Ralenti < 0.999f)
+	if (Ralenti < 0.999f && !EstMultijoueur()) // en multijoueur on ne ralentit pas le temps des autres
 	{
 		UGameplayStatics::SetGlobalTimeDilation(Monde, FMath::Clamp(Ralenti, 0.05f, 1.f));
 	}
@@ -1334,7 +1393,7 @@ void ARoueModes::Fermer()
 
 	if (UWorld* Monde = GetWorld())
 	{
-		if (Ralenti < 0.999f)
+		if (Ralenti < 0.999f && !EstMultijoueur())
 		{
 			UGameplayStatics::SetGlobalTimeDilation(Monde, AncienRalenti > 0.f ? AncienRalenti : 1.f);
 		}
@@ -1424,9 +1483,35 @@ void ARoueModes::Tick(float DeltaSeconds)
 	{
 		ProchaineRecherche = Maintenant + 0.5f;
 		ChercherPlugins();
+		if (EstMultijoueur())
+		{
+			if (HasAuthority())
+			{
+				GererRelaisServeur();
+			}
+			SuivreJoueursReseau();
+		}
 	}
 	RetirerAnciennesTouches();
 	SuivreMontures();
+	if (EstMultijoueur())
+	{
+		// HUD des packs sur cette machine : on suit le mode que le serveur nous a donne
+		const int32 Vu = ModeActuel();
+		if (Vu != ModeVuReseau)
+		{
+			if (Modes.IsValidIndex(ModeVuReseau))
+			{
+				CacherHudPack(RacinePack(Modes[ModeVuReseau].ClasseVehicule));
+			}
+			if (Modes.IsValidIndex(Vu))
+			{
+				MontrerHudPack(RacinePack(Modes[Vu].ClasseVehicule));
+			}
+			ModeVuReseau = Vu;
+			SortCourant = 1;
+		}
+	}
 	if (PietonCache.IsValid() && !PersoJoue.IsValid())
 	{
 		SortirPersonnage(); // le perso du pack a disparu : on rend le soldat
@@ -1449,4 +1534,294 @@ void ARoueModes::Tick(float DeltaSeconds)
 		MettreAJourSurvol();
 		EnvoyerALaRoue();
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Multijoueur : la roue de chaque joueur passe par son relais, le serveur change le personnage
+// ---------------------------------------------------------------------------
+
+bool ARoueModes::EstMultijoueur() const
+{
+	return GetNetMode() != NM_Standalone;
+}
+
+ARoueRelais* ARoueModes::MonRelais() const
+{
+	APlayerController* PC = GetPC();
+	UWorld* Monde = GetWorld();
+	if (!PC || !Monde)
+	{
+		return nullptr;
+	}
+	for (TActorIterator<ARoueRelais> It(Monde); It; ++It)
+	{
+		if (It->GetOwner() == PC)
+		{
+			return *It;
+		}
+	}
+	return nullptr;
+}
+
+int32 ARoueModes::IndexDuType(ETypeModeRoue Type) const
+{
+	for (int32 i = 0; i < Modes.Num(); ++i)
+	{
+		if (Modes[i].Type == Type)
+		{
+			return i;
+		}
+	}
+	return INDEX_NONE;
+}
+
+static void CacherPionReseau(APawn* Pion, bool bCacher)
+{
+	if (!Pion)
+	{
+		return;
+	}
+	Pion->SetActorHiddenInGame(bCacher);
+	Pion->SetActorEnableCollision(!bCacher);
+	TArray<AActor*> Attaches;
+	Pion->GetAttachedActors(Attaches);
+	for (AActor* A : Attaches)
+	{
+		if (A)
+		{
+			A->SetActorHiddenInGame(bCacher);
+		}
+	}
+	if (ACharacter* Perso = Cast<ACharacter>(Pion))
+	{
+		if (bCacher)
+		{
+			Perso->GetCharacterMovement()->StopMovementImmediately();
+			Perso->GetCharacterMovement()->DisableMovement();
+		}
+		else
+		{
+			Perso->GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+		}
+	}
+}
+
+static void DetruireAvecAttaches(APawn* Pion)
+{
+	if (!IsValid(Pion))
+	{
+		return;
+	}
+	TArray<AActor*> Attaches;
+	Pion->GetAttachedActors(Attaches);
+	for (AActor* A : Attaches)
+	{
+		if (A)
+		{
+			A->Destroy();
+		}
+	}
+	Pion->Destroy();
+}
+
+void ARoueModes::ChoisirModeReseau(ARoueRelais* Relais, int32 Index)
+{
+	if (!HasAuthority() || !IsValid(Relais) || !Modes.IsValidIndex(Index))
+	{
+		return;
+	}
+	APlayerController* PC = Cast<APlayerController>(Relais->GetOwner());
+	APawn* Ancien = PC ? PC->GetPawn() : nullptr;
+	if (!PC || !Ancien)
+	{
+		Relais->ClientAvis(TEXT("Attends d'avoir un personnage avant de changer de mode."));
+		return;
+	}
+	const FModeRoue& Mode = Modes[Index];
+	const int32 IndexSoldat = IndexDuType(ETypeModeRoue::APied);
+	const int32 Avant = Modes.IsValidIndex(Relais->Mode) ? Relais->Mode : IndexSoldat;
+	if (Avant == Index)
+	{
+		return;
+	}
+	if (Mode.Type == ETypeModeRoue::Libre)
+	{
+		Relais->ClientAvis(TEXT("Case libre : aucune fonction pour l'instant."));
+		return;
+	}
+
+	// Le soldat de depart : celui qu'on joue maintenant si on est en mode soldat, sinon celui qui est cache
+	const bool bDepuisSoldat = (Avant == IndexSoldat);
+	APawn* Soldat = bDepuisSoldat ? Ancien : (IsValid(Relais->PionCache) ? Relais->PionCache : nullptr);
+	if (bDepuisSoldat && !Relais->ClasseSoldat)
+	{
+		Relais->ClasseSoldat = Ancien->GetClass();
+	}
+
+	const FVector Lieu = Ancien->GetActorLocation();
+	const FRotator Rot(0.f, PC->GetControlRotation().Yaw, 0.f);
+	APawn* Nouveau = nullptr;
+
+	if (Mode.Type == ETypeModeRoue::APied && Soldat && Soldat != Ancien)
+	{
+		// Retour au soldat cache : il reapparait la ou on est
+		Soldat->SetActorLocationAndRotation(Lieu + FVector(0.f, 0.f, 20.f), Rot, false, nullptr, ETeleportType::TeleportPhysics);
+		CacherPionReseau(Soldat, false);
+		Nouveau = Soldat;
+	}
+	else
+	{
+		UClass* Classe = nullptr;
+		if (Mode.Type == ETypeModeRoue::APied)
+		{
+			Classe = Relais->ClasseSoldat;
+			if (!Classe)
+			{
+				AGameModeBase* Jeu = GetWorld()->GetAuthGameMode();
+				Classe = Jeu ? Jeu->GetDefaultPawnClassForController(PC) : nullptr;
+			}
+		}
+		else if (ClassesVehicules.IsValidIndex(Index))
+		{
+			Classe = ClassesVehicules[Index];
+		}
+		if (!Classe)
+		{
+			Relais->ClientAvis(FString::Printf(TEXT("%s indisponible : %s introuvable."), *Mode.Nom.ToString(), *Mode.ClasseVehicule.ToString()));
+			return;
+		}
+		Ancien->SetActorEnableCollision(false); // pour apparaitre a la meme place
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+		Nouveau = GetWorld()->SpawnActor<APawn>(Classe, Lieu, Rot, Params);
+		if (!Nouveau)
+		{
+			Ancien->SetActorEnableCollision(true);
+			Relais->ClientAvis(FString::Printf(TEXT("%s : le personnage n'a pas pu apparaitre."), *Mode.Nom.ToString()));
+			return;
+		}
+	}
+
+	PC->Possess(Nouveau);
+	PC->SetControlRotation(Rot);
+	PC->ClientSetRotation(Rot);
+
+	// L'ancien personnage : le soldat est cache (on le garde avec sa vie et ses armes), les autres disparaissent
+	if (Ancien == Soldat)
+	{
+		CacherPionReseau(Ancien, true);
+		Relais->PionCache = Ancien;
+	}
+	else
+	{
+		DetruireAvecAttaches(Ancien);
+		if (Nouveau == Soldat || Mode.Type == ETypeModeRoue::APied)
+		{
+			if (IsValid(Soldat) && Soldat != Nouveau)
+			{
+				DetruireAvecAttaches(Soldat);
+			}
+			Relais->PionCache = nullptr;
+		}
+	}
+
+	Relais->Mode = Index;
+	Relais->PionActif = Nouveau;
+	Relais->PionHabille = Mode.Costume.IsNull() ? nullptr : Nouveau;
+	HabillerPion(Relais->PionHabille, Mode, false);
+	Relais->ForceNetUpdate();
+	UE_LOG(LogTemp, Log, TEXT("[Roue] %s joue maintenant \"%s\" (%s)."), *PC->GetName(), *Mode.Nom.ToString(), *Nouveau->GetName());
+}
+
+void ARoueModes::GererRelaisServeur()
+{
+	UWorld* Monde = GetWorld();
+	if (!Monde)
+	{
+		return;
+	}
+	TArray<APlayerController*> DejaServis;
+	TArray<ARoueRelais*> Relais;
+	for (TActorIterator<ARoueRelais> It(Monde); It; ++It)
+	{
+		Relais.Add(*It);
+	}
+	for (ARoueRelais* R : Relais)
+	{
+		APlayerController* PC = Cast<APlayerController>(R->GetOwner());
+		if (!PC)
+		{
+			// Joueur parti : on range son soldat cache et son relais
+			DetruireAvecAttaches(R->PionCache);
+			R->Destroy();
+			continue;
+		}
+		DejaServis.Add(PC);
+
+		// Le jeu a donne un autre personnage au joueur (mort puis reapparition) : retour au mode soldat
+		APawn* Actuel = PC->GetPawn();
+		if (Actuel && Actuel != R->PionActif)
+		{
+			const bool bRienAChanger = (R->PionActif == nullptr && R->Mode == INDEX_NONE && R->PionCache == nullptr);
+			if (!bRienAChanger)
+			{
+				DetruireAvecAttaches(R->PionCache);
+				R->PionCache = nullptr;
+				R->PionHabille = nullptr;
+				R->Mode = INDEX_NONE;
+				R->ClasseSoldat = nullptr;
+				R->ForceNetUpdate();
+			}
+			R->PionActif = Actuel;
+		}
+	}
+	for (FConstPlayerControllerIterator It = Monde->GetPlayerControllerIterator(); It; ++It)
+	{
+		APlayerController* PC = It->Get();
+		if (!PC || DejaServis.Contains(PC))
+		{
+			continue;
+		}
+		FActorSpawnParameters Params;
+		Params.Owner = PC;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		if (ARoueRelais* Nouveau = Monde->SpawnActor<ARoueRelais>(ARoueRelais::StaticClass(), FTransform::Identity, Params))
+		{
+			Nouveau->PionActif = PC->GetPawn();
+			UE_LOG(LogTemp, Log, TEXT("[Roue] Roue prete pour le joueur %s."), *PC->GetName());
+		}
+	}
+}
+
+void ARoueModes::SuivreJoueursReseau()
+{
+	UWorld* Monde = GetWorld();
+	if (!Monde)
+	{
+		return;
+	}
+	TArray<TWeakObjectPtr<APawn>> Caches;
+	for (TActorIterator<ARoueRelais> It(Monde); It; ++It)
+	{
+		ARoueRelais* R = *It;
+		// Costume Spider-Man des autres joueurs (et du notre) sur cette machine
+		if (IsValid(R->PionHabille) && Modes.IsValidIndex(R->Mode))
+		{
+			HabillerPion(R->PionHabille, Modes[R->Mode], false);
+		}
+		// Soldat cache : pas de collision ici non plus (la collision n'est pas copiee par le reseau)
+		if (IsValid(R->PionCache))
+		{
+			R->PionCache->SetActorEnableCollision(false);
+			Caches.Add(R->PionCache);
+		}
+	}
+	for (const TWeakObjectPtr<APawn>& Ancien : CollisionsCoupees)
+	{
+		if (Ancien.IsValid() && !Caches.Contains(Ancien))
+		{
+			Ancien->SetActorEnableCollision(true); // soldat revenu en jeu
+		}
+	}
+	CollisionsCoupees = Caches;
 }
