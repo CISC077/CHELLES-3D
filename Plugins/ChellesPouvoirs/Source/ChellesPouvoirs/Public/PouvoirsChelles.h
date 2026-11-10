@@ -101,10 +101,13 @@ private:
 
 	TSharedPtr<SPouvoirsHud> Hud;
 
-	/** XP du joueur de cette machine (sauvegardee sur son PC). */
+	/** XP du joueur de cette machine (sauvegardee sur son PC). UPROPERTY : lue par le plugin ChellesHud. */
+	UPROPERTY(Transient)
 	int32 XPLocale = 0;
 	double SecondesJouees = 0.0;
 	float SecondesMinute = 0.f;
+	/** Pouvoir choisi avec Y. UPROPERTY : lu par le plugin ChellesHud. */
+	UPROPERTY(Transient)
 	int32 Selection = 0;
 	int32 NiveauAnnonce = 0;
 	float ProchainEnvoi = 0.f;
