@@ -9,6 +9,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "HAL/PlatformProcess.h"
 #include "GameFramework/GameUserSettings.h"
+#include "HAL/IConsoleManager.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerInput.h"
 #include "InputCoreTypes.h"
@@ -167,6 +168,71 @@ namespace ChellesOptions
 	static UGameUserSettings* Ecran()
 	{
 		return GEngine ? GEngine->GetGameUserSettings() : nullptr;
+	}
+
+	// --- Qualite CHELLES : BAS / MOYEN / HAUT (cle Qualite dans [ChellesMenu], -1 = jamais choisie)
+	struct FPresetQualite
+	{
+		int32 Scalabilite;   // 0 Bas ... 3 Epique (qualite Unreal)
+		float Resolution;    // % de la resolution de l'ecran (le jeu est agrandi, l'interface reste nette)
+		float Vue;           // r.ViewDistanceScale : distance d'affichage des objets
+		float Herbe;         // foliage.DensityScale / grass.DensityScale : densite de l'herbe et des plantes
+		float Ombres;        // r.Shadow.DistanceScale : distance des ombres
+		float DistanceLOD;   // r.StaticMeshLODDistanceScale : > 1 = versions simplifiees plus tot
+		int32 BiaisLODPerso; // r.SkeletalMeshLODBias : 1 = personnages un cran plus simples
+	};
+	static const FPresetQualite Presets[3] = {
+		{ 0, 70.f, 0.6f, 0.35f, 0.5f, 2.0f, 1 },   // BAS   : vieux PC / portable
+		{ 1, 85.f, 0.8f, 0.65f, 0.75f, 1.3f, 0 },  // MOYEN
+		{ 3, 100.f, 1.f, 1.f, 1.f, 1.f, 0 },       // HAUT  : comme avant
+	};
+
+	static void DefinirCVar(const TCHAR* Nom, float Valeur)
+	{
+		if (IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(Nom))
+		{
+			V->Set(Valeur, ECVF_SetByGameSetting);
+		}
+	}
+
+	static int32 QualiteChoisie()
+	{
+		float V = -1.f;
+		if (GConfig)
+		{
+			GConfig->GetFloat(Section, TEXT("Qualite"), V, GGameUserSettingsIni);
+		}
+		return FMath::RoundToInt(V);
+	}
+
+	/** bEcran = vrai quand le joueur change le reglage (qualite Unreal + resolution sont alors enregistrees). */
+	static void AppliquerQualite(int32 N, bool bEcran)
+	{
+		if (N < 0 || N > 2)
+		{
+			return;
+		}
+		const FPresetQualite& P = Presets[N];
+		if (bEcran)
+		{
+			if (UGameUserSettings* R = Ecran())
+			{
+				R->SetOverallScalabilityLevel(P.Scalabilite);
+				R->SetResolutionScaleValueEx(P.Resolution);
+				R->ApplySettings(false);
+			}
+			if (GConfig)
+			{
+				GConfig->SetFloat(Section, TEXT("Qualite"), (float)N, GGameUserSettingsIni);
+				GConfig->Flush(false, GGameUserSettingsIni);
+			}
+		}
+		DefinirCVar(TEXT("r.ViewDistanceScale"), P.Vue);
+		DefinirCVar(TEXT("foliage.DensityScale"), P.Herbe);
+		DefinirCVar(TEXT("grass.DensityScale"), P.Herbe);
+		DefinirCVar(TEXT("r.Shadow.DistanceScale"), P.Ombres);
+		DefinirCVar(TEXT("r.StaticMeshLODDistanceScale"), P.DistanceLOD);
+		DefinirCVar(TEXT("r.SkeletalMeshLODBias"), (float)P.BiaisLODPerso);
 	}
 
 	static TWeakObjectPtr<UWorld> GMonde;
@@ -420,6 +486,7 @@ namespace ChellesOptions
 	{
 		GMonde = Monde;
 		AppliquerVolume();
+		AppliquerQualite(QualiteChoisie(), false);
 	}
 
 	bool ChatActif() { return LireBool(TEXT("Chat"), true); }
@@ -464,21 +531,15 @@ namespace ChellesOptions
 	// --- Affichage & graphisme
 	static FText TexteQualite()
 	{
-		static const TCHAR* Noms[] = { TEXT("BAS"), TEXT("MOYEN"), TEXT("\u00C9LEV\u00C9"), TEXT("\u00C9PIQUE") };
-		UGameUserSettings* R = Ecran();
-		const int32 N = R ? R->GetOverallScalabilityLevel() : -1;
-		return Ligne(TEXT("QUALIT\u00C9"), (N >= 0 && N <= 3) ? Noms[N] : TEXT("PERSONNALIS\u00C9E"));
+		static const TCHAR* Noms[] = { TEXT("BAS"), TEXT("MOYEN"), TEXT("HAUT") };
+		const int32 N = QualiteChoisie();
+		return Ligne(TEXT("QUALIT\u00C9"), (N >= 0 && N <= 2) ? Noms[N] : TEXT("HAUT"));
 	}
 
 	static void ChangerQualite(int32 Sens)
 	{
-		if (UGameUserSettings* R = Ecran())
-		{
-			int32 N = R->GetOverallScalabilityLevel();
-			N = Boucle(N < 0 ? 2 : N, Sens, 4);
-			R->SetOverallScalabilityLevel(N);
-			R->ApplySettings(false);
-		}
+		const int32 N = QualiteChoisie();
+		AppliquerQualite(Boucle(N < 0 ? 2 : N, Sens, 3), true);
 	}
 
 	static const EWindowMode::Type ModesFenetre[] = { EWindowMode::Fullscreen, EWindowMode::WindowedFullscreen, EWindowMode::Windowed };
@@ -2004,6 +2065,7 @@ TSharedRef<SWidget> SMenuChelles::OngletGraphismes()
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteResolution(); }, [](int32 S) { ChellesOptions::ChangerResolution(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteVSync(); }, [](int32 S) { ChellesOptions::ChangerVSync(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteFPS(); }, [](int32 S) { ChellesOptions::ChangerFPS(S); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("QUALIT\u00C9 : BAS pour un PC faible ou un portable (image un peu moins fine, moins d'herbe, ombres et objets moins loin), MOYEN pour un PC moyen, HAUT = tout au maximum."))) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Enregistr\u00E9 automatiquement (GameUserSettings). Affichage et r\u00E9solution ne changent que dans le jeu lanc\u00E9 seul, pas dans la fen\u00EAtre de l'\u00E9diteur."))) ];
 }
 
