@@ -11,7 +11,9 @@ public class ChellesParoles : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
-			"Projects"
+			"Projects",
+			"Slate",
+			"SlateCore"
 		});
 	}
 }

@@ -13,6 +13,7 @@
 class ACharacter;
 class UAudioComponent;
 class USoundAttenuation;
+class SBullesParoles;
 
 /** Une replique qui a une voix enregistree (ligne de Voix/index.txt). */
 struct FRepliqueVoix
@@ -58,6 +59,7 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual void EndPlay(const EEndPlayReason::Type Raison) override;
 
 	/** Seuls les personnages dont la classe contient ce mot parlent (les passants du plugin ChellesPassants). */
 	UPROPERTY(EditAnywhere, Category = "Paroles")
@@ -107,13 +109,25 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Paroles")
 	float PorteeDeLaVoix = 2500.f;
 
+	/** Affiche les phrases dans une bulle noire (texte blanc) au-dessus de la tete du passant. */
+	UPROPERTY(EditAnywhere, Category = "Paroles|Bulles")
+	bool bAfficherLesBulles = true;
+
+	/** Au-dela de cette distance (cm), la bulle n'est plus affichee. */
+	UPROPERTY(EditAnywhere, Category = "Paroles|Bulles")
+	float PorteeDesBulles = 2500.f;
+
+	/** Taille du texte dans les bulles. */
+	UPROPERTY(EditAnywhere, Category = "Paroles|Bulles", meta = (ClampMin = "8", ClampMax = "40"))
+	int32 TaillePoliceBulles = 15;
+
 	/** Affiche la phrase au-dessus de la tete quand elle n'a pas de voix (fichier .wav absent). */
 	UPROPERTY(EditAnywhere, Category = "Paroles")
 	bool bTexteSiPasDeVoix = true;
 
-	/** Affiche toujours la phrase au-dessus de la tete (sous-titres). */
+	/** Affiche la bulle meme quand le passant parle a voix haute. */
 	UPROPERTY(EditAnywhere, Category = "Paroles")
-	bool bToujoursAfficherLeTexte = false;
+	bool bToujoursAfficherLeTexte = true;
 
 private:
 	void ChargerRepliques();
@@ -140,6 +154,8 @@ private:
 
 	UPROPERTY()
 	USoundAttenuation* Attenuation = nullptr;
+
+	TSharedPtr<SBullesParoles> Bulles;
 
 	double DerniereParoleGlobale = -1000.0;
 	float TempsAvantNettoyage = 10.f;

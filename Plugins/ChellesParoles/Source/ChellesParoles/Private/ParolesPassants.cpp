@@ -3,7 +3,6 @@
 #include "Components/AudioComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "DrawDebugHelpers.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -14,6 +13,9 @@
 #include "Misc/Paths.h"
 #include "Sound/SoundAttenuation.h"
 #include "Sound/SoundWaveProcedural.h"
+#include "Engine/GameViewportClient.h"
+#include "GameFramework/PlayerController.h"
+#include "SBullesParoles.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogChellesParoles, Log, All);
 
@@ -104,6 +106,35 @@ void AParolesPassants::BeginPlay()
 	Attenuation->Attenuation.AttenuationShapeExtents = FVector(300.f, 0.f, 0.f);
 	Attenuation->Attenuation.FalloffDistance = FMath::Max(100.f, PorteeDeLaVoix - 300.f);
 	Attenuation->Attenuation.DistanceAlgorithm = EAttenuationDistanceModel::NaturalSound;
+
+	// Calque transparent sur l'ecran ou sont dessinees les bulles des passants.
+	if (bAfficherLesBulles)
+	{
+		if (UGameViewportClient* Vue = GetWorld()->GetGameViewport())
+		{
+			Bulles = SNew(SBullesParoles);
+			Bulles->Monde = GetWorld();
+			Bulles->DistanceMax = PorteeDesBulles;
+			Bulles->TaillePolice = TaillePoliceBulles;
+			Vue->AddViewportWidgetContent(Bulles.ToSharedRef(), 5);
+		}
+	}
+}
+
+void AParolesPassants::EndPlay(const EEndPlayReason::Type Raison)
+{
+	if (Bulles.IsValid())
+	{
+		if (UWorld* Monde = GetWorld())
+		{
+			if (UGameViewportClient* Vue = Monde->GetGameViewport())
+			{
+				Vue->RemoveViewportWidgetContent(Bulles.ToSharedRef());
+			}
+		}
+		Bulles.Reset();
+	}
+	Super::EndPlay(Raison);
 }
 
 void AParolesPassants::ChargerRepliques()
@@ -341,14 +372,13 @@ void AParolesPassants::Parler(ACharacter* Passant, FEtatPassant& Etat, const FSt
 		return;
 	}
 
-#if ENABLE_DRAW_DEBUG
-	if (bToujoursAfficherLeTexte || (Duree <= 0.f && bTexteSiPasDeVoix))
+	// Bulle noire au-dessus de la tete, le temps de lire la phrase (ou d'entendre la voix).
+	if (Bulles.IsValid() && (bToujoursAfficherLeTexte || (Duree <= 0.f && bTexteSiPasDeVoix)))
 	{
-		const float Affichage = FMath::Max(2.5f, Texte.Len() * 0.07f);
-		const FColor Couleur = (Categorie == TEXT("Salut")) ? FColor::White : FColor(255, 200, 80);
-		DrawDebugString(Monde, FVector(0.f, 0.f, 115.f), Texte, Passant, Couleur, Affichage, true, 1.2f);
+		const float Affichage = FMath::Max3(2.5f, Texte.Len() * 0.07f, Duree + 0.8f);
+		const float Hauteur = Passant->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 30.f;
+		Bulles->Ajouter(Passant, Texte, Hauteur, Maintenant, Affichage);
 	}
-#endif
 
 	DernierePhrase.Add(Categorie, Texte);
 	Etat.DerniereParole = Maintenant;
@@ -368,6 +398,15 @@ void AParolesPassants::Tick(float DeltaSeconds)
 	}
 
 	const double Maintenant = Monde->GetTimeSeconds();
+	if (Bulles.IsValid())
+	{
+		Bulles->Joueur = Cast<APlayerController>(Joueur->GetController());
+		if (!Bulles->Joueur.IsValid())
+		{
+			Bulles->Joueur = UGameplayStatics::GetPlayerController(this, 0);
+		}
+		Bulles->Nettoyer(Maintenant);
+	}
 	const FVector PosJoueur = Joueur->GetActorLocation();
 	const float VitesseJoueur = Joueur->GetVelocity().Size2D();
 	const float RayonJoueur = FMath::Min(Joueur->GetSimpleCollisionRadius(), 300.f);

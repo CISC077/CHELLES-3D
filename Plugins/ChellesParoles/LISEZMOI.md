@@ -20,7 +20,7 @@ Rien n'est modifié dans le projet : pas de niveau, pas de Config, pas de Bluepr
 3. Double-cliquez sur `Generer_les_voix.bat` : il fabrique les voix avec les voix françaises de Windows (gratuit, sans clé API, sans Internet). Il crée le dossier `Voix`.
 4. Ouvrez le projet et lancez la partie (Play).
 
-Sans l'étape 3, les phrases s'affichent en texte au-dessus de la tête des passants.
+Quand un passant parle, sa phrase apparaît dans une **bulle noire avec le texte en blanc** au-dessus de sa tête (même sans l'étape 3). Réglages de la bulle (portée, taille du texte) dans l'acteur, catégorie « Paroles > Bulles ».
 
 ## Changer les phrases
 
