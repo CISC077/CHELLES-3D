@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Pouvoirs et XP",
+	"Description": "Le joueur gagne de l'XP en jouant et debloque des pouvoirs : Envol, Boule de feu, Effet verre, Cameleon, Gel. J = utiliser, Y = changer. Solo et multijoueur.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesPouvoirs",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

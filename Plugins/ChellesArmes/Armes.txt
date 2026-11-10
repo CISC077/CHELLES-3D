@@ -1,0 +1,83 @@
+# CHELLES 3D - Reglages des armes (plugin ChellesArmes)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# En jeu, la console (touche ²) "Chelles.Arme Recharger" relit ce fichier sans quitter.
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = nouvelles apparences, Non = armes d'origine du kit FPS_Game
+Apparences=Oui
+# Oui = tirs speciaux (laser, boule de feu, glacial, foudre) EN PLUS du tir normal
+TirsSpeciaux=Oui
+# Non = cacher aussi les accessoires de l'ancienne arme (lunette, silencieux...)
+GarderAccessoires=Non
+# Touche pour changer le tir special de l'arme en main
+ToucheChanger=O
+
+# ---------------------------------------------------------------------------
+# NOUVELLES APPARENCES
+# Arme.<nom du Blueprint de l'arme>=chemin du modele | modele de secours si le 1er n'existe pas
+# Arme.<nom>=Aucune  => l'arme garde son apparence d'origine
+# Le nouveau modele est pose par-dessus l'ancien (devenu invisible) : animations, mains,
+# viseur et tir du Blueprint ne changent pas. Taille et sens sont calcules tout seuls,
+# a corriger si besoin en jeu avec la console : Chelles.Arme Roulis 180, Chelles.Arme Avant 3...
+# ---------------------------------------------------------------------------
+# Fusil d'assaut principal -> fusil du pack FPS_Assault_Pack
+Arme.BPC_WeaponRifle=/Game/FPS_Assault_Pack/Meshes/Rifle/SK_Rifle.SK_Rifle | /Game/FPS_Weapon_Bundle/Weapons/Meshes/AR4/SK_AR4.SK_AR4
+# Fusil a recul -> RU74 du pack FPS_Assault_Pack
+Arme.BPC_WeaponRecoil=/Game/FPS_Assault_Pack/Meshes/RU74/SK_RU74.SK_RU74 | /Game/FPS_Weapon_Bundle/Weapons/Meshes/KA74U/SK_KA74U_X.SK_KA74U_X
+# Sniper -> KA Val (FPS_Weapon_Bundle)
+Arme.BPC_WeaponSniper=/Game/FPS_Weapon_Bundle/Weapons/Meshes/KA_Val/SK_KA_Val_X.SK_KA_Val_X
+# Pistolet automatique -> pistolet-mitrailleur SMG11 (FPS_Weapon_Bundle)
+Arme.BPC_WeaponPistolAuto=/Game/FPS_Weapon_Bundle/Weapons/Meshes/SMG11/SK_SMG11_X.SK_SMG11_X
+# Machette -> couteau M9 (FPS_Weapon_Bundle)
+Arme.BPC_WeaponSword=/Game/FPS_Weapon_Bundle/Weapons/Meshes/M9_Knife/SK_M9_Knife.SK_M9_Knife
+# Armes "UE4" et "Template" -> M4A1 et AK du pack FPSAssets (a importer une fois avec
+# Tools\Armes\importer_armes_fpsassets.py), sinon AR4 et KA47 du FPS_Weapon_Bundle
+Arme.BPC_WeaponUE4=/Game/FPSAssets/Weapon/SM_M4A1.SM_M4A1 | /Game/FPS_Weapon_Bundle/Weapons/Meshes/AR4/SK_AR4.SK_AR4
+Arme.BPC_WeaponTemplate=/Game/FPSAssets/Weapon/SM_AK.SM_AK | /Game/FPS_Weapon_Bundle/Weapons/Meshes/Ka47/SK_KA47.SK_KA47
+# Pas d'equivalent dans les packs : ces armes gardent leur apparence et recoivent un tir special
+Arme.BPC_WeaponPistol=Aucune
+Arme.BPC_WeaponShotgun=Aucune
+Arme.BPC_WeaponLauncher=Aucune
+Arme.BPC_WeaponLaser_New=Aucune
+Arme.BPC_WeaponBeam=Aucune
+
+# Reglages a la main (ecrits tout seuls par la console Chelles.Arme ...) :
+# Reglage.<nom>=avant,haut,cote (cm), tangage,lacet,roulis (degres), echelle
+
+# ---------------------------------------------------------------------------
+# TIR SPECIAL DE DEPART de chaque arme : Laser, Feu, Glace, Foudre ou Aucun
+# (en jeu, la touche O fait defiler les tirs speciaux de l'arme en main, toutes les armes)
+# ---------------------------------------------------------------------------
+Tir.BPC_WeaponPistol=Laser
+Tir.BPC_WeaponShotgun=Glace
+Tir.BPC_WeaponLauncher=Feu
+Tir.BPC_WeaponLaser_New=Foudre
+Tir.BPC_WeaponBeam=Glace
+
+# ---------------------------------------------------------------------------
+# PUISSANCE DES TIRS SPECIAUX
+# Zombies : la regle du plugin Zombies reste valable (tete = mort, corps = 33 %).
+# Cadence = secondes minimum entre deux tirs speciaux (une rafale ne lance pas 10 boules de feu).
+# ---------------------------------------------------------------------------
+Laser.Degats=25
+Laser.Cadence=0.15
+Laser.Vitesse=30000
+
+Feu.Degats=40
+Feu.DegatsExplosion=35
+Feu.Rayon=300
+Feu.Cadence=0.7
+Feu.Vitesse=2800
+
+# Glacial : la cible est gelee (ne bouge plus) pendant DureeGel secondes
+Glace.Degats=15
+Glace.DureeGel=3
+Glace.Cadence=0.4
+Glace.Vitesse=7000
+
+# Foudre : l'eclair saute ensuite sur les Rebonds ennemis les plus proches (Rayon en cm)
+Foudre.Degats=25
+Foudre.Rebonds=3
+Foudre.Rayon=700
+Foudre.Cadence=0.5
+Foudre.Vitesse=18000

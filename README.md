@@ -10,3 +10,8 @@ Reconstitution en 3D de mon quartier à Chelles, réalisée avec **Unreal Engine
 4. Double-cliquer sur le fichier `.uproject`.
 
 Les dossiers `Binaries`, `Intermediate`, `Saved` et `DerivedDataCache` ne sont pas versionnés : Unreal les recrée tout seul.
+
+## Passants (PNJ)
+
+Le plugin `Plugins/ChellesPassants` ajoute des passants qui se promènent dans la ville,
+sans modifier le reste du projet. Mode d'emploi : [Plugins/ChellesPassants/LISEZMOI.md](Plugins/ChellesPassants/LISEZMOI.md).

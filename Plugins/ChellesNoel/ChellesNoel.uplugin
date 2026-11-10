@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Noel",
+	"Description": "Evenement de Noel de CHELLES 3D : du 1er decembre au 1er janvier (date du PC), neige qui tombe, sol enneige et bonnet de Noel sur les passants. Retirable sans toucher au reste du projet.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesNoel",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Invasion Zombies",
+	"Description": "Toutes les 2 heures de jeu : sirene, message ATTENTION PURGE ZOMBIE INVASION, puis des hordes de zombies apparaissent dans le quartier et poursuivent les joueurs. Solo et multijoueur (le serveur decide).",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesZombies",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

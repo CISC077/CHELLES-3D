@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Armes",
+	"Description": "Nouvelles apparences pour les armes du kit FPS_Game (packs FPS_Weapon_Bundle, FPS_Assault_Pack, FPSAssets) et tirs speciaux EN PLUS du tir normal : laser, boule de feu, glacial, foudre. O = changer le tir special. Solo et multijoueur. Ne modifie aucun Blueprint.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesArmes",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

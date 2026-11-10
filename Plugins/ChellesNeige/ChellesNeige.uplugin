@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Neige",
+	"Description": "Neige de CHELLES 3D : empreintes de pas dans la neige du Landscape qui s'effacent lentement (acteur EmpreintesNeige) + outils pour le script Tools/Neige/ajouter_neige.py. Retirable sans toucher au reste du projet.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesNeige",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
