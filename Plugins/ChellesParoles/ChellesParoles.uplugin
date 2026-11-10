@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Paroles des passants",
+	"Description": "Les passants parlent en francais quand le joueur passe pres d'eux, les bouscule, les fixe ou fonce en vehicule. Retirable sans toucher au reste du projet.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesParoles",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

@@ -1,0 +1,62 @@
+﻿# Phrases des passants de Chelles.
+# Une phrase par ligne, sous sa categorie entre crochets. Les lignes qui commencent par # sont ignorees.
+# Apres une modification, relancez Generer_les_voix.bat pour refaire les voix.
+#
+# [Salut]      : le joueur passe pres du passant
+# [Bousculade] : le joueur le bouscule en courant
+# [Vehicule]   : le joueur fonce pres de lui (ou le touche) en motoneige, en auto...
+# [Remarque]   : le joueur reste plante devant lui sans bouger
+
+[Salut]
+Bonjour !
+Salut !
+Bonsoir.
+Ça va ?
+Belle journée, hein ?
+Il fait pas chaud aujourd'hui.
+Vivement le week-end.
+Je vais rater mon RER, moi.
+Encore des travaux sur la route...
+Tu sais si la boulangerie est ouverte ?
+Ah, on se connaît, non ?
+Je vais au marché de Chelles, tu viens ?
+Toujours autant de monde dans ce quartier.
+Bonne journée !
+Oh, pardon.
+Ça caille ce matin !
+Le bus est encore en retard.
+Bon, j'y vais, à plus.
+
+[Bousculade]
+Eh ! Regarde où tu marches !
+Oh ! Doucement !
+Ça va pas, non ?
+Fais attention, toi !
+Hé, tu m'as bousculé !
+Mais t'es malade ou quoi ?
+Pardon, hein ! On dit pardon !
+Aïe ! Tu pourrais t'excuser !
+La rue est assez grande pour deux !
+Eh, calme-toi !
+N'importe quoi, ce gars !
+Tu te crois où, là ?
+
+[Vehicule]
+Attention !
+Ralentis, espèce de fou !
+Mais t'es complètement malade !
+Au secours !
+Hé ! C'est un trottoir ici !
+Tu vas tuer quelqu'un !
+J'appelle la police !
+Mais il est fou, lui !
+Doucement, il y a des enfants ici !
+
+[Remarque]
+Qu'est-ce que tu regardes ?
+Je peux t'aider ?
+Tu veux ma photo ?
+Pourquoi tu me fixes comme ça ?
+Euh... il y a un problème ?
+Bon, tu me laisses passer ?
+Tu cherches quelque chose ?
