@@ -1,0 +1,39 @@
+VERIFICATION AUTOMATIQUE DES ERREURS DE CHARGEMENT - CHELLES 3D
+================================================================
+
+A QUOI CA SERT
+  Tous les soirs, un petit programme regarde si des fichiers manquent
+  (les "Failed to load" de la fenetre Message Log > Load Errors) et
+  corrige tout seul ce qui est sans risque. Unreal n'a pas besoin d'etre
+  ouvert. RIEN N'EST JAMAIS SUPPRIME NI DEPLACE.
+
+LES FICHIERS
+  Installer_verif_quotidienne.bat  -> a lancer UNE fois : cree la tache
+                                      Windows (23:00 par defaut).
+  Verifier_maintenant.bat          -> verifie + corrige tout de suite.
+  Simulation.bat                   -> verifie seulement, ne change rien.
+  Accepter_les_propositions.bat    -> applique aussi les corrections
+                                      "A VERIFIER" du rapport.
+  Retirer_verif_quotidienne.bat    -> enleve la tache du soir.
+  Rapport\DERNIER_RAPPORT.txt      -> le dernier rapport.
+  Sauvegardes\                     -> copies du DefaultEngine.ini avant
+                                      chaque changement.
+
+CE QUI EST CORRIGE TOUT SEUL
+  1. Un fichier mis en _Quarantaine sert encore -> il est RECOPIE a sa
+     place (la quarantaine garde aussi le sien).
+  2. Le fichier existe ailleurs dans Content (meme nom, meme dossier
+     parent, une seule copie) -> une redirection est ajoutee dans
+     Config\DefaultEngine.ini, section [CoreRedirects].
+  Il faut redemarrer Unreal pour que ce soit pris en compte.
+
+CE QUI EST SEULEMENT SIGNALE
+  - "A VERIFIER" : fichier du meme nom trouve mais dans un dossier tres
+    different, ou en plusieurs exemplaires.
+  - "INTROUVABLES" : le fichier n'existe nulle part.
+  Le Bloc-notes s'ouvre avec le rapport quand il y a quelque chose a voir.
+  Montre-le a Claude dans le projet CHELLES 3D.
+
+ANNULER UNE CORRECTION
+  Remettre la copie de Sauvegardes\DefaultEngine_<date>.ini a la place de
+  Config\DefaultEngine.ini (Unreal ferme).
