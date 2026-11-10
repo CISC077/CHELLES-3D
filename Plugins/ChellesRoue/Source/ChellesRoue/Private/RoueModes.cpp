@@ -153,6 +153,7 @@ ARoueModes::ARoueModes()
 	Suv.Icone = EIconeRoue::Voiture;
 	Suv.Couleur = FLinearColor(0.2f, 0.85f, 0.6f);
 	Suv.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/SUV_BP_child.SUV_BP_child_C")));
+	Suv.LimiteCirculation = 10; // peu de voitures, une par rue : on roule sans accident (demande 2026-11-10)
 	Modes.Add(Suv);
 
 	// Deux personnages du pack SuperPowers (a la place des voitures, 2026-11-08)
@@ -1500,6 +1501,7 @@ void ARoueModes::Tick(float DeltaSeconds)
 			}
 			SuivreJoueursReseau();
 		}
+		ReglerCirculation();
 	}
 	RetirerAnciennesTouches();
 	SuivreMontures();
@@ -1833,4 +1835,69 @@ void ARoueModes::SuivreJoueursReseau()
 		}
 	}
 	CollisionsCoupees = Caches;
+}
+
+// ---------------------------------------------------------------------------
+// Circulation (plugin ChellesCirculation, par reflexion) : moins de voitures dans certains modes (SUV)
+// ---------------------------------------------------------------------------
+
+void ARoueModes::ReglerCirculation()
+{
+	// La limite la plus basse parmi les modes joues. En multijoueur on regarde tous les joueurs :
+	// deux joueurs en SUV = la meme limite qu'un seul (elle ne s'additionne pas).
+	int32 Limite = 0;
+	auto Prendre = [this, &Limite](int32 Index)
+	{
+		if (Modes.IsValidIndex(Index) && Modes[Index].LimiteCirculation > 0)
+		{
+			Limite = (Limite > 0) ? FMath::Min(Limite, Modes[Index].LimiteCirculation) : Modes[Index].LimiteCirculation;
+		}
+	};
+	if (EstMultijoueur())
+	{
+		for (TActorIterator<ARoueRelais> It(GetWorld()); It; ++It)
+		{
+			Prendre(It->Mode);
+		}
+	}
+	else
+	{
+		Prendre(ModeActuel());
+	}
+	if (Limite == LimiteCirculationAppliquee)
+	{
+		return;
+	}
+	if (!ClasseCirculation)
+	{
+		ClasseCirculation = TrouverClasse(TEXT("/Script/ChellesCirculation.CirculationSpawner"), TEXT("CirculationSpawner"));
+		if (!ClasseCirculation)
+		{
+			return; // plugin circulation absent
+		}
+	}
+	FIntProperty* PropLimite = FindFProperty<FIntProperty>(ClasseCirculation, TEXT("LimiteEnJeu"));
+	FBoolProperty* PropUneParRue = FindFProperty<FBoolProperty>(ClasseCirculation, TEXT("bUneVoitureParRue"));
+	if (!PropLimite)
+	{
+		static bool bDejaDit = false;
+		if (!bDejaDit)
+		{
+			bDejaDit = true;
+			UE_LOG(LogTemp, Warning, TEXT("[Roue] Circulation : recompiler ChellesCirculation pour limiter les voitures en SUV."));
+		}
+		LimiteCirculationAppliquee = Limite;
+		return;
+	}
+	for (TActorIterator<AActor> It(GetWorld(), ClasseCirculation); It; ++It)
+	{
+		PropLimite->SetPropertyValue_InContainer(*It, Limite);
+		if (PropUneParRue)
+		{
+			PropUneParRue->SetPropertyValue_InContainer(*It, Limite > 0);
+		}
+	}
+	LimiteCirculationAppliquee = Limite;
+	UE_LOG(LogTemp, Log, TEXT("[Roue] Circulation : %s."), Limite > 0
+		? *FString::Printf(TEXT("%d voitures maximum, une par rue"), Limite) : TEXT("normale"));
 }

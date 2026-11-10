@@ -90,6 +90,10 @@ struct FModeRoue
 	/** Vrai : + et - font defiler les sorts 1 a 5 du pack (touches 1..5 simulees). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
 	bool bSortsPlusMoins = false;
+
+	/** Circulation pendant ce mode : nombre maximum de voitures, une par rue (0 = circulation normale). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue", meta = (ClampMin = "0"))
+	int32 LimiteCirculation = 0;
 };
 
 /**
@@ -194,6 +198,7 @@ private:
 	void ChoisirModeReseau(ARoueRelais* Relais, int32 Index);
 	void GererRelaisServeur();
 	void SuivreJoueursReseau();
+	void ReglerCirculation();
 
 	void CacherHudPack(const FString& Racine);
 	void MontrerHudPack(const FString& Racine);
@@ -205,6 +210,12 @@ private:
 
 	UPROPERTY(Transient)
 	UClass* ClasseMotoneige = nullptr;
+
+	UPROPERTY(Transient)
+	UClass* ClasseCirculation = nullptr;
+
+	/** Limite de circulation appliquee en dernier (-1 = jamais reglee). */
+	int32 LimiteCirculationAppliquee = -1;
 
 	/** Un acteur Motoneige par case vehicule (meme index que Modes). */
 	UPROPERTY(Transient)
