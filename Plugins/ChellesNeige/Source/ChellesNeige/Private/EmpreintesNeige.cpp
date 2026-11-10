@@ -1,6 +1,11 @@
 #include "EmpreintesNeige.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/Canvas.h"
+#include "Engine/DirectionalLight.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/LightComponent.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -59,6 +64,7 @@ void AEmpreintesNeige::MettreAJourCollection()
 void AEmpreintesNeige::BeginPlay()
 {
 	Super::BeginPlay();
+	PreparerDensite();
 	if (!Cible || !Tampon || !MatEmpreinte || !MatReport || !Collection || TailleZone <= 0.f)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("EmpreintesNeige : reglages incomplets, relancez Tools/Neige/ajouter_neige.py"));
@@ -110,6 +116,7 @@ bool AEmpreintesNeige::SurLaNeige(ACharacter* Perso) const
 void AEmpreintesNeige::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	MettreAJourDensite(DeltaSeconds);
 	if (!bPret)
 	{
 		return;
@@ -212,4 +219,107 @@ void AEmpreintesNeige::Tick(float DeltaSeconds)
 		}
 	}
 	UKismetRenderingLibrary::EndDrawCanvasToRenderTarget(this, Contexte);
+}
+
+// ------------------------------------------------------------------------------------------------
+//  Optimisation : densite des flocons selon l'heure (cycle jour/nuit) et la qualite du menu
+// ------------------------------------------------------------------------------------------------
+
+void AEmpreintesNeige::PreparerDensite()
+{
+	Couches.Reset();
+	UWorld* W = GetWorld();
+	if (!W || W->GetNetMode() == NM_DedicatedServer)
+	{
+		return; // pas d'image sur un serveur dedie
+	}
+	// Les 2 couches de flocons posees par ajouter_neige.py : leur materiau s'appelle MI_Neige_...
+	for (TActorIterator<AStaticMeshActor> It(W); It; ++It)
+	{
+		UStaticMeshComponent* Comp = It->GetStaticMeshComponent();
+		UMaterialInterface* Mat = Comp ? Comp->GetMaterial(0) : nullptr;
+		if (!Mat || !Mat->GetName().StartsWith(TEXT("MI_Neige_")))
+		{
+			continue;
+		}
+		if (UMaterialInstanceDynamic* Mid = Comp->CreateDynamicMaterialInstance(0))
+		{
+			const float Base = Mid->K2_GetScalarParameterValue(TEXT("Densite"));
+			if (Base <= 0.f)
+			{
+				continue; // parametre absent : on ne touche pas a cette couche
+			}
+			FCoucheNeige Couche;
+			Couche.Mid = Mid;
+			Couche.DensiteDeBase = Base;
+			Couches.Add(Couche);
+		}
+	}
+	// Le soleil = la lumiere directionnelle mobile (celle que pilote le cycle jour/nuit GoodSky)
+	for (TActorIterator<ADirectionalLight> It(W); It; ++It)
+	{
+		ULightComponent* L = It->GetLightComponent();
+		if (L && L->Mobility == EComponentMobility::Movable)
+		{
+			Soleil = *It;
+			break;
+		}
+	}
+	FacteurActuel = FacteurVoulu();
+	MinuteurDensite = 1.f; // applique tout de suite
+	UE_LOG(LogTemp, Log, TEXT("[Neige] %d couche(s) de flocons, soleil %s."), Couches.Num(), Soleil.IsValid() ? TEXT("trouve") : TEXT("introuvable"));
+}
+
+float AEmpreintesNeige::FacteurVoulu() const
+{
+	float Facteur = 1.f;
+
+	// Qualite du menu OPTIONS (GameUserSettings.ini [ChellesMenu] Qualite : 0 BAS, 1 MOYEN, 2 HAUT)
+	float Qualite = -1.f;
+	if (GConfig)
+	{
+		GConfig->GetFloat(TEXT("ChellesMenu"), TEXT("Qualite"), Qualite, GGameUserSettingsIni);
+	}
+	const int32 Q = FMath::RoundToInt(Qualite);
+	if (Q == 0)
+	{
+		Facteur *= FloconsQualiteBasse;
+	}
+	else if (Q == 1)
+	{
+		Facteur *= FloconsQualiteMoyenne;
+	}
+
+	// Nuit : le soleil est sous l'horizon (sa lumiere va vers le haut)
+	if (bAllegerLaNuit && Soleil.IsValid())
+	{
+		const float Hauteur = -Soleil->GetActorForwardVector().Z; // > 0 : soleil au-dessus de l'horizon
+		const float Nuit = FMath::Clamp((0.05f - Hauteur) / 0.15f, 0.f, 1.f); // fondu pendant le crepuscule
+		Facteur *= FMath::Lerp(1.f, FloconsLaNuit, Nuit);
+	}
+	return Facteur;
+}
+
+void AEmpreintesNeige::MettreAJourDensite(float DeltaSeconds)
+{
+	if (Couches.Num() == 0)
+	{
+		return;
+	}
+	MinuteurDensite += DeltaSeconds;
+	if (MinuteurDensite < 1.f)
+	{
+		return; // une fois par seconde suffit
+	}
+	const float Ecoule = MinuteurDensite;
+	MinuteurDensite = 0.f;
+	// Changement doux (environ 5 s) : la neige s'eclaircit, elle ne disparait pas d'un coup
+	FacteurActuel = FMath::FInterpTo(FacteurActuel, FacteurVoulu(), Ecoule, 0.4f);
+	for (const FCoucheNeige& Couche : Couches)
+	{
+		if (UMaterialInstanceDynamic* Mid = Couche.Mid.Get())
+		{
+			Mid->SetScalarParameterValue(TEXT("Densite"), Couche.DensiteDeBase * FacteurActuel);
+		}
+	}
 }

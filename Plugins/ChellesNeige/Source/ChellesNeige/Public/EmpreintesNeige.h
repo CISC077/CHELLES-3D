@@ -73,6 +73,24 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Empreintes")
 	bool bSeulementSurLandscape = true;
 
+	/**
+	 * Optimisation : moins de flocons la nuit (quand le soleil du cycle jour/nuit est sous l'horizon)
+	 * et selon la QUALITE choisie dans le menu OPTIONS (BAS / MOYEN / HAUT).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neige|Optimisation")
+	bool bAllegerLaNuit = true;
+
+	/** Part des flocons gardee la nuit (0,5 = moitie). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neige|Optimisation", meta = (ClampMin = "0", ClampMax = "1"))
+	float FloconsLaNuit = 0.5f;
+
+	/** Part des flocons gardee en qualite BAS et MOYEN (HAUT = tous). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neige|Optimisation", meta = (ClampMin = "0", ClampMax = "1"))
+	float FloconsQualiteBasse = 0.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Neige|Optimisation", meta = (ClampMin = "0", ClampMax = "1"))
+	float FloconsQualiteMoyenne = 0.75f;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
@@ -89,6 +107,21 @@ private:
 	void MettreAJourCollection();
 	void ReporterEtEffacer(const FVector2D& NouveauCentre, float Attenuation);
 	bool SurLaNeige(ACharacter* Perso) const;
+
+	/** Densite des flocons selon l'heure et la qualite. */
+	void PreparerDensite();
+	void MettreAJourDensite(float DeltaSeconds);
+	float FacteurVoulu() const;
+
+	struct FCoucheNeige
+	{
+		TWeakObjectPtr<UMaterialInstanceDynamic> Mid;
+		float DensiteDeBase = 1.f;
+	};
+	TArray<FCoucheNeige> Couches;
+	TWeakObjectPtr<AActor> Soleil;
+	float FacteurActuel = 1.f;
+	float MinuteurDensite = 0.f;
 
 	UPROPERTY(Transient)
 	UMaterialInstanceDynamic* MidVersTampon = nullptr;

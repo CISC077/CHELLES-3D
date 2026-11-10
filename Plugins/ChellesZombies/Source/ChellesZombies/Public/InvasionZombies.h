@@ -58,6 +58,9 @@ struct FEtatZombie
 	int32 Bloque = 0;
 	float ContournerJusqua = 0.f;
 	float CoteContournement = 1.f;
+
+	// Optimisation : loin des joueurs, son animation est calculee moins souvent
+	bool bAllege = false;
 };
 
 UCLASS(NotPlaceable, Transient)

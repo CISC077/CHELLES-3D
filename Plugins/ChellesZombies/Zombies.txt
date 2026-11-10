@@ -16,9 +16,10 @@ DureeMessageSecondes=30
 Message=ATTENTION PURGE ZOMBIE INVASION
 
 # Nombre de zombies (+ X par joueur en plus en multijoueur, sans depasser le maximum)
-NombreZombies=30
-ZombiesEnPlusParJoueur=10
-NombreMaxZombies=60
+# (avant l'optimisation du 10/11 : 30, 10 et 60. Moins de zombies = jeu plus fluide.)
+NombreZombies=25
+ZombiesEnPlusParJoueur=8
+NombreMaxZombies=40
 
 # Un coup de zombie retire 20 % de la vie du joueur
 DegatsZombiePourcent=20
