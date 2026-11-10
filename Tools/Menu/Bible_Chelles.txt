@@ -1,0 +1,97 @@
+﻿# ======================================================================
+#  BIBLE DE CHELLES 3D  -  ce que l'AIDE (Tuto & Astuces) sait répondre
+# ======================================================================
+#  Tu peux modifier ce fichier toi-même avec le Bloc-notes, puis relancer le jeu.
+#  Règles :
+#   - une ligne entre crochets = un sujet + ses mots-clés, séparés par des virgules
+#     (le 1er mot est le nom du sujet, montré quand on tape « sujets »)
+#   - les lignes en dessous = la réponse (plusieurs lignes possibles)
+#   - une ligne qui commence par # est un commentaire, le jeu l'ignore
+#  Garde l'enregistrement en UTF-8 (Bloc-notes : Enregistrer sous > Encodage UTF-8).
+# ======================================================================
+
+[bienvenue, bonjour, salut, hello, coucou, commencer, debut, débutant]
+Bienvenue dans CHELLES 3D, le FPS dans le quartier de Chelles !
+Pose-moi une question avec un mot simple : touches, roue, motoneige, vol, cheval, multi, musique, options...
+Tape « sujets » pour voir tout ce que je connais.
+
+[touches, commandes, controles, contrôles, clavier, bouger, deplacer, déplacer, avancer, marcher]
+Clavier AZERTY (par défaut) :
+Z avancer, S reculer, Q gauche, D droite, Espace sauter, C s'accroupir, Maj gauche sprinter.
+Clic gauche tirer, clic droit viser, R recharger, E utiliser / prendre, G grenade, V corps à corps, I inventaire, X caméra.
+Tu peux tout changer dans OPTIONS > CONTRÔLES > RACCOURCIS CLAVIER.
+
+[qwerty, azerty, wasd, zqsd, disposition]
+Dans OPTIONS > CONTRÔLES, choisis CLAVIER AZERTY (ZQSD) ou QWERTY (WASD). Le changement est immédiat.
+
+[manette, joystick, gamepad, xbox, pad]
+La manette marche dans le jeu et dans les menus.
+Menus : croix ou stick pour choisir, A pour valider, B pour revenir, LB / RB pour changer d'onglet.
+Dans OPTIONS > CONTRÔLES, choisis JOUER AVEC : MANETTE et règle la sensibilité.
+
+[roue, tab, mode, personnage, choisir, changer, heros, héros, perso]
+Maintiens TAB pour ouvrir la roue des modes, vise une case avec la souris puis relâche (ou clic gauche).
+Tu peux jouer Soldat, Spider-Man, Motoneige, Auto, FLASH ÉCLAIR, FLAMME FIRE, SuperPowers, DYNAMIC COMBAT ou HORSE (cheval).
+
+[spiderman, spider, vol, voler, fly, f]
+Touche F : passe de soldat à Spider-Man volant, et inversement.
+En vol, clic droit pour viser, Alt gauche pour esquiver, 1 / 2 pour changer de style de vol.
+
+[motoneige, moto, neige, m, snowmobile]
+Touche M : la motoneige arrive sous tes pieds (ou tu remontes sur celle garée tout près).
+M ou E dessus pour descendre : elle reste garée. F dessus : tu descends et tu t'envoles.
+Sur la moto : Espace frein à main, Maj boost, H klaxon, L phares.
+
+[cheval, horse, monter, cavalier]
+Choisis HORSE dans la roue (TAB), puis approche-toi du cheval et appuie sur E pour monter.
+
+[combat, dynamic, sort, magie, potion, roulade]
+DYNAMIC COMBAT (dans la roue TAB) : molette = choisir le sort ou l'objet, clic gauche = lancer, clic droit = mode combat.
+F2 roulade, F3 saut, F4 potion, F5 ramasser, F6 cibler.
+Astuce : dans l'éditeur (Play), F2 à F5 changent aussi l'affichage, c'est normal.
+
+[camera, caméra, vue, troisieme, troisième, premiere, première]
+Touche X : change de caméra (1re ou 3e personne).
+
+[multi, multijoueur, multiplayer, lan, reseau, réseau, amis, ensemble, heberger, héberger, serveur, rejoindre]
+Menu JOUER > MULTI-PLAYER :
+- LAN LOCAL = tu crées la partie (tu es l'hôte), les autres PC de la maison peuvent la rejoindre.
+- REJOINDRE SERVEUR ou SEARCH = cherche les parties sur le réseau et propose de les rejoindre.
+- ADRESSE IP SERVEUR = rejoindre directement avec l'adresse IP de l'hôte (elle est affichée sur l'écran MULTI-PLAYER de l'hôte).
+La seule carte du jeu est Rachid, en solo comme en multi.
+
+[pvp, joueur contre joueur, tirer sur les joueurs, amis tirer, versus]
+Le PVP (les joueurs peuvent se tirer dessus) est choisi par celui qui héberge : écran MULTI-PLAYER, ligne PVP, avant LAN LOCAL.
+On le voit aussi dans la liste des parties (PVP ON / OFF).
+
+[chat, discuter, message, parler, ecrire, écrire]
+En multi, appuie sur ENTRÉE pour écrire aux autres joueurs, ENTRÉE pour envoyer, ÉCHAP pour fermer.
+TAB passe de l'onglet JOUEURS à l'onglet AIDE.
+Le chat s'active ou se coupe dans OPTIONS > JEU > CHAT JOUEURS.
+
+[aide, tuto, tutorial, astuce, astuces, bible]
+C'est moi ! Appuie sur ENTRÉE en jeu pour me poser une question. Je m'active ou me coupe dans OPTIONS > JEU > AIDE TUTO & ASTUCES.
+
+[musique, son, volume, couper, morceau, playlist, page]
+En jeu : Page Haut / Page Bas = volume de la musique, N = couper ou remettre, Fin = morceau suivant.
+Les volumes général, musique, effets et voix se règlent dans OPTIONS > AUDIO.
+
+[options, reglages, réglages, parametres, paramètres, graphismes, graphisme, resolution, résolution, ecran, écran, fps, lag]
+OPTIONS a 4 onglets : CONTRÔLES, GRAPHISMES, AUDIO, JEU.
+Si le jeu rame : GRAPHISMES > QUALITÉ plus basse, ou une résolution plus petite.
+Clic gauche = valeur suivante, clic droit = valeur précédente. Tout est enregistré tout seul.
+
+[difficulte, difficulté, facile, difficile, extreme, extrême, ennemis]
+La difficulté (Facile, Normal, Difficile, Extrême) se choisit dans OPTIONS > JEU.
+
+[quitter, sortir, fermer, exit]
+Menu principal > QUITTER, puis confirme. En jeu, ÉCHAP ferme d'abord ce panneau.
+
+[liens, discord, facebook, youtube, tiktok, site, communaute, communauté]
+Rejoins la communauté depuis le menu principal : boutons DISCORD, FACEBOOK, YOUTUBE, TIKTOK et SITE (sous QUITTER).
+
+[chelles, quartier, ville, carte, map, rachid]
+Le jeu se passe dans le quartier de Chelles (77), sur la carte Rachid : routes, trottoirs, tour Gambetta, passants qui parlent, neige et cycle jour / nuit.
+
+[credits, crédits, createur, créateur, auteur, meridja]
+CHELLES 3D est une idée et une création de MERIDJA. Voir le bouton CRÉDITS du menu principal.
