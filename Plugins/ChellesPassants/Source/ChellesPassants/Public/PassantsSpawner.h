@@ -61,6 +61,17 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Passants", meta = (ClampMin = "0"))
 	float DistanceAffichage = 15000.f;
 
+	/**
+	 * Optimisation : les passants plus loin que "Distance Endormir" de tous les joueurs se mettent en pause
+	 * (ils ne bougent plus, ne coutent presque plus rien) et repartent quand un joueur revient.
+	 */
+	UPROPERTY(EditAnywhere, Category = "Passants|Optimisation")
+	bool bEndormirLoinDuJoueur = true;
+
+	/** Distance (cm) au-dela de laquelle un passant se met en pause. 0 = la meme que "Distance Affichage". */
+	UPROPERTY(EditAnywhere, Category = "Passants|Optimisation", meta = (ClampMin = "0", EditCondition = "bEndormirLoinDuJoueur"))
+	float DistanceEndormir = 0.f;
+
 	/** Les passants ne marchent que sur les trottoirs : jamais sur les routes, l'herbe, les toits ou les jumpers. */
 	UPROPERTY(EditAnywhere, Category = "Passants|Trottoirs")
 	bool bTrottoirsSeulement = true;
@@ -145,6 +156,10 @@ protected:
 
 	FTimerHandle MinuteurRemplacement;
 	FTimerHandle MinuteurApparition;
+	FTimerHandle MinuteurEndormir;
+
+	/** Met en pause les passants loin de tous les joueurs, reveille les autres (toutes les 0,5 s). */
+	void EndormirLesPassantsLointains();
 
 	/** Passants encore a faire apparaitre (apparition etalee sur plusieurs images). */
 	int32 PassantsRestantsAFaireApparaitre = 0;

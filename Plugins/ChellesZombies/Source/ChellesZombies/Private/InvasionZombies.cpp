@@ -820,6 +820,18 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 	const float Distance = Vers.Size();
 	const FVector Direction = Vers.GetSafeNormal();
 
+	// Optimisation : a plus de 40 m du joueur, animation 15 fois par seconde au lieu de chaque image
+	// (on ne voit pas la difference de si loin). Repasse a la normale en dessous de 35 m.
+	const bool bLoin = Distance > (Etat.bAllege ? 3500.f : 4000.f);
+	if (bLoin != Etat.bAllege)
+	{
+		Etat.bAllege = bLoin;
+		if (USkeletalMeshComponent* Corps = Zombie->GetMesh())
+		{
+			Corps->SetComponentTickInterval(bLoin ? 1.f / 15.f : 0.f);
+		}
+	}
+
 	// Trop loin de tout le monde (bloque derriere un batiment...) : il reapparait plus pres
 	if (Distance > 15000.f)
 	{

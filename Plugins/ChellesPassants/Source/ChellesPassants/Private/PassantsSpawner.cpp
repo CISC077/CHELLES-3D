@@ -10,6 +10,8 @@
 #include "Engine/SkeletalMesh.h"
 #include "Engine/Texture2D.h"
 #include "Engine/World.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "Misc/PackageName.h"
 #include "Modules/ModuleManager.h"
 #include "NavigationSystem.h"
@@ -197,12 +199,17 @@ void APassantsSpawner::BeginPlay()
 	// Apparition etalee : quelques passants par image plutot que 40 d'un coup.
 	PassantsRestantsAFaireApparaitre = NombreDePassants;
 	GetWorldTimerManager().SetTimer(MinuteurApparition, this, &APassantsSpawner::FaireApparaitreUnLot, 0.05f, true, 0.f);
+	if (bEndormirLoinDuJoueur)
+	{
+		GetWorldTimerManager().SetTimer(MinuteurEndormir, this, &APassantsSpawner::EndormirLesPassantsLointains, 0.5f, true, 1.f);
+	}
 }
 
 void APassantsSpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(MinuteurApparition);
 	GetWorldTimerManager().ClearTimer(MinuteurRemplacement);
+	GetWorldTimerManager().ClearTimer(MinuteurEndormir);
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -544,6 +551,74 @@ void APassantsSpawner::RemplacerLesDisparus()
 		else
 		{
 			break;
+		}
+	}
+}
+
+void APassantsSpawner::EndormirLesPassantsLointains()
+{
+	static const FName MarqueEndormi(TEXT("ChellesPassantEndormi"));
+
+	// Ou sont les joueurs ? (en solo : un seul ; sur le serveur multijoueur : tous)
+	TArray<FVector> Joueurs;
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		const APlayerController* PC = It->Get();
+		if (!PC)
+		{
+			continue;
+		}
+		FVector Oeil;
+		FRotator Vue;
+		PC->GetPlayerViewPoint(Oeil, Vue);
+		Joueurs.Add(Oeil);
+	}
+	if (Joueurs.Num() == 0)
+	{
+		return; // menu, chargement... : on ne change rien
+	}
+
+	const float Distance = DistanceEndormir > 0.f ? DistanceEndormir : (DistanceAffichage > 0.f ? DistanceAffichage : 15000.f);
+	const float DistanceReveil = Distance * 0.9f; // un peu plus pres, pour ne pas clignoter a la limite
+
+	for (APassantCharacter* P : Passants)
+	{
+		if (!IsValid(P))
+		{
+			continue;
+		}
+		float Plus = TNumericLimits<float>::Max();
+		for (const FVector& J : Joueurs)
+		{
+			Plus = FMath::Min(Plus, FVector::DistSquared2D(J, P->GetActorLocation()));
+		}
+		const bool bEndormi = P->Tags.Contains(MarqueEndormi);
+		const bool bLoin = Plus > FMath::Square(bEndormi ? DistanceReveil : Distance);
+		if (bLoin == bEndormi)
+		{
+			continue;
+		}
+		// Pause : le deplacement ne calcule plus rien et le temps du passant (et de son IA) s'arrete.
+		if (UCharacterMovementComponent* Mouvement = P->GetCharacterMovement())
+		{
+			Mouvement->SetComponentTickEnabled(!bLoin);
+			if (bLoin)
+			{
+				Mouvement->StopMovementImmediately();
+			}
+		}
+		P->CustomTimeDilation = bLoin ? 0.f : 1.f;
+		if (AController* IA = P->GetController())
+		{
+			IA->CustomTimeDilation = bLoin ? 0.f : 1.f;
+		}
+		if (bLoin)
+		{
+			P->Tags.AddUnique(MarqueEndormi);
+		}
+		else
+		{
+			P->Tags.Remove(MarqueEndormi);
 		}
 	}
 }
