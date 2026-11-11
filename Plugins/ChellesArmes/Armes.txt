@@ -86,6 +86,16 @@ Foudre.Vitesse=18000
 # HEROS SANS ARME (PANTERA, 2026-11-11)
 # Clic gauche = tir special lance depuis les mains (une main puis l'autre), touche O = changer.
 # Heros= noms des corps reconnus (separes par |). TirHeros= tir de depart : Laser, Feu, Glace ou Foudre.
+# SK_SpiderMan_Vol = Spider-Male PENDANT LE VOL (au sol il a les armes du soldat), ajoute le 2026-11-11.
 # ---------------------------------------------------------------------------
-Heros=SK_Pantera
+Heros=SK_Pantera | SK_SpiderMan_Vol | SK_SpiderFemelle_Vol
 TirHeros=Laser
+
+# ---------------------------------------------------------------------------
+# FLASH ELECTRIQUE (2026-11-11) : Spider-Male, Spider-Femelle et PANTERA
+# ToucheFlash = double eclair depuis les mains (a pied avec les armes, ou en vol).
+# Il saute sur les ennemis voisins comme le tir Foudre (reglages Foudre.* plus haut).
+# HerosFlash = noms des corps qui ont ce pouvoir (separes par |).
+# ---------------------------------------------------------------------------
+ToucheFlash=X
+HerosFlash=SK_SpiderMan_Vol | SK_SpiderMan_UE4 | SK_SpiderFemelle | SK_Pantera
