@@ -6,6 +6,7 @@
 #include "InvasionZombies.generated.h"
 
 class ACharacter;
+class AController;
 class APawn;
 class UAudioComponent;
 class UDamageType;
@@ -35,6 +36,15 @@ struct FReglagesZombies
 	FString Message = TEXT("ATTENTION PURGE ZOMBIE INVASION");
 };
 
+// Evenements pour les autres plugins (mode survie...). "Dynamiques" : un autre plugin s'y abonne
+// par leur nom, sans avoir besoin de compiler avec celui-ci.
+/** Un zombie vient d'etre tue au combat (Tueur peut etre nul). */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FZombieTueChelles, ACharacter*, Zombie, AController*, Tueur, bool, bTete);
+/** Un zombie vient d'etre touche sans mourir. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FZombieToucheChelles, ACharacter*, Zombie, AController*, Auteur);
+/** Un zombie va frapper un joueur : l'abonne peut mettre bCoupGereAilleurs a vrai pour annuler le coup. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCoupSurJoueurChelles, APawn*, Victime, float, Degats);
+
 /** Ce que le serveur retient pour chaque zombie. */
 struct FEtatZombie
 {
@@ -48,6 +58,8 @@ struct FEtatZombie
 	FVector DirectionCoup = FVector::ZeroVector;
 
 	TWeakObjectPtr<APawn> Cible;
+	/** Dernier joueur qui l'a touche (pour les points du mode survie). */
+	TWeakObjectPtr<AController> DernierAuteur;
 	float ProchainChoixCible = 0.f;
 	float ProchaineAttaque = 0.f;
 	float CoupPrevuA = -1.f;
@@ -84,6 +96,48 @@ public:
 	/** Le serveur (ou le jeu solo) decide de tout. */
 	bool EstServeur() const;
 
+	// ---- Pour les autres plugins (mode survie...), utilises par leur nom ----
+
+	/** Lance une vague commandee avec les reglages Vague* ci-dessous (serveur). Rien si deja en cours. */
+	UFUNCTION()
+	void LancerVagueCommandee();
+
+	/** Arrete la vague (ou l'invasion) en cours : les zombies restants s'effondrent (serveur). */
+	UFUNCTION()
+	void TerminerVagueCommandee();
+
+	/** Vrai = l'invasion automatique toutes les 2 h ne se declenche pas (un mode de jeu a la main). */
+	UPROPERTY(Transient)
+	bool bInvasionsAutoEnPause = false;
+
+	UPROPERTY(Transient) int32 VagueNombre = 10;
+	/** Vie d'un zombie normal (100 = 3 balles dans le corps, comme l'invasion). */
+	UPROPERTY(Transient) float VagueVie = 100.f;
+	UPROPERTY(Transient) float VagueVitesse = 420.f;
+	/** Part des zombies "costauds" (0 a 1) : plus de vie, un peu plus lents, plus grands. */
+	UPROPERTY(Transient) float VaguePartCostauds = 0.f;
+	UPROPERTY(Transient) float VagueVieCostaud = 300.f;
+	/** Les zombies apparaissent autour de ce point (la zone de jeu), entre RayonMin et RayonMax (cm). */
+	UPROPERTY(Transient) FVector VagueCentre = FVector::ZeroVector;
+	UPROPERTY(Transient) float VagueRayonMin = 1500.f;
+	UPROPERTY(Transient) float VagueRayonMax = 4000.f;
+	UPROPERTY(Transient) FString VagueMessage;
+	UPROPERTY(Transient) float VagueDureeMessage = 5.f;
+	UPROPERTY(Transient) float VagueVolumeSirene = 0.6f;
+
+	UPROPERTY(BlueprintAssignable)
+	FZombieTueChelles OnZombieTue;
+	UPROPERTY(BlueprintAssignable)
+	FZombieToucheChelles OnZombieTouche;
+	UPROPERTY(BlueprintAssignable)
+	FCoupSurJoueurChelles OnCoupSurJoueur;
+	/** Mis a vrai par un abonne de OnCoupSurJoueur : le coup n'est pas applique (ex. joueur mis "a terre"). */
+	UPROPERTY(Transient)
+	bool bCoupGereAilleurs = false;
+
+	/** Tag pose sur un joueur a terre ou mort en mode survie : les zombies l'ignorent. */
+	static const FName MarqueJoueurHorsJeu;
+
 protected:
 	// ---- Etat partage avec les joueurs connectes ----
 	UPROPERTY(Replicated)
@@ -102,7 +156,7 @@ protected:
 	void MulticastAlerte(const FString& Texte, float Duree, float Volume);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastFin(bool bRepoussee);
+	void MulticastFin(const FString& Texte);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastMort(ACharacter* Zombie, bool bTete, FVector Direction);
@@ -128,7 +182,7 @@ private:
 	ACharacter* FaireApparaitreZombie(const FVector& Sol);
 	void PreparerZombie(ACharacter* Zombie);
 	void PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, float Maintenant);
-	void Tuer(ACharacter* Zombie, bool bTete, const FVector& Direction);
+	void Tuer(ACharacter* Zombie, bool bTete, const FVector& Direction, AController* Tueur = nullptr);
 	void Habiller(ACharacter* Zombie);
 
 	void JoueursVivants(TArray<APawn*>& Resultat) const;
@@ -136,6 +190,9 @@ private:
 	static float VieMax(APawn* Joueur);
 
 	FReglagesZombies Reglages;
+
+	/** Vague commandee en cours (au lieu d'une invasion automatique). */
+	bool bModeVague = false;
 
 	// Serveur
 	float ProchaineInvasion = 0.f;

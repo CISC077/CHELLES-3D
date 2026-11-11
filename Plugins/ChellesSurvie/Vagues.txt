@@ -1,0 +1,41 @@
+# CHELLES 3D - DERNIER REFUGE : difficulte des vagues
+# Modifiez avec le Bloc-notes, enregistrez, puis relancez le mode (F7). Pas besoin de recompiler.
+# Les lignes qui commencent par # sont des commentaires. Les virgules sont acceptees (2,5 = 2.5).
+
+# ---- Nombre de zombies ----
+# Vague 1
+ZombiesVague1=6
+# En plus a chaque vague (vague 10 = 6 + 9 x 3 = 33 zombies)
+ZombiesEnPlusParVague=3
+# En plus par joueur en multijoueur (0,5 = +50 % par joueur en plus)
+ZombiesEnPlusParJoueur=0,5
+# Jamais plus que ca dans une vague
+# (et jamais plus de NombreMaxZombies de Zombies.txt EN MEME TEMPS : les autres arrivent quand il y a de la place)
+ZombiesMax=60
+
+# ---- Vie des zombies (100 = normal) ----
+VieVague1=100
+VieEnPlusParVague=10
+VieMax=400
+
+# ---- Vitesse des zombies (le joueur court a environ 600) ----
+VitesseVague1=300
+VitesseEnPlusParVague=15
+VitesseMax=560
+
+# ---- Costauds (plus gros, plus de vie, un peu plus lents) ----
+CostaudsAPartirDeLaVague=4
+# 0,05 = 5 % des zombies de la vague
+PartCostaudsDepart=0,05
+PartCostaudsEnPlusParVague=0,03
+PartCostaudsMax=0,35
+# Vie d'un costaud = vie normale x 3
+VieCostaudFois=3
+
+# ---- Vague de coureurs ----
+# Toutes les 5 vagues (5, 10, 15...), les zombies courent. 0 = jamais.
+VagueCoureursToutesLes=5
+CoureursVitesseFois=1,35
+
+# ---- Pause entre deux vagues (pour acheter, se soigner, relever) ----
+PauseEntreVaguesSecondes=15
