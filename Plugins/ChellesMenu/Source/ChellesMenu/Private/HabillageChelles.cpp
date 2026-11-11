@@ -1429,6 +1429,10 @@ void AHabillageChelles::Tick(float Delta)
 		for (TActorIterator<APawn> It(Monde); It; ++It)
 		{
 			APawn* Pion = *It;
+			if (Pion->ActorHasTag(FName(TEXT("ChellesSansHabillage"))))
+			{
+				continue; // soldat en costume Spider-Male (roue TAB, ChellesRoue) : pas de tenue par-dessus
+			}
 			const FString* Texte = Pion->GetPlayerState() ? Tenues.Find(Pion->GetPlayerState()) : nullptr;
 			USkeletalMeshComponent* Chef = nullptr;
 			if (EstSoldat(Pion))

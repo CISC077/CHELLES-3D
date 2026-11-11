@@ -42,6 +42,8 @@
 // Corps du volant (squelette SuperheroFlight) : Spider-Male d'origine, et Spider-Femelle
 // (Spider-Femelle cree par Tools\SpiderFemelle\creer_spider_femelle.py, 2026-11-11)
 #define CHEMIN_COSTUME_SPIDER_MALE_VOL TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Vol.SK_SpiderMan_Vol")
+// Spider-Male sur le squelette du soldat FPS_Game (Tools\SpiderManJoueur\importer_spiderman.py) : soldat habille en Spider-Male
+#define CHEMIN_COSTUME_SPIDER_MALE_SOLDAT TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_UE4.SK_SpiderMan_UE4")
 #define CHEMIN_COSTUME_SPIDER_FEMELLE_VOL TEXT("/Game/Personnages/SK_SpiderFemelle/SK_SpiderFemelle_Vol.SK_SpiderFemelle_Vol")
 // PANTERA (2026-11-11) : tenue noire, masque noir, yeux blancs. Cree par Tools\Pantera\creer_pantera.py
 #define CHEMIN_COSTUME_PANTERA_VOL TEXT("/Game/Personnages/SK_Pantera/SK_Pantera_Vol.SK_Pantera_Vol")
@@ -150,6 +152,10 @@ ARoueModes::ARoueModes()
 	Vol.Couleur = FLinearColor(0.95f, 0.18f, 0.22f);
 	Vol.ClasseVehicule = FSoftClassPath(FString(CHEMIN_SPIDERMAN_VOL)); // utilise en multijoueur seulement
 	Vol.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_MALE_VOL)); // remet son corps apres Spider-Femelle
+	// 2026-11-11 (demande MERIDJA) : Spider-Male garde le vol ET a les fonctions du soldat.
+	// Au sol = le soldat FPS_Game (armes, tir, visee, recharge, vie) en costume Spider-Male ; Espace en l'air = s'envoler.
+	Vol.bFonctionsSoldat = true;
+	Vol.CostumeSoldat = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_MALE_SOLDAT));
 	Modes.Add(Vol);
 
 	// Spider-Femelle (2026-11-11) : le meme volant, avec un corps feminin rouge et noir
@@ -297,6 +303,7 @@ void ARoueModes::BeginPlay()
 		}
 	}
 
+	PreparerCasesSoldatVolant();
 	ChercherPlugins();
 	LierClavier();
 }
@@ -305,6 +312,7 @@ void ARoueModes::EndPlay(const EEndPlayReason::Type Raison)
 {
 	Fermer();
 	RetablirTouches();
+	FinSoldatVolant();
 	Super::EndPlay(Raison);
 }
 
@@ -344,6 +352,13 @@ void ARoueModes::LierClavier()
 				Haut.bConsumeInput = false;
 				FInputKeyBinding& Bas = InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &ARoueModes::SortMoins);
 				Bas.bConsumeInput = false;
+			}
+
+			// Spider-Male soldat : Espace en l'air = s'envoler (le saut du soldat n'est pas bloque)
+			for (const FKey& K : { EKeys::SpaceBar, EKeys::Gamepad_FaceButton_Bottom })
+			{
+				FInputKeyBinding& Saut = InputComponent->BindKey(K, IE_Pressed, this, &ARoueModes::ToucheSaut);
+				Saut.bConsumeInput = false;
 			}
 
 			const FKey Azerty[] = { EKeys::Ampersand, EKeys::E_AccentAigu, EKeys::Quote, EKeys::Apostrophe, EKeys::LeftParantheses };
@@ -571,6 +586,11 @@ int32 ARoueModes::ModeActuel() const
 		{
 			return i;
 		}
+	}
+	// Spider-Male soldat : a pied (armes) comme en vol, c'est toujours sa case
+	if (Modes.IsValidIndex(ModeSoldatVol))
+	{
+		return ModeSoldatVol;
 	}
 	const ETypeModeRoue Cherche = EstEnVol() ? ETypeModeRoue::Vol : ETypeModeRoue::APied;
 	if (Cherche == ETypeModeRoue::Vol)
@@ -1124,6 +1144,13 @@ void ARoueModes::ChoisirMode(int32 Index)
 		CacherHudPack(RacinePack(Modes[Avant].ClasseVehicule));
 	}
 
+	// Quitter Spider-Male soldat : le soldat reprend son corps (et son HABILLAGE)
+	const bool bSoldatVolant = Mode.Type == ETypeModeRoue::Vol && Mode.bFonctionsSoldat;
+	if (!bSoldatVolant && ModeSoldatVol != INDEX_NONE)
+	{
+		FinSoldatVolant();
+	}
+
 	// 2. Nouveau mode
 	switch (Mode.Type)
 	{
@@ -1135,6 +1162,23 @@ void ARoueModes::ChoisirMode(int32 Index)
 		break;
 
 	case ETypeModeRoue::Vol:
+		if (bSoldatVolant)
+		{
+			// Spider-Male : soldat au sol (armes du soldat), volant en l'air
+			ModeSoldatVol = Index;
+			bDemarrerVol = false;
+			TempsPose = 0.f;
+			if (EstEnVol())
+			{
+				MettreCostume(Mode); // deja en l'air : il garde le vol, il reprendra les armes en se posant
+			}
+			else if (APlayerController* PC = GetPC())
+			{
+				HabillerSoldat(PC->GetPawn(), true);
+			}
+			Message(FString::Printf(TEXT("%s : armes du soldat au sol. Saute puis rappuie sur Espace en l'air pour t'envoler ; pose-toi pour reprendre tes armes."), *Mode.Nom.ToString()));
+			break;
+		}
 		if (!EstEnVol())
 		{
 			Appeler(Bascule, TEXT("Basculer"));
@@ -1601,6 +1645,7 @@ void ARoueModes::Tick(float DeltaSeconds)
 	}
 	EmpecherChute();
 	LimiterVol(DeltaSeconds);
+	SuivreSoldatVolant(DeltaSeconds);
 	if (!bOuverte)
 	{
 		AppliquerTouchesDuMode();
@@ -2350,5 +2395,281 @@ void ARoueModes::LimiterVol(float DeltaSeconds)
 		TempsVol = 0.f;
 		bAtterrissageForce = false;
 		DernierAvisVol = -1;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Spider-Male avec les fonctions du soldat (2026-11-11, demande MERIDJA)
+// Au sol : le soldat FPS_Game (armes, tir, visee, recharge, ramassage, vie) habille en Spider-Male.
+// Sauter puis rappuyer sur Espace en l'air : on passe au volant (pack SuperheroFlight) qui decolle.
+// En se posant : retour au soldat, avec ses armes. Solo seulement (en multijoueur la case reste le volant).
+// ---------------------------------------------------------------------------
+
+/** Tag pose sur le soldat costume : le menu HABILLAGE (plugin ChellesMenu) ne l'habille pas pendant ce temps. */
+static const FName TagSansHabillage(TEXT("ChellesSansHabillage"));
+
+/** Lance le vol du pack (comme sauter puis rappuyer sur Espace avec le volant). */
+static void DemarrerVolPack(UActorComponent* Vol)
+{
+	if (!Vol)
+	{
+		return;
+	}
+	if (UFunction* Fonction = Vol->FindFunction(TEXT("StartFlight")))
+	{
+		const int32 Taille = FMath::Max<int32>(Fonction->ParmsSize, 1);
+		uint8* Parametres = (uint8*)FMemory_Alloca(Taille);
+		FMemory::Memzero(Parametres, Taille);
+		Vol->ProcessEvent(Fonction, Parametres);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Roue] StartFlight introuvable sur %s : rappuie sur Espace pour voler."), *GetNameSafe(Vol));
+	}
+}
+
+/** Pion range dans l'acteur Bascule Vol (PionPied ou PionVol), lu par reflexion. */
+static APawn* PionDeBascule(AActor* Bascule, const TCHAR* Nom)
+{
+	if (!IsValid(Bascule))
+	{
+		return nullptr;
+	}
+	FObjectProperty* P = FindFProperty<FObjectProperty>(Bascule->GetClass(), Nom);
+	APawn* Pion = P ? Cast<APawn>(P->GetObjectPropertyValue_InContainer(Bascule)) : nullptr;
+	return IsValid(Pion) ? Pion : nullptr;
+}
+
+void ARoueModes::PreparerCasesSoldatVolant()
+{
+	// Roue enregistree dans un niveau avec ses anciennes cases : la case Spider-Male recoit quand meme les armes
+	const FSoftObjectPath CorpsSpiderMale(FString(CHEMIN_COSTUME_SPIDER_MALE_VOL));
+	for (FModeRoue& M : Modes)
+	{
+		if (M.Type == ETypeModeRoue::Vol && M.CostumeSoldat.IsNull() && M.Costume == CorpsSpiderMale)
+		{
+			M.bFonctionsSoldat = true;
+			M.CostumeSoldat = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_MALE_SOLDAT));
+		}
+	}
+}
+
+void ARoueModes::HabillerSoldat(APawn* Soldat, bool bCostume)
+{
+	ACharacter* Perso = Cast<ACharacter>(Soldat);
+	if (!IsValid(Perso))
+	{
+		return;
+	}
+
+	if (!bCostume)
+	{
+		// On rend au soldat le corps qu'il avait, puis le menu HABILLAGE le rhabille
+		if (SoldatCostume.Get() == Perso)
+		{
+			for (const FRoueCorpsAvant& Avant : CorpsAvant)
+			{
+				USkeletalMeshComponent* C = Avant.Composant.Get();
+				if (!C)
+				{
+					continue;
+				}
+				C->SetSkeletalMesh(Avant.Mesh.Get());
+				C->EmptyOverrideMaterials();
+				for (int32 i = 0; i < Avant.Materiaux.Num(); ++i)
+				{
+					if (Avant.Materiaux[i].IsValid())
+					{
+						C->SetMaterial(i, Avant.Materiaux[i].Get());
+					}
+				}
+			}
+			CorpsAvant.Reset();
+			SoldatCostume = nullptr;
+		}
+		Perso->Tags.Remove(TagSansHabillage);
+		return;
+	}
+
+	if (!Modes.IsValidIndex(ModeSoldatVol))
+	{
+		return;
+	}
+	const FModeRoue& Mode = Modes[ModeSoldatVol];
+	USkeletalMesh* Costume = Cast<USkeletalMesh>(Mode.CostumeSoldat.ResolveObject());
+	if (!Costume)
+	{
+		Costume = Cast<USkeletalMesh>(Mode.CostumeSoldat.TryLoad());
+	}
+	if (!Costume)
+	{
+		if (!bAvisCostumeSoldat)
+		{
+			bAvisCostumeSoldat = true;
+			Message(FString::Printf(TEXT("%s : corps introuvable (%s). Les armes marchent, mais le soldat garde son apparence."),
+				*Mode.Nom.ToString(), *Mode.CostumeSoldat.ToString()));
+		}
+		return;
+	}
+
+	if (SoldatCostume.Get() != Perso)
+	{
+		// Premier passage, ou nouveau soldat (reapparu apres la mort)
+		if (SoldatCostume.IsValid())
+		{
+			HabillerSoldat(SoldatCostume.Get(), false);
+		}
+		CorpsAvant.Reset();
+		SoldatCostume = Perso;
+
+		// Le corps (vu par les autres et en 3e personne) et les jambes vues en 1re personne
+		TArray<USkeletalMeshComponent*> Cibles;
+		if (Perso->GetMesh())
+		{
+			Cibles.Add(Perso->GetMesh());
+		}
+		TArray<USkeletalMeshComponent*> Composants;
+		Perso->GetComponents<USkeletalMeshComponent>(Composants);
+		for (USkeletalMeshComponent* C : Composants)
+		{
+			if (C && C != Perso->GetMesh() && C->GetName().Contains(TEXT("Legs")) && !C->ComponentHasTag(FName(TEXT("ChellesJambes"))))
+			{
+				Cibles.Add(C);
+			}
+		}
+		for (USkeletalMeshComponent* C : Cibles)
+		{
+			if (!C->SkeletalMesh || C->SkeletalMesh->GetSkeleton() != Costume->GetSkeleton())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[Roue] %s : %s a un autre squelette (%s), costume non mis sur ce morceau."),
+					*Mode.Nom.ToString(), *C->GetName(), C->SkeletalMesh ? *GetNameSafe(C->SkeletalMesh->GetSkeleton()) : TEXT("aucun"));
+				continue;
+			}
+			FRoueCorpsAvant Avant;
+			Avant.Composant = C;
+			Avant.Mesh = C->SkeletalMesh;
+			for (UMaterialInterface* M : C->OverrideMaterials)
+			{
+				Avant.Materiaux.Add(M);
+			}
+			CorpsAvant.Add(MoveTemp(Avant));
+		}
+		Perso->Tags.AddUnique(TagSansHabillage);
+		UE_LOG(LogTemp, Log, TEXT("[Roue] \"%s\" : soldat %s habille (%d morceaux), armes du soldat au sol."),
+			*Mode.Nom.ToString(), *Perso->GetName(), CorpsAvant.Num());
+	}
+
+	// (Re)met le costume si quelqu'un l'a change
+	for (const FRoueCorpsAvant& Avant : CorpsAvant)
+	{
+		USkeletalMeshComponent* C = Avant.Composant.Get();
+		if (C && C->SkeletalMesh != Costume)
+		{
+			C->SetSkeletalMesh(Costume);
+			C->EmptyOverrideMaterials();
+		}
+	}
+}
+
+void ARoueModes::FinSoldatVolant()
+{
+	if (SoldatCostume.IsValid())
+	{
+		HabillerSoldat(SoldatCostume.Get(), false);
+	}
+	CorpsAvant.Reset();
+	SoldatCostume = nullptr;
+	ModeSoldatVol = INDEX_NONE;
+	bDemarrerVol = false;
+	TempsPose = 0.f;
+}
+
+void ARoueModes::ToucheSaut()
+{
+	if (!Modes.IsValidIndex(ModeSoldatVol) || bOuverte || EstMultijoueur() || !IsValid(Bascule) || EstEnVol())
+	{
+		return;
+	}
+	APlayerController* PC = GetPC();
+	ACharacter* Soldat = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+	const UCharacterMovementComponent* Mvt = Soldat ? Soldat->GetCharacterMovement() : nullptr;
+	if (!Mvt || !Mvt->IsFalling() || ModeActuel() != ModeSoldatVol)
+	{
+		return; // au sol : c'est le saut normal du soldat
+	}
+	// En l'air (apres un saut) : on s'envole
+	Appeler(Bascule, TEXT("Basculer"));
+	if (!EstEnVol())
+	{
+		Message(FString::Printf(TEXT("%s : impossible de s'envoler (voir le journal, lignes [BasculeVol])."), *Modes[ModeSoldatVol].Nom.ToString()));
+		return;
+	}
+	MettreCostume(Modes[ModeSoldatVol]);
+	bDemarrerVol = true;
+	TempsPose = 0.f;
+}
+
+void ARoueModes::SuivreSoldatVolant(float DeltaSeconds)
+{
+	if (!Modes.IsValidIndex(ModeSoldatVol))
+	{
+		return;
+	}
+	if (EstMultijoueur())
+	{
+		FinSoldatVolant();
+		return;
+	}
+	APlayerController* PC = GetPC();
+	ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+	if (!Perso || ModeActuel() != ModeSoldatVol)
+	{
+		return;
+	}
+
+	if (!EstEnVol())
+	{
+		// A pied : c'est le soldat (aussi apres une mort, le nouveau soldat est rhabille)
+		HabillerSoldat(Perso, true);
+		bDemarrerVol = false;
+		TempsPose = 0.f;
+		return;
+	}
+
+	UActorComponent* Vol = ComposantVol(Perso);
+	if (bDemarrerVol)
+	{
+		bDemarrerVol = false;
+		DemarrerVolPack(Vol);
+		return;
+	}
+
+	// Pose au sol avec le volant : on reprend le soldat et ses armes
+	const UCharacterMovementComponent* Mvt = Perso->GetCharacterMovement();
+	if (!EnTrainDeVoler(Perso, Vol) && Mvt && Mvt->IsMovingOnGround())
+	{
+		TempsPose += DeltaSeconds;
+		if (TempsPose >= 0.35f)
+		{
+			TempsPose = 0.f;
+			if (!PionDeBascule(Bascule, TEXT("PionPied")))
+			{
+				return; // plus de soldat (mort) : on reste avec le volant
+			}
+			Appeler(Bascule, TEXT("Basculer"));
+			if (!EstEnVol() && PC->GetPawn())
+			{
+				HabillerSoldat(PC->GetPawn(), true);
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(42772, 2.f, FColor::Green,
+						FString::Printf(TEXT("%s : armes en main"), *Modes[ModeSoldatVol].Nom.ToString()));
+				}
+			}
+		}
+	}
+	else
+	{
+		TempsPose = 0.f;
 	}
 }

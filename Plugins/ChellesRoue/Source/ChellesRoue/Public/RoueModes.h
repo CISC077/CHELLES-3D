@@ -15,6 +15,8 @@ class UUserWidget;
 class SRoueModes;
 class USkeletalMeshComponent;
 class ARoueRelais;
+class USkeletalMesh;
+class UMaterialInterface;
 
 UENUM(BlueprintType)
 enum class ETypeModeRoue : uint8
@@ -104,6 +106,26 @@ struct FModeRoue
 	/** Vrai : deux yeux blancs en amande poses sur le masque (PANTERA). Reglables en jeu : console Chelles.PanteraYeux */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
 	bool bYeuxMasque = false;
+
+	/**
+	 * Case de vol : au sol on joue le SOLDAT (armes, tir, visee, recharge, ramassage, vie) habille avec CostumeSoldat.
+	 * Pour s'envoler : sauter puis rappuyer sur Espace en l'air. En se posant, on reprend le soldat et ses armes.
+	 * (Spider-Male, 2026-11-11, demande MERIDJA)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
+	bool bFonctionsSoldat = false;
+
+	/** Corps mis sur le soldat pour bFonctionsSoldat (squelette du soldat FPS_Game). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue", meta = (AllowedClasses = "SkeletalMesh"))
+	FSoftObjectPath CostumeSoldat;
+};
+
+/** Spider-Male soldat : ce que le soldat portait avant le costume (rendu en quittant le mode). */
+struct FRoueCorpsAvant
+{
+	TWeakObjectPtr<USkeletalMeshComponent> Composant;
+	TWeakObjectPtr<USkeletalMesh> Mesh;
+	TArray<TWeakObjectPtr<UMaterialInterface>> Materiaux;
 };
 
 /**
@@ -212,6 +234,13 @@ private:
 	/** Limite de vol (DureeVolMax) du personnage joue sur cette machine. */
 	void LimiterVol(float DeltaSeconds);
 
+	// Spider-Male avec les fonctions du soldat (bFonctionsSoldat) : soldat au sol, volant en l'air
+	void SuivreSoldatVolant(float DeltaSeconds);
+	void HabillerSoldat(APawn* Soldat, bool bCostume);
+	void FinSoldatVolant();
+	void ToucheSaut();
+	void PreparerCasesSoldatVolant();
+
 	// Multijoueur : chaque joueur a un ARoueRelais, le serveur fait les changements de mode
 	bool EstMultijoueur() const;
 	ARoueRelais* MonRelais() const;
@@ -294,4 +323,15 @@ private:
 	bool bAtterrissageForce = false;
 	int32 DernierAvisVol = -1;
 	TWeakObjectPtr<APawn> PionVolSuivi;
+
+	/** Case bFonctionsSoldat jouee en ce moment (solo), INDEX_NONE sinon. */
+	int32 ModeSoldatVol = INDEX_NONE;
+	/** Soldat qui porte le costume, et ce qu'il portait avant (rendu en quittant le mode). */
+	TWeakObjectPtr<APawn> SoldatCostume;
+	TArray<FRoueCorpsAvant> CorpsAvant;
+	/** Envol demande (Espace en l'air) : le vol du pack est lance au tick suivant. */
+	bool bDemarrerVol = false;
+	/** Secondes passees posees au sol avec le volant (on reprend le soldat apres un court instant). */
+	float TempsPose = 0.f;
+	bool bAvisCostumeSoldat = false;
 };
