@@ -40,13 +40,19 @@ def charger(chemin):
 
 def mettre_costume(mesh, source):
     """Reprend les materiaux du corps d'origine, et met le rouge et noir a la place du blanc."""
+    # Tenue des photos (tenue_spider_femelle.py) si elle existe deja : on la garde partout
+    tenue = charger(DEST + "/M_SpiderFemelle_Tenue")
     rouge_noir = charger(COSTUME)
     mats = source.get_editor_property("materials") if source else mesh.get_editor_property("materials")
-    for m in mats:
+    for i in range(len(mats)):
+        m = mats[i]  # copie : il faut la remettre dans la liste (sinon rien ne change)
         mi = m.get_editor_property("material_interface")
         nom = mi.get_name().lower() if mi else ""
-        if rouge_noir and "joint" not in nom:
+        if tenue:
+            m.set_editor_property("material_interface", tenue)
+        elif rouge_noir and "joint" not in nom:
             m.set_editor_property("material_interface", rouge_noir)
+        mats[i] = m
     mesh.set_editor_property("materials", mats)
     mesh.modify()
     unreal.EditorAssetLibrary.save_loaded_asset(mesh, False)
