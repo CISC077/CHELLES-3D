@@ -248,6 +248,30 @@ def _pp(valeur, entier=False):
         return int(valeur) if entier else float(valeur)
 
 
+def _regler_pp(v, prop, val, entier):
+    """Regle un PerPlatformFloat/Int ; renvoie False si Unreal refuse (on garde alors la valeur du pack)."""
+    val = int(val) if entier else float(val)
+    essais = []
+    try:
+        pp = v.get_editor_property(prop)
+        pp.set_editor_property("default", val)
+        essais.append(pp)
+    except Exception:
+        pass
+    try:
+        essais.append(_pp(val, entier))
+    except Exception:
+        pass
+    essais.append(val)
+    for e in essais:
+        try:
+            v.set_editor_property(prop, e)
+            return True
+        except Exception:
+            continue
+    return False
+
+
 def creer_type_herbe10():
     """Copie de Grass_A du pack, reglee : uniquement SM_grass_a, ~10 cm, sans ombre, animee (vent du pack)."""
     if not EAL.does_asset_exist(TYPE_HERBE_10):
@@ -258,17 +282,23 @@ def creer_type_herbe10():
     b = mesh.get_bounding_box()
     h = max(b.max.z - b.min.z, 1.0)
     ech = HAUTEUR_HERBE_CM / h
-    v = unreal.GrassVariety()
+    # on part de la variete deja reglee par le pack (densite, distances), on change le reste
+    varietes = list(gt.get_editor_property("grass_varieties") or [])
+    v = varietes[0] if varietes else unreal.GrassVariety()
     v.set_editor_property("grass_mesh", mesh)
     for k, val, entier in (("grass_density", DENSITE_HERBE, False),
                            ("start_cull_distance", DISTANCE_HERBE_M * 100 * 0.7, True),
                            ("end_cull_distance", DISTANCE_HERBE_M * 100, True)):
-        try:
-            v.set_editor_property(k, _pp(val, entier))
-        except Exception:
-            v.set_editor_property(k, int(val) if entier else float(val))
-    v.set_editor_property("scaling", unreal.GrassScaling.UNIFORM)
-    v.set_editor_property("scale_x", unreal.FloatInterval(ech * 0.75, ech * 1.3))
+        if not _regler_pp(v, k, val, entier):
+            log("  (reglage %s laisse comme dans le pack)" % k)
+    try:
+        v.set_editor_property("scaling", unreal.GrassScaling.UNIFORM)
+        fi = unreal.FloatInterval()
+        fi.set_editor_property("min", ech * 0.75)
+        fi.set_editor_property("max", ech * 1.3)
+        v.set_editor_property("scale_x", fi)
+    except Exception as e:
+        log("  Taille de l'herbe non reglee (%s)" % e)
     for k, val in (("random_rotation", True), ("align_to_surface", True),
                    ("cast_dynamic_shadow", False), ("use_landscape_lightmap", True)):
         try:
