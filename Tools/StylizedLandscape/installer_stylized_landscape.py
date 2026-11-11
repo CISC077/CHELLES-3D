@@ -947,7 +947,11 @@ def decor_present(acteurs):
 
 
 def main():
-    if not EAL.does_asset_exist(MF_AUTO) or not EAL.does_asset_exist(CARTE_DEMO):
+    # test sur le disque (does_asset_exist peut repondre Non pour une carte deja ouverte puis fermee)
+    def _fichier(ch, ext):
+        return os.path.exists(os.path.join(PROJET, "Content", *ch.replace("/Game/", "").split("/")) + ext)
+    if not _fichier(PACK + "/textures/landscape_textures/grass/T_grass_basecolor", ".uasset") \
+            or not _fichier(CARTE_DEMO, ".umap"):
         message("Le pack Stylized Landscape n'est pas trouve dans Content/Stylized_Landscape.")
         return
     q = ("Ce script va :\n"
