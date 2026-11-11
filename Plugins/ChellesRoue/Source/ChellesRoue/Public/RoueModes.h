@@ -236,6 +236,8 @@ private:
 
 	// Spider-Male avec les fonctions du soldat (bFonctionsSoldat) : soldat au sol, volant en l'air
 	void SuivreSoldatVolant(float DeltaSeconds);
+	/** Donne au personnage du pack SuperheroFlight (BP_Player) son guide des commandes s'il ne l'a pas (2026-11-11). */
+	void DonnerGuideCommandes();
 	void HabillerSoldat(APawn* Soldat, bool bCostume);
 	void FinSoldatVolant();
 	void ToucheSaut();
@@ -299,6 +301,10 @@ private:
 
 	/** Anti-chute sous la carte : dernier endroit ou le personnage joue touchait le sol. */
 	TWeakObjectPtr<APawn> PionSurveille;
+
+	/** Guide des commandes de BP_Player : dernier pion verifie et s'il est en ordre. */
+	TWeakObjectPtr<APawn> PionGuide;
+	bool bGuideVerifie = false;
 	FVector DernierSol = FVector::ZeroVector;
 	bool bSolConnu = false;
 
