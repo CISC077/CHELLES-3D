@@ -64,10 +64,10 @@ protected:
 	UFUNCTION()
 	void OnRep_Ouvert();
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category = "Survie")
 	UStaticMeshComponent* Bloc = nullptr;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category = "Survie")
 	UTextRenderComponent* Texte = nullptr;
 
 	UPROPERTY(Transient)
