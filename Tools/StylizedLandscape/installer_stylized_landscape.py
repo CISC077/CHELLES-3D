@@ -318,16 +318,36 @@ def construire_materiau():
     if mf is None:
         raise RuntimeError("MF_auto du pack introuvable : %s" % MF_AUTO)
 
+    # le materiau (le notre) est toujours reconstruit : un essai rate ne reste pas casse
     if EAL.does_asset_exist(ch_mat):
         mat = EAL.load_asset(ch_mat)
-        log("Materiau deja present : %s (reutilise)" % ch_mat)
+        MEL.delete_all_material_expressions(mat)
+        log("Materiau %s reconstruit" % ch_mat)
     else:
         mat = tools.create_asset(nom_mat, DOSSIER_ASSETS, unreal.Material, unreal.MaterialFactoryNew())
-        mat.set_editor_property("use_material_attributes", True)
-        appel = _expr(mat, unreal.MaterialExpressionMaterialFunctionCall, -400, 0)
+    if True:
+        # MF_auto sort un "Material Attributes" : on le casse en BaseColor / Normal / Roughness...
+        mat.set_editor_property("use_material_attributes", False)
+        appel = _expr(mat, unreal.MaterialExpressionMaterialFunctionCall, -700, 0)
         appel.set_editor_property("material_function", mf)
-        if not MEL.connect_material_property(appel, "", unreal.MaterialProperty.MP_MATERIAL_ATTRIBUTES):
+        casse = _expr(mat, unreal.MaterialExpressionBreakMaterialAttributes, -400, 0)
+        _lier(appel, "", casse, "")
+        MP = unreal.MaterialProperty
+        branches = 0
+        for sortie, nom_prop in (("BaseColor", "MP_BASE_COLOR"), ("Metallic", "MP_METALLIC"),
+                                 ("Specular", "MP_SPECULAR"), ("Roughness", "MP_ROUGHNESS"),
+                                 ("Normal", "MP_NORMAL"), ("AmbientOcclusion", "MP_AMBIENT_OCCLUSION")):
+            prop = getattr(MP, nom_prop, None)
+            if prop is None:
+                continue
+            try:
+                if MEL.connect_material_property(casse, sortie, prop):
+                    branches += 1
+            except Exception:
+                pass
+        if branches == 0:
             raise RuntimeError("MF_auto n'a pas pu etre branche au materiau")
+        log("  MF_auto branche (%d sortie(s))" % branches)
         if FAIRE_HERBE_ZONE:
             try:
                 _ajouter_herbe(mat)
@@ -435,6 +455,7 @@ def trouver_rotonde(acteurs):
         return unreal.Vector(CENTRE_DEMO[0], CENTRE_DEMO[1], 0), "reglage CENTRE_DEMO"
     lierres = []
     ruines = []
+    objets_pack = []
     for a in acteurs:
         m = _mesh_de(a) if a.get_class().get_name() == "StaticMeshActor" else None
         p = chemin(m) or ""
@@ -443,6 +464,8 @@ def trouver_rotonde(acteurs):
             lierres.append(a.get_actor_location())
         if "/meshes/ruins/" in p:
             ruines.append((a, p))
+        if p.startswith(PACK + "/") or cl.startswith(PACK + "/"):
+            objets_pack.append(a.get_actor_location())
     meilleur, score_max = None, -1.0
     for a, p in ruines:
         o, e = a.get_actor_bounds(False)
@@ -450,8 +473,11 @@ def trouver_rotonde(acteurs):
             continue
         loc = a.get_actor_location()
         n = sum(1 for l in lierres if (l - loc).length() < max(e.x, e.y) + 800)
-        score = n + (5 if p.endswith("SM_ruins_01") else 0) + min(e.z, 2000) / 1000.0
-        log("  candidat rotonde : %s (%s) lierre=%d score=%.1f" % (label(a), p.split("/")[-1], n, score))
+        # rotonde = la ruine la plus entouree de lierre et d'autres objets du pack (comme sur la photo)
+        voisins = sum(1 for l in objets_pack if (l - loc).length() < 2500)
+        score = 2 * n + voisins / 10.0 + min(e.z, 2000) / 1000.0
+        log("  candidat rotonde : %s (%s) taille=%.0fx%.0fx%.0f m lierre=%d voisins=%d score=%.1f" % (
+            label(a), p.split("/")[-1].split(".")[0], e.x / 50, e.y / 50, e.z / 50, n, voisins, score))
         if score > score_max:
             meilleur, score_max = a, score
     if meilleur:
@@ -508,7 +534,13 @@ def lire_demo():
 
     # foliage peint (arbres, buissons, fleurs) -> liste de transforms
     plantes = []
-    for ifa in [a for a in acteurs if isinstance(a, unreal.InstancedFoliageActor)]:
+    n_total_fol = 0
+    ifas = [a for a in acteurs if isinstance(a, unreal.InstancedFoliageActor)]
+    for ifa in ifas:
+        for c in ifa.get_components_by_class(unreal.InstancedStaticMeshComponent) or []:
+            n_total_fol += c.get_instance_count()
+    log("Demo : %d acteur(s) de foliage, %d plante(s) au total" % (len(ifas), n_total_fol))
+    for ifa in ifas:
         for c in ifa.get_components_by_class(unreal.InstancedStaticMeshComponent) or []:
             m = c.static_mesh
             if m is None:
@@ -863,6 +895,8 @@ def main():
     ELL.save_all_dirty_levels()
     sauvegarder_umap()
 
+    mi = construire_materiau() if FAIRE_SOL else None   # d'abord : si ca rate, rien n'est touche
+
     demo = None
     if FAIRE_DECOR:
         demo = lire_demo()
@@ -887,10 +921,8 @@ def main():
     journal = charger_journal()
     journal["date"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     zone = None
-    mi = None
     try:
         if FAIRE_SOL:
-            mi = construire_materiau()
             poser_sol(journal, mi, landscapes, dalles if FAIRE_DALLES_SOL else [])
         if FAIRE:
             rayon = demo["rayon"]
