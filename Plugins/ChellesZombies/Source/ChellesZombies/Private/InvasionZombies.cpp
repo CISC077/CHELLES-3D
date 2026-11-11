@@ -131,6 +131,8 @@ namespace
 	}
 }
 
+const FName AInvasionZombies::MarqueJoueurHorsJeu(TEXT("ChellesHorsJeu"));
+
 AInvasionZombies::AInvasionZombies()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -282,7 +284,7 @@ void AInvasionZombies::TickServeur(float Maintenant)
 {
 	if (!bInvasionEnCours)
 	{
-		if (Reglages.bActif && Maintenant >= ProchaineInvasion)
+		if (Reglages.bActif && !bInvasionsAutoEnPause && Maintenant >= ProchaineInvasion)
 		{
 			TArray<APawn*> Joueurs;
 			JoueursVivants(Joueurs);
@@ -299,7 +301,22 @@ void AInvasionZombies::TickServeur(float Maintenant)
 	}
 
 	// Apparitions etalees (un zombie toutes les 0,3 s) a partir de 3 s apres la sirene
-	if (AFaireApparaitre > 0 && Maintenant >= ProchaineApparition && Maintenant >= DebutInvasion + 3.f)
+	// En mode vague (Dernier Refuge), jamais plus de NombreMaxZombies en meme temps : les autres attendent leur tour
+	bool bPlaceLibre = true;
+	if (bModeVague)
+	{
+		int32 Debout = 0;
+		for (ACharacter* Z : Zombies)
+		{
+			const FEtatZombie* EtatZ = Z ? Etats.Find(Z) : nullptr;
+			if (EtatZ && !EtatZ->bMort)
+			{
+				++Debout;
+			}
+		}
+		bPlaceLibre = Debout < Reglages.NombreMax;
+	}
+	if (AFaireApparaitre > 0 && bPlaceLibre && Maintenant >= ProchaineApparition && Maintenant >= DebutInvasion + 3.f)
 	{
 		ProchaineApparition = Maintenant + 0.3f;
 		if (Foyers.Num() == 0)
@@ -435,6 +452,7 @@ void AInvasionZombies::LancerInvasion()
 	JoueursVivants(Joueurs);
 	const float Maintenant = GetWorld()->GetTimeSeconds();
 
+	bModeVague = false;
 	bInvasionEnCours = true;
 	DebutInvasion = Maintenant;
 	FinInvasion = Maintenant + Reglages.DureeInvasionMinutes * 60.f;
@@ -451,12 +469,54 @@ void AInvasionZombies::LancerInvasion()
 	MulticastAlerte(Reglages.Message, Reglages.DureeMessageSecondes, Reglages.VolumeSirene);
 }
 
+void AInvasionZombies::LancerVagueCommandee()
+{
+	if (!EstServeur() || bInvasionEnCours)
+	{
+		return;
+	}
+	if (!ClasseZombie)
+	{
+		ClasseZombie = LoadClass<ACharacter>(nullptr, *Reglages.ClasseZombie);
+	}
+	if (!ClasseZombie)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Zombies] Impossible de lancer la vague : classe %s introuvable."), *Reglages.ClasseZombie);
+		return;
+	}
+	const float Maintenant = GetWorld()->GetTimeSeconds();
+	bModeVague = true;
+	bInvasionEnCours = true;
+	DebutInvasion = Maintenant;
+	FinInvasion = Maintenant + 3600.f; // une vague ne s'arrete pas toute seule : il faut tuer tous les zombies
+	AFaireApparaitre = FMath::Clamp(VagueNombre, 1, 300);
+	ProchaineApparition = Maintenant;
+	SecondesRestantes = 0.f;
+	Foyers.Reset();
+	ChoisirFoyers();
+
+	UE_LOG(LogTemp, Log, TEXT("[Zombies] VAGUE : %d zombies, vie %.0f, vitesse %.0f, costauds %.0f %%, %d foyer(s)."),
+		AFaireApparaitre, VagueVie, VagueVitesse, VaguePartCostauds * 100.f, Foyers.Num());
+
+	if (!VagueMessage.IsEmpty())
+	{
+		MulticastAlerte(VagueMessage, VagueDureeMessage, VagueVolumeSirene);
+	}
+}
+
+void AInvasionZombies::TerminerVagueCommandee()
+{
+	TerminerInvasion(false);
+}
+
 void AInvasionZombies::TerminerInvasion(bool bRepoussee)
 {
 	if (!EstServeur() || !bInvasionEnCours)
 	{
 		return;
 	}
+	const bool bEtaitVague = bModeVague;
+	bModeVague = false;
 	bInvasionEnCours = false;
 	AFaireApparaitre = 0;
 	ZombiesRestants = 0;
@@ -479,7 +539,8 @@ void AInvasionZombies::TerminerInvasion(bool bRepoussee)
 	UE_LOG(LogTemp, Log, TEXT("[Zombies] Fin de l'invasion (%s). Prochaine dans %.0f min."),
 		bRepoussee ? TEXT("repoussee") : TEXT("temps ecoule"), (ProchaineInvasion - Maintenant) / 60.f);
 
-	MulticastFin(bRepoussee);
+	// En vague commandee, c'est le plugin du mode de jeu qui affiche son propre message
+	MulticastFin(bEtaitVague ? FString() : (bRepoussee ? FString(TEXT("INVASION REPOUSSÉE !")) : FString(TEXT("FIN DE LA PURGE"))));
 }
 
 void AInvasionZombies::MulticastAlerte_Implementation(const FString& Texte, float Duree, float Volume)
@@ -506,14 +567,14 @@ void AInvasionZombies::MulticastAlerte_Implementation(const FString& Texte, floa
 	}
 }
 
-void AInvasionZombies::MulticastFin_Implementation(bool bRepoussee)
+void AInvasionZombies::MulticastFin_Implementation(const FString& Texte)
 {
 	if (GetNetMode() == NM_DedicatedServer)
 	{
 		return;
 	}
-	MessageFin = bRepoussee ? FString(TEXT("INVASION REPOUSSÉE !")) : FString(TEXT("FIN DE LA PURGE"));
-	AgeFin = 0.f;
+	MessageFin = Texte;
+	AgeFin = Texte.IsEmpty() ? 100.f : 0.f;
 	if (AgeAlerte >= 0.f)
 	{
 		AgeAlerte = -1.f;
@@ -548,6 +609,10 @@ bool AInvasionZombies::EstVivant(APawn* Joueur)
 	{
 		return false;
 	}
+	if (Joueur->Tags.Contains(MarqueJoueurHorsJeu))
+	{
+		return false; // a terre ou mort en mode survie : les zombies le laissent
+	}
 	bool bMort = false;
 	if (LireBooleen(Joueur, { TEXT("IsDead"), TEXT("isDead"), TEXT("bIsDead"), TEXT("Dead") }, bMort) && bMort)
 	{
@@ -578,6 +643,24 @@ void AInvasionZombies::ChoisirFoyers()
 	const int32 Voulus = FMath::Clamp(AFaireApparaitre / 6, 3, 8);
 	const float DistMin = Reglages.DistanceMinMetres * 100.f;
 	const float DistMax = Reglages.DistanceMaxMetres * 100.f;
+
+	// Vague commandee : les foyers sont autour de la zone de jeu (ex. le Refuge), pas des joueurs
+	if (bModeVague)
+	{
+		for (int32 i = 0; i < Voulus * 3 && Foyers.Num() < Voulus; ++i)
+		{
+			FVector Point;
+			if (TrouverPointApparition(VagueCentre, VagueRayonMin, FMath::Max(VagueRayonMax, VagueRayonMin + 300.f), Point))
+			{
+				Foyers.Add(Point);
+			}
+		}
+		if (Foyers.Num() > 0)
+		{
+			UE_LOG(LogTemp, Log, TEXT("[Zombies] %d foyer(s) d'apparition autour de la zone de la vague."), Foyers.Num());
+			return;
+		}
+	}
 
 	for (int32 i = 0; i < Voulus * 3 && Foyers.Num() < Voulus; ++i)
 	{
@@ -731,6 +814,19 @@ void AInvasionZombies::PreparerZombie(ACharacter* Zombie)
 	FEtatZombie Etat;
 	Etat.Vie = 100.f;
 	Etat.Vitesse = Reglages.VitesseZombie * FMath::FRandRange(0.8f, 1.15f);
+	if (bModeVague)
+	{
+		Etat.Vie = FMath::Max(1.f, VagueVie);
+		Etat.Vitesse = VagueVitesse * FMath::FRandRange(0.85f, 1.1f);
+		if (FMath::FRand() < VaguePartCostauds)
+		{
+			// Costaud : beaucoup plus de vie, un peu plus lent, plus grand (vu par le serveur ; en multi
+			// les autres joueurs le voient a taille normale)
+			Etat.Vie = FMath::Max(Etat.Vie, VagueVieCostaud);
+			Etat.Vitesse *= 0.85f;
+			Zombie->SetActorScale3D(FVector(1.2f));
+		}
+	}
 	if (UCharacterMovementComponent* Mouvement = Zombie->GetCharacterMovement())
 	{
 		Mouvement->MaxWalkSpeed = Etat.Vitesse;
@@ -803,7 +899,15 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 			if (Ecart.Size2D() < 240.f && FMath::Abs(Ecart.Z) < 200.f)
 			{
 				const float Degats = VieMax(Victime) * Reglages.DegatsZombiePourcent / 100.f;
-				UGameplayStatics::ApplyDamage(Victime, Degats, Zombie->GetController(), Zombie, UDamageType::StaticClass());
+				// Un mode de jeu (survie) peut gerer le coup lui-meme : joueur "a terre" au lieu de mourir
+				bCoupGereAilleurs = false;
+				OnCoupSurJoueur.Broadcast(Victime, Degats);
+				const bool bGereAilleurs = bCoupGereAilleurs;
+				bCoupGereAilleurs = false;
+				if (!bGereAilleurs)
+				{
+					UGameplayStatics::ApplyDamage(Victime, Degats, Zombie->GetController(), Zombie, UDamageType::StaticClass());
+				}
 			}
 		}
 	}
@@ -963,22 +1067,44 @@ void AInvasionZombies::ZombieToucheQuelconque(AActor* Touche, float Degats, cons
 		return;
 	}
 
+	// Qui a tire (pour les points du mode survie)
+	AController* Tireur = Auteur;
+	if (!Tireur && Causeur)
+	{
+		Tireur = Causeur->GetInstigatorController();
+		if (!Tireur)
+		{
+			if (APawn* PionCauseur = Cast<APawn>(Causeur->GetOwner()))
+			{
+				Tireur = PionCauseur->GetController();
+			}
+		}
+	}
+	if (Tireur)
+	{
+		Etat->DernierAuteur = Tireur;
+	}
+
 	const bool bPrecis = Etat->ImageCoupPrecis == GFrameCounter;
 	if (bPrecis && Etat->bCoupTete)
 	{
 		UE_LOG(LogTemp, Verbose, TEXT("[Zombies] Tir dans la tete : %s"), *Z->GetName());
-		Tuer(Z, true, Etat->DirectionCoup);
+		Tuer(Z, true, Etat->DirectionCoup, Tireur);
 		return;
 	}
 
 	Etat->Vie -= Reglages.DegatsCorpsPourcent;
 	if (Etat->Vie <= 0.5f)
 	{
-		Tuer(Z, false, bPrecis ? Etat->DirectionCoup : FVector::ZeroVector);
+		Tuer(Z, false, bPrecis ? Etat->DirectionCoup : FVector::ZeroVector, Tireur);
+	}
+	else
+	{
+		OnZombieTouche.Broadcast(Z, Tireur);
 	}
 }
 
-void AInvasionZombies::Tuer(ACharacter* Zombie, bool bTete, const FVector& Direction)
+void AInvasionZombies::Tuer(ACharacter* Zombie, bool bTete, const FVector& Direction, AController* Tueur)
 {
 	FEtatZombie* Etat = Etats.Find(Zombie);
 	if (Etat)
@@ -1005,6 +1131,12 @@ void AInvasionZombies::Tuer(ACharacter* Zombie, bool bTete, const FVector& Direc
 	Zombie->SetLifeSpan(12.f);
 
 	MulticastMort(Zombie, bTete, Direction);
+
+	// Seulement les vraies morts au combat (pas l'effondrement de fin d'invasion)
+	if (Tueur)
+	{
+		OnZombieTue.Broadcast(Zombie, Tueur, bTete);
+	}
 }
 
 void AInvasionZombies::MulticastMort_Implementation(ACharacter* Zombie, bool bTete, FVector Direction)
