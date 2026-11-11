@@ -31,10 +31,11 @@ Dans OPTIONS > CONTRÔLES, choisis JOUER AVEC : MANETTE et règle la sensibilit�
 
 [roue, tab, mode, personnage, choisir, changer, heros, héros, perso]
 Maintiens TAB pour ouvrir la roue des modes, vise une case avec la souris puis relâche (ou clic gauche).
-Tu peux jouer Soldat, Spider-Man, Motoneige, Auto, FLASH ÉCLAIR, FLAMME FIRE, SuperPowers, DYNAMIC COMBAT ou HORSE (cheval).
+Tu peux jouer Soldat, Spider-Male, Spider-Femelle, Motoneige, Auto, FLASH ÉCLAIR, FLAMME FIRE, SuperPowers, DYNAMIC COMBAT ou HORSE (cheval).
 
-[spiderman, spider, vol, voler, fly, f]
-Touche F : passe de soldat à Spider-Man volant, et inversement.
+[spidermale, spider-male, spiderman, spiderfemelle, spider-femelle, femelle, spider, vol, voler, fly, f]
+Touche F : passe de soldat à Spider-Male volant, et inversement.
+Pour voler en Spider-Femelle, maintiens TAB et choisis sa case (rose), à côté de Spider-Male.
 En vol, clic droit pour viser, Alt gauche pour esquiver, 1 / 2 pour changer de style de vol.
 
 [motoneige, moto, neige, m, snowmobile]

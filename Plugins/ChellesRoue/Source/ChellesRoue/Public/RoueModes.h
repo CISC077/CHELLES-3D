@@ -19,7 +19,7 @@ UENUM(BlueprintType)
 enum class ETypeModeRoue : uint8
 {
 	APied     UMETA(DisplayName = "A pied (soldat)"),
-	Vol       UMETA(DisplayName = "Vol (Spider-Man)"),
+	Vol       UMETA(DisplayName = "Vol (Spider-Male)"),
 	Vehicule  UMETA(DisplayName = "Vehicule"),
 	Personnage UMETA(DisplayName = "Personnage de pack (pris en main directement)"),
 	Libre     UMETA(DisplayName = "Libre (fonction a venir)")

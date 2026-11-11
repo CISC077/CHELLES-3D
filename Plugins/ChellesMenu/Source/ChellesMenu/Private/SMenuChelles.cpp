@@ -1754,17 +1754,17 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("F\u00C9MININ"), ChellesHabillage::Feminin) ]
 		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("MASCULIN"), ChellesHabillage::Masculin) ]
-		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("SPIDER-MAN"), ChellesHabillage::SpiderMan) ]
+		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("SPIDER-MALE"), ChellesHabillage::SpiderMan) ]
 	];
 
 	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
 	if (TenueChoisie.EstSpiderMan())
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues SPIDER-MAN, le h\u00E9ros que tu as d\u00E9j\u00E0 dans tout le jeu.\nChoisis F\u00C9MININ ou MASCULIN pour cr\u00E9er ton propre look : visage, cheveux, haut, bas, chaussures, chapeau, lunettes..."))) ];
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues SPIDER-MALE, le h\u00E9ros que tu as d\u00E9j\u00E0 dans tout le jeu.\nChoisis F\u00C9MININ ou MASCULIN pour cr\u00E9er ton propre look : visage, cheveux, haut, bas, chaussures, chapeau, lunettes..."))) ];
 	}
 	else if (!Modele)
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Packs de personnages introuvables dans Content (Action_Male_and_Female, Female_Mannequin). Tu restes en Spider-Man."))) ];
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Packs de personnages introuvables dans Content (Action_Male_and_Female, Female_Mannequin). Tu restes en Spider-Male."))) ];
 	}
 	else
 	{
@@ -1834,7 +1834,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 		]
 	];
 	Gauche->AddSlot().AutoHeight()[ BoutonRetour() ];
-	Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Clic gauche / droite (ou fl\u00E8ches) pour changer. Ton look est vu par les autres joueurs en multi. La roue TAB garde Spider-Man, motoneige, cheval..."))) ];
+	Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Clic gauche / droite (ou fl\u00E8ches) pour changer. Ton look est vu par les autres joueurs en multi. La roue TAB garde Spider-Male, motoneige, cheval..."))) ];
 
 	TSharedRef<SWidget> Droite = PinceauApercu.IsValid()
 		? StaticCastSharedRef<SWidget>(SNew(SZoneApercuChelles).Acteur(ApercuActeur).Image(PinceauApercu.Get()))
