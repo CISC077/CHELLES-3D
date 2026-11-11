@@ -1646,6 +1646,7 @@ void ARoueModes::Tick(float DeltaSeconds)
 	EmpecherChute();
 	LimiterVol(DeltaSeconds);
 	SuivreSoldatVolant(DeltaSeconds);
+	DonnerGuideCommandes();
 	if (!bOuverte)
 	{
 		AppliquerTouchesDuMode();
@@ -2671,5 +2672,47 @@ void ARoueModes::SuivreSoldatVolant(float DeltaSeconds)
 	else
 	{
 		TempsPose = 0.f;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Guide des commandes du pack SuperheroFlight (2026-11-11)
+// BP_Player cree son widget WBP_ControlsGuide dans son BeginPlay, seulement s'il est deja
+// controle par le joueur. Or la roue et ChellesBasculeVol font apparaitre Spider-Man PUIS le
+// donnent au joueur (Possess) : au BeginPlay personne ne le controle, la variable reste vide,
+// et chaque appui sur E / Retour arriere / F1 / F2 donne "Accessed None ... WBP_ControlsGuide".
+// On cree donc le widget manquant et on le range dans la variable, SANS l'afficher a l'ecran :
+// rien ne change a l'image, les erreurs disparaissent. Aucun Blueprint n'est modifie.
+// ---------------------------------------------------------------------------
+
+void ARoueModes::DonnerGuideCommandes()
+{
+	APlayerController* PC = GetPC();
+	APawn* Pion = PC ? PC->GetPawn() : nullptr;
+	if (Pion != PionGuide.Get())
+	{
+		PionGuide = Pion;
+		bGuideVerifie = false;
+	}
+	if (bGuideVerifie || !IsValid(Pion) || !PC->IsLocalController())
+	{
+		return;
+	}
+	bGuideVerifie = true; // une seule verification par personnage
+
+	FObjectProperty* Variable = FindFProperty<FObjectProperty>(Pion->GetClass(), TEXT("WBP_ControlsGuide"));
+	if (!Variable || !Variable->PropertyClass || !Variable->PropertyClass->IsChildOf(UUserWidget::StaticClass()))
+	{
+		return; // pas un personnage du pack SuperheroFlight
+	}
+	if (Variable->GetObjectPropertyValue_InContainer(Pion))
+	{
+		return; // le Blueprint l'a deja cree lui-meme
+	}
+	UUserWidget* Guide = CreateWidget<UUserWidget>(PC, Variable->PropertyClass);
+	if (Guide)
+	{
+		Variable->SetObjectPropertyValue_InContainer(Pion, Guide);
+		UE_LOG(LogTemp, Log, TEXT("[Roue] Guide des commandes donne a %s (non affiche)"), *Pion->GetName());
 	}
 }
