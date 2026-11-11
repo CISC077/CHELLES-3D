@@ -42,6 +42,11 @@ FAIRE_DALLES_SOL = True         # ... et sur les dalles Chelles_Tile_Ground
 FAIRE_DECOR = True              # copie du decor de la demo
 FAIRE_LAC = True                # petit lac + pierres si la demo n'en donne pas
 FAIRE_HERBE_ZONE = True         # herbe haute / fleurs du pack, seulement dans la zone du decor
+FAIRE_HERBE_PARTOUT = True      # herbe courte animee (vent) sur tout le Landscape, sauf routes/batiments
+HAUTEUR_HERBE_CM = 10.0         # hauteur moyenne de cette herbe
+DENSITE_HERBE = 200.0           # touffes par 10 m2 (Unreal) : plus = plus dense mais moins fluide
+DISTANCE_HERBE_M = 35.0         # l'herbe disparait au-dela (fluidite)
+CASE_MASQUE_M = 2.0             # precision du masque "pas d'herbe sur les routes"
 
 RAYON_COPIE_M = 40.0            # on copie ce qui est a moins de 40 m de la rotonde
 MAX_PLANTES = 900               # nombre max d'arbres/buissons/fleurs copies (fluidite)
@@ -220,6 +225,133 @@ def _lier(a, sortie, b, entree):
         raise RuntimeError("liaison impossible %s.%s -> %s.%s" % (a.get_name(), sortie, b.get_name(), entree))
 
 
+TYPE_HERBE_10 = DOSSIER_ASSETS + "/LGT_Herbe10cm"
+TEX_MASQUE = DOSSIER_ASSETS + "/T_MasqueHerbe"
+INFOS_MASQUE = os.path.join(DOSSIER_OUTIL, "masque_herbe.json")
+
+
+def lire_infos_masque():
+    try:
+        with open(INFOS_MASQUE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _pp(valeur, entier=False):
+    """PerPlatformFloat / PerPlatformInt (reglages 'par plateforme' d'Unreal)."""
+    try:
+        if entier:
+            return unreal.PerPlatformInt(default=int(valeur))
+        return unreal.PerPlatformFloat(default=float(valeur))
+    except Exception:
+        return int(valeur) if entier else float(valeur)
+
+
+def creer_type_herbe10():
+    """Copie de Grass_A du pack, reglee : uniquement SM_grass_a, ~10 cm, sans ombre, animee (vent du pack)."""
+    if not EAL.does_asset_exist(TYPE_HERBE_10):
+        if not EAL.duplicate_asset(PACK + "/materials/landscape_materials/Grass_A_LandscapeGrassType", TYPE_HERBE_10):
+            raise RuntimeError("Impossible de creer %s" % TYPE_HERBE_10)
+    gt = EAL.load_asset(TYPE_HERBE_10)
+    mesh = EAL.load_asset(PACK + "/meshes/plants/SM_grass_a")
+    b = mesh.get_bounding_box()
+    h = max(b.max.z - b.min.z, 1.0)
+    ech = HAUTEUR_HERBE_CM / h
+    v = unreal.GrassVariety()
+    v.set_editor_property("grass_mesh", mesh)
+    for k, val, entier in (("grass_density", DENSITE_HERBE, False),
+                           ("start_cull_distance", DISTANCE_HERBE_M * 100 * 0.7, True),
+                           ("end_cull_distance", DISTANCE_HERBE_M * 100, True)):
+        try:
+            v.set_editor_property(k, _pp(val, entier))
+        except Exception:
+            v.set_editor_property(k, int(val) if entier else float(val))
+    v.set_editor_property("scaling", unreal.GrassScaling.UNIFORM)
+    v.set_editor_property("scale_x", unreal.FloatInterval(ech * 0.75, ech * 1.3))
+    for k, val in (("random_rotation", True), ("align_to_surface", True),
+                   ("cast_dynamic_shadow", False), ("use_landscape_lightmap", True)):
+        try:
+            v.set_editor_property(k, val)
+        except Exception:
+            pass
+    gt.set_editor_property("grass_varieties", [v])
+    EAL.save_loaded_asset(gt, False)
+    log("  Type d'herbe %s : SM_grass_a x%.2f (~%.0f cm), densite %.0f, jusqu'a %.0f m" % (
+        TYPE_HERBE_10, ech, HAUTEUR_HERBE_CM, DENSITE_HERBE, DISTANCE_HERBE_M))
+
+
+def calculer_masque_herbe(landscapes, zh, zb):
+    """Masque noir/blanc vu du ciel : blanc = Landscape a nu (herbe), noir = route, batiment, trottoir, decor..."""
+    xmin = ymin = 1e12
+    xmax = ymax = -1e12
+    for l in landscapes:
+        o, e = l.get_actor_bounds(False)
+        xmin, xmax = min(xmin, o.x - e.x), max(xmax, o.x + e.x)
+        ymin, ymax = min(ymin, o.y - e.y), max(ymax, o.y + e.y)
+    case = CASE_MASQUE_M * 100.0
+    nx, ny = int((xmax - xmin) / case) + 1, int((ymax - ymin) / case) + 1
+    while nx * ny > 700000:
+        case *= 1.25
+        nx, ny = int((xmax - xmin) / case) + 1, int((ymax - ymin) / case) + 1
+    log("  Masque d'herbe : %d x %d points (%.1f m)..." % (nx, ny, case / 100.0))
+    ok = [bytearray(nx) for _ in range(ny)]
+    with unreal.ScopedSlowTask(ny, "Herbe : je repere les routes et les batiments...") as tache:
+        tache.make_dialog(True)
+        for j in range(ny):
+            if tache.should_cancel():
+                raise RuntimeError("Arrete par l'utilisateur pendant le calcul du masque d'herbe")
+            tache.enter_progress_frame(1)
+            y = ymin + (j + 0.5) * case
+            ligne = ok[j]
+            for i in range(nx):
+                loc, act = premier_impact(xmin + (i + 0.5) * case, y, zh, zb)
+                if loc is not None and est_landscape(act):
+                    ligne[i] = 1
+    # on retrecit d'une case pour ne pas deborder sur le bord des routes
+    pix = bytearray(nx * ny)
+    for j in range(ny):
+        for i in range(nx):
+            if ok[j][i] and (i == 0 or ok[j][i - 1]) and (i == nx - 1 or ok[j][i + 1]) \
+                    and (j == 0 or ok[j - 1][i]) and (j == ny - 1 or ok[j + 1][i]):
+                pix[j * nx + i] = 255
+    blanc = sum(1 for p in pix if p) * 100.0 / max(1, nx * ny)
+    log("  Masque : %.0f %% du terrain recoit de l'herbe" % blanc)
+    # image TGA en niveaux de gris, origine en haut a gauche (ligne 0 = y min)
+    import struct
+    dossier = os.path.join(DOSSIER_OUTIL, "masque")
+    os.makedirs(dossier, exist_ok=True)
+    fichier = os.path.join(dossier, "T_MasqueHerbe.tga")
+    with open(fichier, "wb") as f:
+        f.write(struct.pack("<BBBHHBHHHHBB", 0, 0, 3, 0, 0, 0, 0, 0, nx, ny, 8, 0x20))
+        f.write(bytes(pix))
+    tache_imp = unreal.AssetImportTask()
+    tache_imp.set_editor_property("filename", fichier)
+    tache_imp.set_editor_property("destination_path", DOSSIER_ASSETS)
+    tache_imp.set_editor_property("destination_name", "T_MasqueHerbe")
+    tache_imp.set_editor_property("replace_existing", True)
+    tache_imp.set_editor_property("automated", True)
+    tache_imp.set_editor_property("save", False)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([tache_imp])
+    tex = EAL.load_asset(TEX_MASQUE)
+    if tex is None:
+        raise RuntimeError("Import du masque d'herbe rate")
+    for k, val in (("srgb", False),
+                   ("compression_settings", unreal.TextureCompressionSettings.TC_GRAYSCALE),
+                   ("mip_gen_settings", unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS),
+                   ("lod_group", unreal.TextureGroup.TEXTUREGROUP_TERRAIN_WEIGHTMAP),
+                   ("address_x", unreal.TextureAddress.TA_CLAMP),
+                   ("address_y", unreal.TextureAddress.TA_CLAMP)):
+        try:
+            tex.set_editor_property(k, val)
+        except Exception:
+            pass
+    EAL.save_loaded_asset(tex, False)
+    with open(INFOS_MASQUE, "w", encoding="utf-8") as f:
+        json.dump({"x0": xmin, "y0": ymin, "largeur": nx * case, "hauteur": ny * case,
+                   "nx": nx, "ny": ny}, f, indent=1)
+
+
 def _ajouter_herbe(mat):
     """Herbe haute + fleurs du pack (Landscape Grass), seulement dans un disque autour du decor."""
     types = []
@@ -230,8 +362,16 @@ def _ajouter_herbe(mat):
     if not types:
         log("  Herbe du pack introuvable : pas d'herbe haute.")
         return
+    herbe10 = EAL.load_asset(TYPE_HERBE_10) if EAL.does_asset_exist(TYPE_HERBE_10) else None
+    masque = EAL.load_asset(TEX_MASQUE) if EAL.does_asset_exist(TEX_MASQUE) else None
+    infos_masque = lire_infos_masque()
     sortie = _expr(mat, unreal.MaterialExpressionLandscapeGrassOutput, 400, 600)
     entrees = []
+    if herbe10 and masque and infos_masque:
+        gi = unreal.GrassInput()
+        gi.set_editor_property("name", "Herbe10cm")
+        gi.set_editor_property("grass_type", herbe10)
+        entrees.append(gi)
     for n, gt in types:
         gi = unreal.GrassInput()
         gi.set_editor_property("name", n)
@@ -288,6 +428,32 @@ def _ajouter_herbe(mat):
             _lier(ts, c, m, "B")
             _lier(m, "", sortie, n)
     log("  Herbe du pack ajoutee (%d types), seulement autour du decor." % len(types))
+
+    if herbe10 and masque and infos_masque:
+        # herbe courte partout ou le masque est blanc (= Landscape a nu, pas de route ni batiment)
+        wp3 = _expr(mat, unreal.MaterialExpressionWorldPosition, -900, 1300)
+        xy3 = _expr(mat, unreal.MaterialExpressionComponentMask, -750, 1300)
+        xy3.set_editor_property("r", True); xy3.set_editor_property("g", True)
+        xy3.set_editor_property("b", False); xy3.set_editor_property("a", False)
+        _lier(wp3, "", xy3, "")
+        orig = _expr(mat, unreal.MaterialExpressionConstant2Vector, -750, 1400)
+        orig.set_editor_property("r", float(infos_masque["x0"]))
+        orig.set_editor_property("g", float(infos_masque["y0"]))
+        moins = _expr(mat, unreal.MaterialExpressionSubtract, -600, 1320)
+        _lier(xy3, "", moins, "A")
+        _lier(orig, "", moins, "B")
+        taille = _expr(mat, unreal.MaterialExpressionConstant2Vector, -600, 1420)
+        taille.set_editor_property("r", float(infos_masque["largeur"]))
+        taille.set_editor_property("g", float(infos_masque["hauteur"]))
+        uvm = _expr(mat, unreal.MaterialExpressionDivide, -450, 1340)
+        _lier(moins, "", uvm, "A")
+        _lier(taille, "", uvm, "B")
+        tm = _expr(mat, unreal.MaterialExpressionTextureSample, -300, 1300)
+        tm.set_editor_property("texture", masque)
+        tm.set_editor_property("sampler_type", type_echantillon(masque))
+        _lier(uvm, "", tm, "UVs")
+        _lier(tm, "R", sortie, "Herbe10cm")
+        log("  Herbe courte animee ajoutee partout hors routes/batiments.")
 
 
 def type_echantillon(tex):
@@ -1018,6 +1184,14 @@ def main():
             zone = unreal.Vector(zx, zy, zz)
             regler_zone_herbe(mi, zone, rayon + 300.0)
             log("Herbe haute remise autour du decor existant (%.0f, %.0f)" % (zx, zy))
+        if FAIRE_HERBE_PARTOUT and FAIRE_SOL and mi is not None:
+            creer_type_herbe10()
+            calculer_masque_herbe(landscapes, zh, zb)
+            mi = construire_materiau()          # reconstruit avec l'herbe courte
+            try:
+                SL.execute_console_command(monde(), "grass.FlushCache")
+            except Exception:
+                pass
     finally:
         ecrire_journal(journal)
     ELL.save_current_level()

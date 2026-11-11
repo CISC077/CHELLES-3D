@@ -24,6 +24,9 @@ Le décor est dans l'Outliner : dossier **Chelles > DecorStylized**.
 - `FAIRE_DALLES_SOL = False` pour laisser les dalles de la ville en sol cartoon.
 - Couleurs du sol : Content Browser > Chelles > StylizedLandscape > `MI_SolStylized`.
 
+## Herbe courte animée
+Par défaut le script met aussi une herbe de ~10 cm qui bouge au vent sur tout le Landscape, sauf sous les routes, bâtiments, trottoirs et le décor (masque calculé vu du ciel, ~1 minute avec une barre de progression). Réglages : `HAUTEUR_HERBE_CM`, `DENSITE_HERBE`, `DISTANCE_HERBE_M`, ou `FAIRE_HERBE_PARTOUT = False`.
+
 ## Annuler
 **File > Execute Python Script...** > `annuler_stylized_landscape.py` : ancien sol remis (journal `journal_stylized.json`), objets ajoutés retirés. Rien d'autre n'est touché.
 
