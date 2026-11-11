@@ -33,6 +33,10 @@
 // Spider-Man sur le squelette du pack DynamicCombatSystem (meme script)
 #define CHEMIN_COSTUME_COMBAT TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Combat.SK_SpiderMan_Combat")
 #define CHEMIN_COSTUME_CAVALIER TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Cavalier.SK_SpiderMan_Cavalier")
+// Corps du volant (squelette SuperheroFlight) : Spider-Male d'origine, et Spider-Femelle
+// (Spider-Femelle cree par Tools\SpiderFemelle\creer_spider_femelle.py, 2026-11-11)
+#define CHEMIN_COSTUME_SPIDER_MALE_VOL TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Vol.SK_SpiderMan_Vol")
+#define CHEMIN_COSTUME_SPIDER_FEMELLE_VOL TEXT("/Game/Personnages/SK_SpiderFemelle/SK_SpiderFemelle_Vol.SK_SpiderFemelle_Vol")
 
 // ---------------------------------------------------------------------------
 // Appels par reflexion vers ChellesBasculeVol et ChellesMotoneige (aucune dependance)
@@ -131,12 +135,23 @@ ARoueModes::ARoueModes()
 	Modes.Add(Soldat);
 
 	FModeRoue Vol;
-	Vol.Nom = FText::FromString(TEXT("Spider-Man"));
+	Vol.Nom = FText::FromString(TEXT("Spider-Male")); // nom affiche (renomme le 2026-11-11, demande MERIDJA)
 	Vol.Type = ETypeModeRoue::Vol;
 	Vol.Icone = EIconeRoue::Toile;
 	Vol.Couleur = FLinearColor(0.95f, 0.18f, 0.22f);
 	Vol.ClasseVehicule = FSoftClassPath(FString(CHEMIN_SPIDERMAN_VOL)); // utilise en multijoueur seulement
+	Vol.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_MALE_VOL)); // remet son corps apres Spider-Femelle
 	Modes.Add(Vol);
+
+	// Spider-Femelle (2026-11-11) : le meme volant, avec un corps feminin rouge et noir
+	FModeRoue VolFemelle;
+	VolFemelle.Nom = FText::FromString(TEXT("Spider-Femelle"));
+	VolFemelle.Type = ETypeModeRoue::Vol;
+	VolFemelle.Icone = EIconeRoue::Toile;
+	VolFemelle.Couleur = FLinearColor(1.f, 0.3f, 0.65f);
+	VolFemelle.ClasseVehicule = FSoftClassPath(FString(CHEMIN_SPIDERMAN_VOL)); // utilise en multijoueur seulement
+	VolFemelle.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_FEMELLE_VOL));
+	Modes.Add(VolFemelle);
 
 	FModeRoue Moto;
 	Moto.Nom = FText::FromString(TEXT("Motoneige"));
@@ -535,6 +550,23 @@ int32 ARoueModes::ModeActuel() const
 		}
 	}
 	const ETypeModeRoue Cherche = EstEnVol() ? ETypeModeRoue::Vol : ETypeModeRoue::APied;
+	if (Cherche == ETypeModeRoue::Vol)
+	{
+		// Plusieurs cases de vol (Spider-Male, Spider-Femelle) : on reconnait la case a son corps
+		const ACharacter* Perso = Cast<ACharacter>(Pion);
+		const USkeletalMesh* Corps = (Perso && Perso->GetMesh()) ? Perso->GetMesh()->SkeletalMesh : nullptr;
+		if (Corps)
+		{
+			const FSoftObjectPath CheminCorps(Corps);
+			for (int32 i = 0; i < Modes.Num(); ++i)
+			{
+				if (Modes[i].Type == ETypeModeRoue::Vol && !Modes[i].Costume.IsNull() && Modes[i].Costume == CheminCorps)
+				{
+					return i;
+				}
+			}
+		}
+	}
 	for (int32 i = 0; i < Modes.Num(); ++i)
 	{
 		if (Modes[i].Type == Cherche)
@@ -581,7 +613,14 @@ void ARoueModes::HabillerPion(APawn* Pion, const FModeRoue& Mode, bool bAvertir)
 	{
 		if (bAvertir)
 		{
-			Message(TEXT("Costume Spider-Man introuvable : lance Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py dans Unreal."));
+			if (Mode.Costume.ToString().Contains(TEXT("SpiderFemelle")))
+			{
+				Message(TEXT("Costume Spider-Femelle introuvable : lance Tools\\SpiderFemelle\\creer_spider_femelle.py dans Unreal."));
+			}
+			else
+			{
+				Message(TEXT("Costume Spider-Male introuvable : lance Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py dans Unreal."));
+			}
 		}
 		return;
 	}
@@ -595,7 +634,7 @@ void ARoueModes::HabillerPion(APawn* Pion, const FModeRoue& Mode, bool bAvertir)
 		// Autre squelette : les animations du pack ne marcheraient plus, on garde le perso d'origine
 		if (bAvertir)
 		{
-			Message(TEXT("Costume Spider-Man : squelette different de celui du personnage, costume non applique."));
+			Message(FString::Printf(TEXT("Costume %s : squelette different de celui du personnage, costume non applique."), *Mode.Nom.ToString()));
 		}
 		return;
 	}
@@ -1014,7 +1053,7 @@ void ARoueModes::ChoisirMode(int32 Index)
 		}
 		else if (Mode.Type == ETypeModeRoue::Vol)
 		{
-			Message(TEXT("Spider-Man indisponible : l'acteur Bascule Vol n'est pas dans le niveau."));
+			Message(FString::Printf(TEXT("%s indisponible : l'acteur Bascule Vol n'est pas dans le niveau."), *Mode.Nom.ToString()));
 		}
 		else if (!ClasseMotoneige)
 		{
@@ -1070,6 +1109,10 @@ void ARoueModes::ChoisirMode(int32 Index)
 		if (!EstEnVol())
 		{
 			Appeler(Bascule, TEXT("Basculer"));
+		}
+		if (EstEnVol())
+		{
+			MettreCostume(Mode); // Spider-Male ou Spider-Femelle : meme volant, corps different
 		}
 		break;
 
