@@ -33,6 +33,7 @@ namespace HabillageInterne
 	// PANTERA (2026-11-11) : corps cree par Tools\Pantera\creer_pantera.py
 	static const TCHAR* CheminPantera = TEXT("/Game/Personnages/SK_Pantera/SK_Pantera_Vol.SK_Pantera_Vol");
 	static const TCHAR* YeuxBlancs = TEXT("/Game/Personnages/SK_Pantera/M_Pantera_Yeux.M_Pantera_Yeux");
+	static const TCHAR* CheminSpiderMale = TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Vol.SK_SpiderMan_Vol");
 	static const TCHAR* AttentePantera = TEXT("/Game/SuperheroFlight/Characters/Mannequin/Animations/ThirdPerson_Idle.ThirdPerson_Idle");
 	static void YeuxPantera(USkeletalMeshComponent* Corps, bool bAvecYeux);
 	static const TCHAR* TableTetes = TEXT("/Game/Action_Male_and_Female/Data/Heads/DT_Heads.DT_Heads");
@@ -1547,15 +1548,15 @@ void AHabillageChelles::DemanderPantera(float Delta)
 		return;
 	}
 	ProchainPantera = 1.f;
-	if (!ChellesHabillage::TenueLocale().EstPantera())
+	const bool bVeutPantera = ChellesHabillage::TenueLocale().EstPantera();
+	if (!bVeutPantera && !bPanteraFait)
 	{
-		bPanteraFait = false; // un autre choix : on redemandera PANTERA s'il est choisi de nouveau
 		EssaisPantera = 0;
 		return;
 	}
 	UWorld* Monde = GetWorld();
 	APlayerController* PC = Monde ? Monde->GetFirstPlayerController() : nullptr;
-	if (bPanteraFait || !PC || !PC->GetPawn() || PC->bShowMouseCursor || EssaisPantera >= 20)
+	if ((bVeutPantera && bPanteraFait) || !PC || !PC->GetPawn() || PC->bShowMouseCursor || EssaisPantera >= 20)
 	{
 		return; // deja fait, ou menu encore ouvert
 	}
@@ -1583,18 +1584,24 @@ void AHabillageChelles::DemanderPantera(float Delta)
 	}
 	if (FStrProperty* Nom = FindFProperty<FStrProperty>(Fonction, TEXT("NomMode")))
 	{
-		Nom->SetPropertyValue_InContainer(Parametres, TEXT("PANTERA"));
+		// Un autre choix que PANTERA dans HABILLAGE (SPIDER-MALE...) : on rend le soldat
+		Nom->SetPropertyValue_InContainer(Parametres, bVeutPantera ? FString(TEXT("PANTERA")) : FString(TEXT("Soldat")));
 	}
 	Roue->ProcessEvent(Fonction, Parametres);
 	if (FBoolProperty* Retour = FindFProperty<FBoolProperty>(Fonction, TEXT("ReturnValue")))
 	{
-		bPanteraFait = Retour->GetPropertyValue_InContainer(Parametres);
+		const bool bReussi = Retour->GetPropertyValue_InContainer(Parametres);
+		if (bReussi)
+		{
+			bPanteraFait = bVeutPantera; // revenu au soldat : plus rien a faire
+			EssaisPantera = 0;
+		}
 	}
 	for (TFieldIterator<FProperty> It(Fonction); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
 	{
 		It->DestroyValue_InContainer(Parametres);
 	}
-	if (bPanteraFait)
+	if (bPanteraFait && bVeutPantera)
 	{
 		UE_LOG(LogTemp, Log, TEXT("[Habillage] PANTERA choisi dans HABILLAGE : la roue TAB est passee en PANTERA."));
 	}
@@ -1691,6 +1698,21 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 		}
 		HabillageInterne::YeuxPantera(Corps, true);
 		return;
+	}
+	if (Tenue.EstSpiderMan() && (!MeshSpiderMan || MeshSpiderMan->GetName().Contains(TEXT("Pantera"))))
+	{
+		// Le joueur est en PANTERA dans la carte : l'apercu SPIDER-MALE montre quand meme Spider-Male (rouge et bleu)
+		if (USkeletalMesh* Spider = LoadObject<USkeletalMesh>(nullptr, HabillageInterne::CheminSpiderMale))
+		{
+			Corps->SetSkeletalMesh(Spider);
+			HabillageInterne::RenduCache(Corps, false, true);
+			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			if (UAnimationAsset* Attente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+			{
+				Corps->PlayAnimation(Attente, true);
+			}
+			return;
+		}
 	}
 	if (!Tenue.EstSpiderMan() && ChellesHabillage::Assembler(Tenue, Pieces, Anim, Squelette) && Squelette)
 	{
