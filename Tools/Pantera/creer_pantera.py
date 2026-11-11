@@ -86,15 +86,34 @@ if not EAL.does_asset_exist(chemin):
     log(NOM + " copie depuis le mannequin SuperheroFlight.")
 mesh = unreal.load_asset(chemin)
 
-# Tenue et masque noirs ; le logo du torse devient une piece de metal noir
+# Tenue et masque noirs ; le logo du torse devient une piece de metal noir.
+# (Correction 2026-11-11 : en Python, chaque case de la liste est une COPIE. Il faut remettre
+#  la case modifiee dans la liste, sinon le mannequin reste gris.)
+mesh.modify()
 mats = mesh.get_editor_property("materials")
-for m in mats:
+for i in range(len(mats)):
+    m = mats[i]
     mi = m.get_editor_property("material_interface")
     nom = (mi.get_name() if mi else "").lower()
-    m.set_editor_property("material_interface", accent if "logo" in nom else costume)
+    slot = str(m.get_editor_property("material_slot_name")).lower()
+    m.set_editor_property("material_interface", accent if ("logo" in nom or "logo" in slot) else costume)
+    mats[i] = m
 mesh.set_editor_property("materials", mats)
-mesh.modify()
+try:
+    mesh.post_edit_change()
+except Exception:
+    pass
 EAL.save_loaded_asset(mesh, False)
+
+# Verification : on relit les materiaux enregistres
+gris = []
+for m in mesh.get_editor_property("materials"):
+    mi = m.get_editor_property("material_interface")
+    log("Materiau du corps : " + (mi.get_path_name() if mi else "aucun"))
+    if not mi or "Pantera" not in mi.get_name():
+        gris.append(mi.get_name() if mi else "aucun")
+if gris:
+    raise RuntimeError("PANTERA est encore gris (materiaux : " + ", ".join(gris) + "). Envoie le Output Log a Claude.")
 
 log("TERMINE : maintiens TAB en jeu et choisis PANTERA (case violette), ou choisis PANTERA dans HABILLAGE.")
 log("Yeux mal places ? En jeu, console (touche ²) : Chelles.PanteraYeux 8.5 171 3.6 1 15 35  (avant, haut, ecart, taille, inclinaison, ouverture)")
