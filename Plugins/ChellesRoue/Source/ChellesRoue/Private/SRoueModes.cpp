@@ -243,6 +243,28 @@ void SRoueModes::Icone(FSlateWindowElementList& Sortie, int32 Couche, const FGeo
 		}
 		break;
 	}
+	case EIconeRoue::Griffes:
+	{
+		// PANTERA : trois coups de griffe en biais (traits courbes), et deux yeux en amande au-dessus
+		for (int32 i = -1; i <= 1; ++i)
+		{
+			const FVector2D Depart = C + FVector2D(-0.55f + 0.42f * i, -0.35f) * S;
+			TArray<FVector2D> Griffe;
+			for (int32 k = 0; k <= 6; ++k)
+			{
+				const float t = k / 6.f;
+				Griffe.Add(Depart + FVector2D(0.7f * t + 0.12f * FMath::Sin(t * PI), 1.05f * t) * S);
+			}
+			Lignes(Sortie, Couche, G, Griffe, Couleur, E * (i == 0 ? 1.2f : 0.95f));
+		}
+		for (float Sens : { -1.f, 1.f })
+		{
+			const FVector2D Oeil = C + FVector2D(0.42f * Sens, -0.78f) * S;
+			const FVector2D Coin = FVector2D(0.2f * Sens, -0.07f) * S;
+			Lignes(Sortie, Couche, G, { Oeil - Coin, Oeil + FVector2D(0.f, -0.07f) * S, Oeil + Coin, Oeil + FVector2D(0.f, 0.06f) * S, Oeil - Coin }, FLinearColor(1.f, 1.f, 1.f, Couleur.A), E * 0.7f);
+		}
+		break;
+	}
 	case EIconeRoue::Question:
 	{
 		const FSlateFontInfo Police = FCoreStyle::GetDefaultFontStyle("Bold", FMath::Max(12, FMath::RoundToInt(S * 1.7f)));

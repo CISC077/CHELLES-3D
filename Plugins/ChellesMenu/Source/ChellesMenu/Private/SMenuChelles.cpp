@@ -1728,7 +1728,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	{
 		MontrerApercu();
 	}
-	const int32 SexeActuel = TenueChoisie.EstSpiderMan() ? int32(ChellesHabillage::SpiderMan) : TenueChoisie.Sexe;
+	const int32 SexeActuel = (TenueChoisie.EstSpiderMan() && !TenueChoisie.EstPantera()) ? int32(ChellesHabillage::SpiderMan) : TenueChoisie.Sexe;
 
 	TSharedRef<SVerticalBox> Gauche = SNew(SVerticalBox);
 	Gauche->AddSlot().AutoHeight()[ Titre(FText::FromString(TEXT("HABILLAGE")), FText::FromString(TEXT("// SEXE, TENUE ET LOOK DE TON JOUEUR"))) ];
@@ -1737,7 +1737,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	auto BoutonSexe = [this, SexeActuel](const TCHAR* Nom, int32 Sexe) -> TSharedRef<SWidget>
 	{
 		const FString Libelle = (SexeActuel == Sexe) ? FString::Printf(TEXT("[ %s ]"), Nom) : FString(Nom);
-		return Bouton(FText::FromString(Libelle), 34, [this, Sexe]()
+		return Bouton(FText::FromString(Libelle), 30, [this, Sexe]()
 		{
 			ModifierTenue([Sexe](ChellesHabillage::FTenue& T)
 			{
@@ -1754,17 +1754,22 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("F\u00C9MININ"), ChellesHabillage::Feminin) ]
 		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("MASCULIN"), ChellesHabillage::Masculin) ]
-		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("SPIDER-MAN"), ChellesHabillage::SpiderMan) ]
+		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("SPIDER-MALE"), ChellesHabillage::SpiderMan) ]
+		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("PANTERA"), ChellesHabillage::Pantera) ]
 	];
 
 	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
-	if (TenueChoisie.EstSpiderMan())
+	if (TenueChoisie.EstPantera())
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues SPIDER-MAN, le h\u00E9ros que tu as d\u00E9j\u00E0 dans tout le jeu.\nChoisis F\u00C9MININ ou MASCULIN pour cr\u00E9er ton propre look : visage, cheveux, haut, bas, chaussures, chapeau, lunettes..."))) ];
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues PANTERA : tenue noire, masque noir, yeux blancs.\nIl vole comme Spider-Male, mais 20 secondes maximum : ensuite il doit se poser. Clic gauche = tirs des mains (laser, feu, glace, foudre), O = changer de tir.\nTu commences en PANTERA ; TAB pour changer de mode."))) ];
+	}
+	else if (TenueChoisie.EstSpiderMan())
+	{
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues SPIDER-MALE, le h\u00E9ros que tu as d\u00E9j\u00E0 dans tout le jeu.\nChoisis F\u00C9MININ ou MASCULIN pour cr\u00E9er ton propre look : visage, cheveux, haut, bas, chaussures, chapeau, lunettes..."))) ];
 	}
 	else if (!Modele)
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Packs de personnages introuvables dans Content (Action_Male_and_Female, Female_Mannequin). Tu restes en Spider-Man."))) ];
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Packs de personnages introuvables dans Content (Action_Male_and_Female, Female_Mannequin). Tu restes en Spider-Male."))) ];
 	}
 	else
 	{
@@ -1834,7 +1839,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 		]
 	];
 	Gauche->AddSlot().AutoHeight()[ BoutonRetour() ];
-	Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Clic gauche / droite (ou fl\u00E8ches) pour changer. Ton look est vu par les autres joueurs en multi. La roue TAB garde Spider-Man, motoneige, cheval..."))) ];
+	Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Clic gauche / droite (ou fl\u00E8ches) pour changer. Ton look est vu par les autres joueurs en multi. La roue TAB garde Spider-Male, PANTERA, motoneige, cheval..."))) ];
 
 	TSharedRef<SWidget> Droite = PinceauApercu.IsValid()
 		? StaticCastSharedRef<SWidget>(SNew(SZoneApercuChelles).Acteur(ApercuActeur).Image(PinceauApercu.Get()))

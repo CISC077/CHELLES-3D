@@ -6,6 +6,9 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Animation/AnimationAsset.h"
 #include "Engine/DataTable.h"
 #include "Engine/Engine.h"
 #include "Engine/SkeletalMesh.h"
@@ -27,6 +30,12 @@
 namespace HabillageInterne
 {
 	static const TCHAR* SectionIni = TEXT("ChellesHabillage");
+	// PANTERA (2026-11-11) : corps cree par Tools\Pantera\creer_pantera.py
+	static const TCHAR* CheminPantera = TEXT("/Game/Personnages/SK_Pantera/SK_Pantera_Vol.SK_Pantera_Vol");
+	static const TCHAR* YeuxBlancs = TEXT("/Game/Personnages/SK_Pantera/M_Pantera_Yeux.M_Pantera_Yeux");
+	static const TCHAR* CheminSpiderMale = TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Vol.SK_SpiderMan_Vol");
+	static const TCHAR* AttentePantera = TEXT("/Game/SuperheroFlight/Characters/Mannequin/Animations/ThirdPerson_Idle.ThirdPerson_Idle");
+	static void YeuxPantera(USkeletalMeshComponent* Corps, bool bAvecYeux);
 	static const TCHAR* TableTetes = TEXT("/Game/Action_Male_and_Female/Data/Heads/DT_Heads.DT_Heads");
 	static const TCHAR* TablesMannequin[] =
 	{
@@ -705,7 +714,10 @@ namespace ChellesHabillage
 	{
 		if (Tenue.EstSpiderMan())
 		{
-			Tenue.Sexe = SpiderMan;
+			if (Tenue.Sexe != Pantera)
+			{
+				Tenue.Sexe = SpiderMan;
+			}
 			return;
 		}
 		const FModele* M = TrouverModele(Tenue.Modele);
@@ -1376,6 +1388,7 @@ void AHabillageChelles::Tick(float Delta)
 	}
 	ProchainEnvoi -= Delta;
 	ProchainControle -= Delta;
+	DemanderPantera(Delta);
 	if (ProchainControle <= 0.f)
 	{
 		ProchainControle = 0.25f;
@@ -1452,6 +1465,146 @@ void AHabillageChelles::Tick(float Delta)
 		}
 	}
 	Suivre();
+}
+
+// ---------------------------------------------------------------- PANTERA
+
+namespace HabillageInterne
+{
+	/** Yeux blancs du masque, comme dans la roue TAB (ChellesRoue, meme reglage [ChellesRoue] YeuxPantera). */
+	static void YeuxPantera(USkeletalMeshComponent* Corps, bool bAvecYeux)
+	{
+		static const FName Tag(TEXT("ChellesYeuxMasque"));
+		if (!Corps || !Corps->GetOwner())
+		{
+			return;
+		}
+		TArray<USceneComponent*> Anciens;
+		for (USceneComponent* Enfant : Corps->GetAttachChildren())
+		{
+			if (IsValid(Enfant) && Enfant->ComponentHasTag(Tag))
+			{
+				Anciens.Add(Enfant);
+			}
+		}
+		for (USceneComponent* Oeil : Anciens)
+		{
+			Oeil->DestroyComponent();
+		}
+		if (!bAvecYeux || !Corps->SkeletalMesh)
+		{
+			return;
+		}
+		const FReferenceSkeleton& Squelette = Corps->SkeletalMesh->GetRefSkeleton();
+		const int32 Tete = Squelette.FindBoneIndex(TEXT("head"));
+		UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+		if (Tete == INDEX_NONE || !Sphere)
+		{
+			return;
+		}
+		FTransform TeteRepos = FTransform::Identity;
+		for (int32 Os = Tete; Os != INDEX_NONE; Os = Squelette.GetParentIndex(Os))
+		{
+			TeteRepos = TeteRepos * Squelette.GetRefBonePose()[Os];
+		}
+		// Avant, Haut, Ecart, Taille, Inclinaison, Ouverture (cm / degres, repere du corps au repos)
+		float V[6] = { 8.1f, 171.f, 3.6f, 1.f, 15.f, 35.f };
+		FString Texte;
+		if (GConfig && GConfig->GetString(TEXT("ChellesRoue"), TEXT("YeuxPantera"), Texte, GGameUserSettingsIni))
+		{
+			TArray<FString> Morceaux;
+			Texte.ParseIntoArray(Morceaux, TEXT(","), true);
+			for (int32 i = 0; i < Morceaux.Num() && i < 6; ++i)
+			{
+				V[i] = FCString::Atof(*Morceaux[i].TrimStartAndEnd());
+			}
+			V[3] = FMath::Clamp(V[3], 0.2f, 5.f);
+		}
+		UMaterialInterface* Blanc = LoadObject<UMaterialInterface>(nullptr, YeuxBlancs);
+		for (const float Cote : { -1.f, 1.f })
+		{
+			const FTransform OeilRepos(FRotator(Cote * V[4], -Cote * V[5], 0.f), FVector(Cote * V[2], V[0], V[1]), FVector(0.032f, 0.014f, 0.014f) * V[3]);
+			UStaticMeshComponent* Oeil = NewObject<UStaticMeshComponent>(Corps->GetOwner(), NAME_None, RF_Transient);
+			Oeil->ComponentTags.Add(Tag);
+			Oeil->SetStaticMesh(Sphere);
+			if (Blanc)
+			{
+				Oeil->SetMaterial(0, Blanc);
+			}
+			Oeil->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Oeil->SetCastShadow(false);
+			Oeil->SetupAttachment(Corps, TEXT("head"));
+			Oeil->SetRelativeTransform(OeilRepos.GetRelativeTransform(TeteRepos));
+			Oeil->RegisterComponent();
+		}
+	}
+}
+
+void AHabillageChelles::DemanderPantera(float Delta)
+{
+	ProchainPantera -= Delta;
+	if (ProchainPantera > 0.f || GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+	ProchainPantera = 1.f;
+	const bool bVeutPantera = ChellesHabillage::TenueLocale().EstPantera();
+	if (!bVeutPantera && !bPanteraFait)
+	{
+		EssaisPantera = 0;
+		return;
+	}
+	UWorld* Monde = GetWorld();
+	APlayerController* PC = Monde ? Monde->GetFirstPlayerController() : nullptr;
+	if ((bVeutPantera && bPanteraFait) || !PC || !PC->GetPawn() || PC->bShowMouseCursor || EssaisPantera >= 20)
+	{
+		return; // deja fait, ou menu encore ouvert
+	}
+	// La roue TAB (plugin ChellesRoue) : ChoisirModeParNom("PANTERA"), par reflexion (pas de lien entre plugins)
+	AActor* Roue = nullptr;
+	for (TActorIterator<AActor> It(Monde); It; ++It)
+	{
+		if (It->GetClass()->GetName() == TEXT("RoueModes"))
+		{
+			Roue = *It;
+			break;
+		}
+	}
+	UFunction* Fonction = Roue ? Roue->FindFunction(TEXT("ChoisirModeParNom")) : nullptr;
+	if (!Fonction)
+	{
+		return; // roue pas encore posee (ou plugin ChellesRoue pas recompile)
+	}
+	++EssaisPantera;
+	uint8* Parametres = (uint8*)FMemory_Alloca(FMath::Max<int32>(Fonction->ParmsSize, 1));
+	FMemory::Memzero(Parametres, FMath::Max<int32>(Fonction->ParmsSize, 1));
+	for (TFieldIterator<FProperty> It(Fonction); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+	{
+		It->InitializeValue_InContainer(Parametres);
+	}
+	if (FStrProperty* Nom = FindFProperty<FStrProperty>(Fonction, TEXT("NomMode")))
+	{
+		// Un autre choix que PANTERA dans HABILLAGE (SPIDER-MALE...) : on rend le soldat
+		Nom->SetPropertyValue_InContainer(Parametres, bVeutPantera ? FString(TEXT("PANTERA")) : FString(TEXT("Soldat")));
+	}
+	Roue->ProcessEvent(Fonction, Parametres);
+	if (FBoolProperty* Retour = FindFProperty<FBoolProperty>(Fonction, TEXT("ReturnValue")))
+	{
+		const bool bReussi = Retour->GetPropertyValue_InContainer(Parametres);
+		if (bReussi)
+		{
+			bPanteraFait = bVeutPantera; // revenu au soldat : plus rien a faire
+			EssaisPantera = 0;
+		}
+	}
+	for (TFieldIterator<FProperty> It(Fonction); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+	{
+		It->DestroyValue_InContainer(Parametres);
+	}
+	if (bPanteraFait && bVeutPantera)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Habillage] PANTERA choisi dans HABILLAGE : la roue TAB est passee en PANTERA."));
+	}
 }
 
 // ---------------------------------------------------------------- Apercu du menu
@@ -1531,6 +1684,36 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 	TArray<ChellesHabillage::FPiece> Pieces;
 	UClass* Anim = nullptr;
 	USkeletalMesh* Squelette = nullptr;
+	HabillageInterne::YeuxPantera(Corps, false);
+	USkeletalMesh* MeshPantera = Tenue.EstPantera() ? LoadObject<USkeletalMesh>(nullptr, HabillageInterne::CheminPantera) : nullptr;
+	if (MeshPantera)
+	{
+		// PANTERA : son corps noir, debout (animation d'attente du pack SuperheroFlight), avec ses yeux blancs
+		Corps->SetSkeletalMesh(MeshPantera);
+		HabillageInterne::RenduCache(Corps, false, true);
+		Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+		if (UAnimationAsset* Attente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+		{
+			Corps->PlayAnimation(Attente, true);
+		}
+		HabillageInterne::YeuxPantera(Corps, true);
+		return;
+	}
+	if (Tenue.EstSpiderMan() && (!MeshSpiderMan || MeshSpiderMan->GetName().Contains(TEXT("Pantera"))))
+	{
+		// Le joueur est en PANTERA dans la carte : l'apercu SPIDER-MALE montre quand meme Spider-Male (rouge et bleu)
+		if (USkeletalMesh* Spider = LoadObject<USkeletalMesh>(nullptr, HabillageInterne::CheminSpiderMale))
+		{
+			Corps->SetSkeletalMesh(Spider);
+			HabillageInterne::RenduCache(Corps, false, true);
+			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			if (UAnimationAsset* Attente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+			{
+				Corps->PlayAnimation(Attente, true);
+			}
+			return;
+		}
+	}
 	if (!Tenue.EstSpiderMan() && ChellesHabillage::Assembler(Tenue, Pieces, Anim, Squelette) && Squelette)
 	{
 		Corps->SetSkeletalMesh(Squelette);

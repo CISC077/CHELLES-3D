@@ -81,3 +81,11 @@ Foudre.Rebonds=3
 Foudre.Rayon=700
 Foudre.Cadence=0.5
 Foudre.Vitesse=18000
+
+# ---------------------------------------------------------------------------
+# HEROS SANS ARME (PANTERA, 2026-11-11)
+# Clic gauche = tir special lance depuis les mains (une main puis l'autre), touche O = changer.
+# Heros= noms des corps reconnus (separes par |). TirHeros= tir de depart : Laser, Feu, Glace ou Foudre.
+# ---------------------------------------------------------------------------
+Heros=SK_Pantera
+TirHeros=Laser
