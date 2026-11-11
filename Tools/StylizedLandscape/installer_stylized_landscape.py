@@ -310,14 +310,106 @@ def type_echantillon(tex):
     return ST.SAMPLERTYPE_COLOR if srgb else ST.SAMPLERTYPE_LINEAR_COLOR
 
 
+TEX = PACK + "/textures/landscape_textures/"
+
+
+def _tex(mat, chemin_tex, uv, x, y):
+    t = EAL.load_asset(chemin_tex)
+    if t is None:
+        raise RuntimeError("Texture du pack introuvable : %s" % chemin_tex)
+    e = _expr(mat, unreal.MaterialExpressionTextureSample, x, y)
+    e.set_editor_property("texture", t)
+    e.set_editor_property("sampler_type", type_echantillon(t))
+    _lier(uv, "", e, "UVs")
+    return e
+
+
+def _masque(mat, src, canaux, x, y):
+    m = _expr(mat, unreal.MaterialExpressionComponentMask, x, y)
+    for c in "rgba":
+        m.set_editor_property(c, c in canaux)
+    _lier(src, "", m, "")
+    return m
+
+
+def _param(mat, nom, val, x, y):
+    e = _expr(mat, unreal.MaterialExpressionScalarParameter, x, y)
+    e.set_editor_property("parameter_name", nom)
+    e.set_editor_property("default_value", float(val))
+    return e
+
+
+def _op(mat, classe, a, b, x, y, sa="", sb=""):
+    e = _expr(mat, classe, x, y)
+    _lier(a, sa, e, "A")
+    _lier(b, sb, e, "B")
+    return e
+
+
+def construire_graphe_sol(mat):
+    X = unreal
+    wp = _expr(mat, X.MaterialExpressionWorldPosition, -2400, 0)
+    nws = _expr(mat, X.MaterialExpressionVertexNormalWS, -2400, 600)
+    # --- herbe : projection du dessus
+    xy = _masque(mat, wp, "rg", -2200, -300)
+    t_herbe = _param(mat, "TailleHerbe", 1.0 / 400.0, -2200, -200)
+    uv_h = _op(mat, X.MaterialExpressionMultiply, xy, t_herbe, -2000, -300)
+    h_col = _tex(mat, TEX + "grass/T_grass_basecolor", uv_h, -1700, -500)
+    h_nor = _tex(mat, TEX + "grass/T_grass_normal", uv_h, -1700, -250)
+    teinte = _expr(mat, X.MaterialExpressionVectorParameter, -1700, -700)
+    teinte.set_editor_property("parameter_name", "TeinteHerbe")
+    teinte.set_editor_property("default_value", unreal.LinearColor(1, 1, 1, 1))
+    herbe = _op(mat, X.MaterialExpressionMultiply, h_col, teinte, -1400, -550, sa="RGB")
+    # --- roche : deux projections de cote, melangees selon l'orientation de la pente
+    xz = _masque(mat, wp, "rb", -2200, 100)
+    yz = _masque(mat, wp, "gb", -2200, 250)
+    t_roche = _param(mat, "TailleRoche", 1.0 / 800.0, -2200, 380)
+    uv_xz = _op(mat, X.MaterialExpressionMultiply, xz, t_roche, -2000, 100)
+    uv_yz = _op(mat, X.MaterialExpressionMultiply, yz, t_roche, -2000, 250)
+    r_col1 = _tex(mat, TEX + "cliff_surface/T_cliff_surface_basecolor", uv_xz, -1700, 50)
+    r_col2 = _tex(mat, TEX + "cliff_surface/T_cliff_surface_basecolor", uv_yz, -1700, 300)
+    r_nor = _tex(mat, TEX + "cliff_surface/T_cliff_surface_normal", uv_xz, -1700, 550)
+    nx = _expr(mat, X.MaterialExpressionAbs, -2100, 650)
+    _lier(_masque(mat, nws, "r", -2250, 650), "", nx, "")
+    ny = _expr(mat, X.MaterialExpressionAbs, -2100, 750)
+    _lier(_masque(mat, nws, "g", -2250, 750), "", ny, "")
+    somme = _op(mat, X.MaterialExpressionAdd, nx, ny, -1950, 700)
+    somme2 = _expr(mat, X.MaterialExpressionAdd, -1800, 700)
+    _lier(somme, "", somme2, "A")
+    somme2.set_editor_property("const_b", 0.0001)
+    a_cote = _op(mat, X.MaterialExpressionDivide, nx, somme2, -1650, 680)
+    roche = _expr(mat, X.MaterialExpressionLinearInterpolate, -1400, 150)
+    _lier(r_col1, "RGB", roche, "A")
+    _lier(r_col2, "RGB", roche, "B")
+    _lier(a_cote, "", roche, "Alpha")
+    # --- pente : 1 = plat (herbe), 0 = raide (roche)
+    nz = _masque(mat, nws, "b", -1400, 650)
+    seuil = _param(mat, "SeuilPente", 0.75, -1400, 750)
+    moins = _op(mat, X.MaterialExpressionSubtract, nz, seuil, -1250, 680)
+    durete = _param(mat, "DuretePente", 8.0, -1250, 800)
+    fois = _op(mat, X.MaterialExpressionMultiply, moins, durete, -1100, 700)
+    plat = _expr(mat, X.MaterialExpressionSaturate, -950, 700)
+    _lier(fois, "", plat, "")
+    couleur = _expr(mat, X.MaterialExpressionLinearInterpolate, -700, -100)
+    _lier(roche, "", couleur, "A")
+    _lier(herbe, "", couleur, "B")
+    _lier(plat, "", couleur, "Alpha")
+    normale = _expr(mat, X.MaterialExpressionLinearInterpolate, -700, 300)
+    _lier(r_nor, "RGB", normale, "A")
+    _lier(h_nor, "RGB", normale, "B")
+    _lier(plat, "", normale, "Alpha")
+    MP = unreal.MaterialProperty
+    MEL.connect_material_property(couleur, "", MP.MP_BASE_COLOR)
+    MEL.connect_material_property(normale, "", MP.MP_NORMAL)
+    MEL.connect_material_property(_param(mat, "Rugosite", 0.85, -400, 450), "", MP.MP_ROUGHNESS)
+    MEL.connect_material_property(_param(mat, "Speculaire", 0.2, -400, 550), "", MP.MP_SPECULAR)
+    log("  Sol construit (herbe + roche du pack, selon la pente)")
+
+
 def construire_materiau():
     nom_mat, nom_mi = "M_SolStylized", "MI_SolStylized"
     ch_mat, ch_mi = DOSSIER_ASSETS + "/" + nom_mat, DOSSIER_ASSETS + "/" + nom_mi
     tools = unreal.AssetToolsHelpers.get_asset_tools()
-    mf = EAL.load_asset(MF_AUTO)
-    if mf is None:
-        raise RuntimeError("MF_auto du pack introuvable : %s" % MF_AUTO)
-
     # le materiau (le notre) est toujours reconstruit : un essai rate ne reste pas casse
     if EAL.does_asset_exist(ch_mat):
         mat = EAL.load_asset(ch_mat)
@@ -326,28 +418,10 @@ def construire_materiau():
     else:
         mat = tools.create_asset(nom_mat, DOSSIER_ASSETS, unreal.Material, unreal.MaterialFactoryNew())
     if True:
-        # MF_auto sort un "Material Attributes" : on le casse en BaseColor / Normal / Roughness...
+        # Meme principe que le materiau "auto" du pack (MF_auto) mais construit ici noeud par noeud :
+        # herbe du pack sur le plat, roche du pack dans les pentes, textures plaquees en coordonnees monde.
         mat.set_editor_property("use_material_attributes", False)
-        appel = _expr(mat, unreal.MaterialExpressionMaterialFunctionCall, -700, 0)
-        appel.set_editor_property("material_function", mf)
-        casse = _expr(mat, unreal.MaterialExpressionBreakMaterialAttributes, -400, 0)
-        _lier(appel, "", casse, "")
-        MP = unreal.MaterialProperty
-        branches = 0
-        for sortie, nom_prop in (("BaseColor", "MP_BASE_COLOR"), ("Metallic", "MP_METALLIC"),
-                                 ("Specular", "MP_SPECULAR"), ("Roughness", "MP_ROUGHNESS"),
-                                 ("Normal", "MP_NORMAL"), ("AmbientOcclusion", "MP_AMBIENT_OCCLUSION")):
-            prop = getattr(MP, nom_prop, None)
-            if prop is None:
-                continue
-            try:
-                if MEL.connect_material_property(casse, sortie, prop):
-                    branches += 1
-            except Exception:
-                pass
-        if branches == 0:
-            raise RuntimeError("MF_auto n'a pas pu etre branche au materiau")
-        log("  MF_auto branche (%d sortie(s))" % branches)
+        construire_graphe_sol(mat)
         if FAIRE_HERBE_ZONE:
             try:
                 _ajouter_herbe(mat)
@@ -887,10 +961,10 @@ def main():
     if not message(q, True):
         log("Annule par l'utilisateur : rien n'a ete modifie.")
         return
+    faire_decor = FAIRE_DECOR
     if FAIRE_DECOR and nom_carte() == CARTE.split("/")[-1] and decor_present(ELL.get_all_level_actors()):
-        message("Le decor Stylized est deja dans Rachid.\n"
-                "Lance d'abord annuler_stylized_landscape.py si tu veux le refaire.")
-        return
+        log("Decor deja present : seul le sol est refait.")
+        faire_decor = False
 
     ELL.save_all_dirty_levels()
     sauvegarder_umap()
@@ -898,7 +972,7 @@ def main():
     mi = construire_materiau() if FAIRE_SOL else None   # d'abord : si ca rate, rien n'est touche
 
     demo = None
-    if FAIRE_DECOR:
+    if faire_decor:
         demo = lire_demo()
 
     if nom_carte() != CARTE.split("/")[-1]:
@@ -907,12 +981,7 @@ def main():
     acteurs = ELL.get_all_level_actors()
     preparer_ignores(acteurs)
     deja = decor_present(acteurs)
-    if deja and FAIRE_DECOR:
-        message("Le decor Stylized est deja dans Rachid (%d objets).\n"
-                "Lance d'abord annuler_stylized_landscape.py si tu veux le refaire." % len(deja))
-        FAIRE = False
-    else:
-        FAIRE = FAIRE_DECOR
+    FAIRE = faire_decor and not deja
     landscapes = [a for a in acteurs if est_landscape(a)]
     dalles = [a for a in acteurs if label(a).startswith("Chelles_Tile_Ground") and isinstance(a, unreal.StaticMeshActor)]
     zh, zb = bornes_z(landscapes)
@@ -940,6 +1009,11 @@ def main():
                     poser_lac(zone, rayon, poses, zh, zb)
                 if mi is not None:
                     regler_zone_herbe(mi, zone, rayon + 300.0)
+        elif journal.get("zone") and mi is not None:
+            zx, zy, zz, rayon = journal["zone"]
+            zone = unreal.Vector(zx, zy, zz)
+            regler_zone_herbe(mi, zone, rayon + 300.0)
+            log("Herbe haute remise autour du decor existant (%.0f, %.0f)" % (zx, zy))
     finally:
         ecrire_journal(journal)
     ELL.save_current_level()
@@ -950,7 +1024,7 @@ def main():
                                                unreal.Rotator(0, -20, 45))
         except Exception:
             pass
-        message("C'est fait !\n\nLe decor est a X=%.0f  Y=%.0f (la camera est dessus).\n"
+        message("C'est fait !\n\nL'herbe haute et les fleurs poussent autour du decor seulement.\nLe decor est a X=%.0f  Y=%.0f (la camera est dessus).\n"
                 "Dans l'Outliner : dossier Chelles > DecorStylized.\n\n"
                 "Lance Play pour y aller. Si l'eclairage parait bizarre : Build > Build Lighting Only.\n"
                 "Pour revenir en arriere : annuler_stylized_landscape.py" % (zone.x, zone.y))
