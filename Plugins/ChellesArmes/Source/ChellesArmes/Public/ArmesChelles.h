@@ -50,6 +50,9 @@ struct FArmeHabillee
  *
  * 2. TIRS SPECIAUX : quand l'arme en main tire (ses munitions baissent), un tir special part EN PLUS :
  *    laser, boule de feu, glacial ou foudre. Touche O = changer le tir special de l'arme en main.
+ *
+ * 3. HEROS SANS ARME (PANTERA, 2026-11-11) : clic gauche = tir special lance depuis les mains
+ *    (une main puis l'autre). Touche O = changer de tir. Heros reconnus au nom de leur corps (Armes.txt, Heros=).
  */
 UCLASS(NotBlueprintable, NotPlaceable)
 class CHELLESARMES_API AArmesChelles : public AActor
@@ -111,6 +114,15 @@ private:
 	void Changer();
 	void SuivreTirs();
 	void TirerLocal(uint8 Tir, AActor* Arme, APlayerController* PC, APawn* Pion);
+	/** Envoie au serveur un tir special parti de Origine, vers ce que vise le centre de l'ecran. */
+	void TirerDepuis(uint8 Tir, const FVector& Origine, APlayerController* PC, APawn* Pion);
+
+	// ---- Heros sans arme (PANTERA) : tirs speciaux depuis les mains ----
+	bool EstHeros(APawn* Pion) const;
+	uint8 TirDuHeros();
+	void ChoisirTirHeros(uint8 Tir);
+	void TirerMains(uint8 Tir, APlayerController* PC, APawn* Pion);
+	bool bMainGauche = false;
 
 	TMap<FString, uint8> Choix;
 	TWeakObjectPtr<AActor> ArmeSuivie;

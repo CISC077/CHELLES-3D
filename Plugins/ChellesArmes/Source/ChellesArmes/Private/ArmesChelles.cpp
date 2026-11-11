@@ -15,6 +15,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Framework/Application/SlateApplication.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
@@ -889,6 +890,18 @@ void AArmesChelles::Changer()
 		return;
 	}
 	AActor* Arme = ArmeEnMain(PC->GetPawn());
+	if (!Arme && EstHeros(PC->GetPawn()))
+	{
+		// Heros sans arme : on passe au tir suivant (jamais "aucun", ses mains sont son arme)
+		uint8 Suivant = uint8(TirDuHeros() + 1);
+		if (Suivant >= NombreTirs)
+		{
+			Suivant = Laser;
+		}
+		ChoisirTirHeros(Suivant);
+		Message(FString::Printf(TEXT("TIR DES MAINS : %s  -  clic gauche = tirer, %s = changer"), NomTir(Suivant), *Reglages.ToucheChanger));
+		return;
+	}
 	if (!Arme)
 	{
 		Message(TEXT("Prends une arme pour choisir un tir special."));
@@ -923,6 +936,25 @@ void AArmesChelles::SuivreTirs()
 		MunitionsVues = -1;
 	}
 	Etiquette.Reset();
+	if (!Arme && Reglages.bTirsSpeciaux && EstHeros(Pion))
+	{
+		// Heros sans arme (PANTERA) : clic gauche = tir special depuis les mains
+		const uint8 TirMains = TirDuHeros();
+		Etiquette = FString::Printf(TEXT("MAINS : %s   (clic gauche, %s = changer)"), NomTir(TirMains), *Reglages.ToucheChanger);
+		UWorld* Monde = GetWorld();
+		if (!PC || PC->bShowMouseCursor || !Monde || Monde->IsPaused() || !PC->IsInputKeyDown(EKeys::LeftMouseButton))
+		{
+			return;
+		}
+		const float Instant = Monde->GetTimeSeconds();
+		if (Instant - DernierTirLocal[TirMains] < Reglages.Tirs[TirMains].Cadence)
+		{
+			return;
+		}
+		DernierTirLocal[TirMains] = Instant;
+		TirerMains(TirMains, PC, Pion);
+		return;
+	}
 	if (!Arme || !Reglages.bTirsSpeciaux)
 	{
 		return;
@@ -978,7 +1010,21 @@ void AArmesChelles::TirerLocal(uint8 Tir, AActor* Arme, APlayerController* PC, A
 	USceneComponent* MaillageFPP = Cast<USceneComponent>(TrouverComposant(Arme, TEXT("Weapon_Mesh_FPP")));
 	const bool bFPP = MaillageFPP && MaillageFPP->GetVisibleFlag() && !MaillageFPP->bHiddenInGame;
 	USceneComponent* Bouche = Cast<USceneComponent>(TrouverComposant(Arme, bFPP ? TEXT("ProjectileSpawnFromMuzzleFPP") : TEXT("ProjectileSpawnFromMuzzleTPP")));
-	FVector Origine = Bouche ? Bouche->GetComponentLocation() : Camera + Avant * 60.f;
+	const FVector Origine = Bouche ? Bouche->GetComponentLocation() : Camera + Avant * 60.f;
+	TirerDepuis(Tir, Origine, PC, Pion);
+}
+
+void AArmesChelles::TirerDepuis(uint8 Tir, const FVector& Origine, APlayerController* PC, APawn* Pion)
+{
+	AArmesRelais* Relais = MonRelais();
+	if (!Relais || !PC)
+	{
+		return;
+	}
+	FVector Camera;
+	FRotator Regard;
+	PC->GetPlayerViewPoint(Camera, Regard);
+	const FVector Avant = Regard.Vector();
 
 	// Cible : ce que vise le centre de l'ecran
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(ViseeArmesChelles), false, Pion);
@@ -997,6 +1043,79 @@ void AArmesChelles::TirerLocal(uint8 Tir, AActor* Arme, APlayerController* PC, A
 		Direction = Avant;
 	}
 	Relais->ServeurTir(Tir, Origine, Direction);
+}
+
+// =====================================================================================
+//  Heros sans arme (PANTERA, 2026-11-11) : tirs speciaux depuis les mains
+// =====================================================================================
+
+bool AArmesChelles::EstHeros(APawn* Pion) const
+{
+	const ACharacter* Perso = Cast<ACharacter>(Pion);
+	const USkeletalMeshComponent* Corps = Perso ? Perso->GetMesh() : nullptr;
+	if (!Corps || !Corps->SkeletalMesh || Corps->bHiddenInGame)
+	{
+		return false;
+	}
+	const FString Nom = Corps->SkeletalMesh->GetName();
+	for (const FString& H : Reglages.Heros)
+	{
+		if (Nom.Contains(H))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+uint8 AArmesChelles::TirDuHeros()
+{
+	static const FString Cle(TEXT("HEROS"));
+	if (const uint8* Deja = Choix.Find(Cle))
+	{
+		return *Deja;
+	}
+	uint8 Tir = Reglages.TirHeros;
+	int32 Sauve = -1;
+	if (GConfig && GConfig->GetInt(TEXT("ChellesArmes"), TEXT("Tir.HEROS"), Sauve, GGameUserSettingsIni) && Sauve > Aucun && Sauve < NombreTirs)
+	{
+		Tir = uint8(Sauve); // choix fait avec la touche O lors d'une partie precedente
+	}
+	if (Tir == Aucun || Tir >= NombreTirs)
+	{
+		Tir = Laser;
+	}
+	Choix.Add(Cle, Tir);
+	return Tir;
+}
+
+void AArmesChelles::ChoisirTirHeros(uint8 Tir)
+{
+	Choix.Add(TEXT("HEROS"), Tir);
+	if (GConfig)
+	{
+		GConfig->SetInt(TEXT("ChellesArmes"), TEXT("Tir.HEROS"), Tir, GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+}
+
+void AArmesChelles::TirerMains(uint8 Tir, APlayerController* PC, APawn* Pion)
+{
+	ACharacter* Perso = Cast<ACharacter>(Pion);
+	USkeletalMeshComponent* Corps = Perso ? Perso->GetMesh() : nullptr;
+	if (!Corps)
+	{
+		return;
+	}
+	// Une main puis l'autre
+	bMainGauche = !bMainGauche;
+	const FName Main = bMainGauche ? FName(TEXT("hand_l")) : FName(TEXT("hand_r"));
+	FVector Camera;
+	FRotator Regard;
+	PC->GetPlayerViewPoint(Camera, Regard);
+	FVector Origine = Corps->DoesSocketExist(Main) ? Corps->GetSocketLocation(Main) : Pion->GetActorLocation() + FVector(0.f, 0.f, 40.f);
+	Origine += Regard.Vector() * 30.f; // un peu devant la main : le tir ne touche pas son propre corps
+	TirerDepuis(Tir, Origine, PC, Pion);
 }
 
 // =====================================================================================

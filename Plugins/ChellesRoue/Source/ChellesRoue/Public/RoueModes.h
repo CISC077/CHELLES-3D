@@ -13,6 +13,7 @@ class APlayerController;
 class UInputComponent;
 class UUserWidget;
 class SRoueModes;
+class USkeletalMeshComponent;
 class ARoueRelais;
 
 UENUM(BlueprintType)
@@ -38,7 +39,8 @@ enum class EIconeRoue : uint8
 	FerACheval,
 	Eclair,
 	Flamme,
-	Epees
+	Epees,
+	Griffes   // PANTERA (2026-11-11)
 };
 
 /** Une case de la roue. */
@@ -94,6 +96,14 @@ struct FModeRoue
 	/** Circulation pendant ce mode : nombre maximum de voitures, une par rue (0 = circulation normale). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue", meta = (ClampMin = "0"))
 	int32 LimiteCirculation = 0;
+
+	/** Case de vol : secondes de vol maximum avant atterrissage force (0 = sans limite). Il faut toucher le sol pour revoler. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue", meta = (ClampMin = "0"))
+	float DureeVolMax = 0.f;
+
+	/** Vrai : deux yeux blancs en amande poses sur le masque (PANTERA). Reglables en jeu : console Chelles.PanteraYeux */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
+	bool bYeuxMasque = false;
 };
 
 /**
@@ -144,6 +154,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Roue")
 	bool EstOuverte() const { return bOuverte; }
 
+	/** Passe au mode qui porte ce nom (ex. "PANTERA", appele par le menu HABILLAGE). Vrai si c'est maintenant le mode joue. */
+	UFUNCTION(BlueprintCallable, Category = "Roue")
+	bool ChoisirModeParNom(const FString& NomMode);
+
+	/** Yeux blancs du masque PANTERA : pose (bAvecYeux) ou retire les yeux sur ce corps. */
+	static void MettreYeuxMasque(USkeletalMeshComponent* Corps, bool bAvecYeux);
+	/** Console Chelles.PanteraYeux : relit les reglages des yeux et les remet sur tous les personnages. */
+	static void ReglerYeux(UWorld* Monde, const TArray<FString>& Arguments);
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type Raison) override;
@@ -190,6 +209,8 @@ private:
 	bool EntrerPersonnage(int32 Index);
 	void SortirPersonnage();
 	void HabillerPion(APawn* Pion, const FModeRoue& Mode, bool bAvertir);
+	/** Limite de vol (DureeVolMax) du personnage joue sur cette machine. */
+	void LimiterVol(float DeltaSeconds);
 
 	// Multijoueur : chaque joueur a un ARoueRelais, le serveur fait les changements de mode
 	bool EstMultijoueur() const;
@@ -266,4 +287,11 @@ private:
 	int32 ModeVuReseau = INDEX_NONE;
 	/** Multijoueur : soldats caches des joueurs dont on a coupe la collision sur cette machine. */
 	TArray<TWeakObjectPtr<APawn>> CollisionsCoupees;
+
+	/** Limite de vol : secondes volees depuis le dernier contact avec le sol. */
+	float TempsVol = 0.f;
+	/** Atterrissage force fait : on ne revole qu'apres avoir touche le sol. */
+	bool bAtterrissageForce = false;
+	int32 DernierAvisVol = -1;
+	TWeakObjectPtr<APawn> PionVolSuivi;
 };

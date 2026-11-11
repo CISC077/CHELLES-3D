@@ -89,6 +89,12 @@ namespace ChellesArmes
 		bool bGarderAccessoires = false;
 		FString ToucheChanger = TEXT("O");
 
+		/** Heros sans arme (ex. PANTERA, 2026-11-11) : clic gauche = tir special depuis les mains.
+		 *  On les reconnait au nom de leur corps (SkeletalMesh). Ligne Heros= dans Armes.txt. */
+		TArray<FString> Heros = { TEXT("SK_Pantera") };
+		/** Tir special de depart des heros (le joueur change avec la touche O). */
+		uint8 TirHeros = Laser;
+
 		/** Cle = nom du Blueprint de l'arme sans _C (ex : BPC_WeaponRifle). Valeur = chemins (le 1er qui existe est pris). */
 		TMap<FString, TArray<FString>> Apparences;
 		TMap<FString, FReglageApparence> Reglages;
