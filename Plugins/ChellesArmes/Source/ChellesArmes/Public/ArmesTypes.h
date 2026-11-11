@@ -95,6 +95,11 @@ namespace ChellesArmes
 		/** Tir special de depart des heros (le joueur change avec la touche O). */
 		uint8 TirHeros = Laser;
 
+		/** FLASH ELECTRIQUE (2026-11-11) : touche qui lance un double eclair depuis les mains,
+		 *  pour les heros dont le corps porte un de ces noms (a pied avec les armes du soldat, ou en vol). */
+		FString ToucheFlash = TEXT("X");
+		TArray<FString> HerosFlash = { TEXT("SK_SpiderMan_Vol"), TEXT("SK_SpiderMan_UE4"), TEXT("SK_SpiderFemelle"), TEXT("SK_Pantera") };
+
 		/** Cle = nom du Blueprint de l'arme sans _C (ex : BPC_WeaponRifle). Valeur = chemins (le 1er qui existe est pris). */
 		TMap<FString, TArray<FString>> Apparences;
 		TMap<FString, FReglageApparence> Reglages;

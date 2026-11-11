@@ -59,6 +59,19 @@ namespace ChellesArmes
 				R.Heros.RemoveAll([](const FString& H) { return H.IsEmpty(); });
 				continue;
 			}
+			if (Cle.Equals(TEXT("ToucheFlash"), ESearchCase::IgnoreCase)) { R.ToucheFlash = Valeur; continue; }
+			if (Cle.Equals(TEXT("HerosFlash"), ESearchCase::IgnoreCase))
+			{
+				// HerosFlash=SK_SpiderMan_Vol | SK_Pantera ...  (vide = personne n'a le flash electrique)
+				R.HerosFlash.Reset();
+				Valeur.ParseIntoArray(R.HerosFlash, TEXT("|"), true);
+				for (FString& H : R.HerosFlash)
+				{
+					H.TrimStartAndEndInline();
+				}
+				R.HerosFlash.RemoveAll([](const FString& H) { return H.IsEmpty(); });
+				continue;
+			}
 			if (Cle.Equals(TEXT("TirHeros"), ESearchCase::IgnoreCase))
 			{
 				const uint8 T = TirDepuisTexte(Valeur);

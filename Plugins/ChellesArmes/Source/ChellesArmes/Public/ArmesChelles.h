@@ -124,6 +124,10 @@ private:
 	void TirerMains(uint8 Tir, APlayerController* PC, APawn* Pion);
 	bool bMainGauche = false;
 
+	// ---- FLASH ELECTRIQUE des heros (Spider-Male, Spider-Femelle, PANTERA) ----
+	void FlashElectrique();
+	float DernierFlash = -100.f;
+
 	TMap<FString, uint8> Choix;
 	TWeakObjectPtr<AActor> ArmeSuivie;
 	int64 MunitionsVues = -1;

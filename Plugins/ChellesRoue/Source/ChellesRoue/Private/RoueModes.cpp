@@ -44,6 +44,9 @@
 #define CHEMIN_COSTUME_SPIDER_MALE_VOL TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Vol.SK_SpiderMan_Vol")
 // Spider-Male sur le squelette du soldat FPS_Game (Tools\SpiderManJoueur\importer_spiderman.py) : soldat habille en Spider-Male
 #define CHEMIN_COSTUME_SPIDER_MALE_SOLDAT TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_UE4.SK_SpiderMan_UE4")
+// Spider-Femelle et PANTERA sur le squelette du soldat (Tools\SpiderMaleSoldat\corps_soldat_heros.py, 2026-11-11)
+#define CHEMIN_COSTUME_SPIDER_FEMELLE_SOLDAT TEXT("/Game/Personnages/SK_SpiderFemelle/SK_SpiderFemelle_Soldat.SK_SpiderFemelle_Soldat")
+#define CHEMIN_COSTUME_PANTERA_SOLDAT TEXT("/Game/Personnages/SK_Pantera/SK_Pantera_Soldat.SK_Pantera_Soldat")
 #define CHEMIN_COSTUME_SPIDER_FEMELLE_VOL TEXT("/Game/Personnages/SK_SpiderFemelle/SK_SpiderFemelle_Vol.SK_SpiderFemelle_Vol")
 // PANTERA (2026-11-11) : tenue noire, masque noir, yeux blancs. Cree par Tools\Pantera\creer_pantera.py
 #define CHEMIN_COSTUME_PANTERA_VOL TEXT("/Game/Personnages/SK_Pantera/SK_Pantera_Vol.SK_Pantera_Vol")
@@ -166,6 +169,9 @@ ARoueModes::ARoueModes()
 	VolFemelle.Couleur = FLinearColor(1.f, 0.3f, 0.65f);
 	VolFemelle.ClasseVehicule = FSoftClassPath(FString(CHEMIN_SPIDERMAN_VOL)); // utilise en multijoueur seulement
 	VolFemelle.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_FEMELLE_VOL));
+	// Comme Spider-Male : armes du soldat au sol, vol en l'air (demande MERIDJA 2026-11-11)
+	VolFemelle.bFonctionsSoldat = true;
+	VolFemelle.CostumeSoldat = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_FEMELLE_SOLDAT));
 	Modes.Add(VolFemelle);
 
 	// PANTERA (2026-11-11, demande MERIDJA) : heros original tout en noir, masque noir et yeux blancs.
@@ -180,6 +186,9 @@ ARoueModes::ARoueModes()
 	Pantera.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_PANTERA_VOL));
 	Pantera.DureeVolMax = 20.f;
 	Pantera.bYeuxMasque = true;
+	// Comme Spider-Male : armes du soldat au sol, vol (20 s max) en l'air (demande MERIDJA 2026-11-11)
+	Pantera.bFonctionsSoldat = true;
+	Pantera.CostumeSoldat = FSoftObjectPath(FString(CHEMIN_COSTUME_PANTERA_SOLDAT));
 	Modes.Add(Pantera);
 
 	FModeRoue Moto;
@@ -1164,8 +1173,9 @@ void ARoueModes::ChoisirMode(int32 Index)
 	case ETypeModeRoue::Vol:
 		if (bSoldatVolant)
 		{
-			// Spider-Male : soldat au sol (armes du soldat), volant en l'air
+			// Spider-Male, Spider-Femelle, PANTERA : soldat au sol (armes du soldat), volant en l'air
 			ModeSoldatVol = Index;
+			bAvisCostumeSoldat = false;
 			bDemarrerVol = false;
 			TempsPose = 0.f;
 			if (EstEnVol())
@@ -2443,13 +2453,20 @@ static APawn* PionDeBascule(AActor* Bascule, const TCHAR* Nom)
 void ARoueModes::PreparerCasesSoldatVolant()
 {
 	// Roue enregistree dans un niveau avec ses anciennes cases : la case Spider-Male recoit quand meme les armes
-	const FSoftObjectPath CorpsSpiderMale(FString(CHEMIN_COSTUME_SPIDER_MALE_VOL));
+	const TCHAR* Paires[][2] = {
+		{ CHEMIN_COSTUME_SPIDER_MALE_VOL, CHEMIN_COSTUME_SPIDER_MALE_SOLDAT },
+		{ CHEMIN_COSTUME_SPIDER_FEMELLE_VOL, CHEMIN_COSTUME_SPIDER_FEMELLE_SOLDAT },
+		{ CHEMIN_COSTUME_PANTERA_VOL, CHEMIN_COSTUME_PANTERA_SOLDAT },
+	};
 	for (FModeRoue& M : Modes)
 	{
-		if (M.Type == ETypeModeRoue::Vol && M.CostumeSoldat.IsNull() && M.Costume == CorpsSpiderMale)
+		for (const auto& Paire : Paires)
 		{
-			M.bFonctionsSoldat = true;
-			M.CostumeSoldat = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_MALE_SOLDAT));
+			if (M.Type == ETypeModeRoue::Vol && M.CostumeSoldat.IsNull() && M.Costume == FSoftObjectPath(FString(Paire[0])))
+			{
+				M.bFonctionsSoldat = true;
+				M.CostumeSoldat = FSoftObjectPath(FString(Paire[1]));
+			}
 		}
 	}
 }
@@ -2487,6 +2504,7 @@ void ARoueModes::HabillerSoldat(APawn* Soldat, bool bCostume)
 			CorpsAvant.Reset();
 			SoldatCostume = nullptr;
 		}
+		MettreYeuxMasque(Perso->GetMesh(), false);
 		Perso->Tags.Remove(TagSansHabillage);
 		return;
 	}
@@ -2506,7 +2524,7 @@ void ARoueModes::HabillerSoldat(APawn* Soldat, bool bCostume)
 		if (!bAvisCostumeSoldat)
 		{
 			bAvisCostumeSoldat = true;
-			Message(FString::Printf(TEXT("%s : corps introuvable (%s). Les armes marchent, mais le soldat garde son apparence."),
+			Message(FString::Printf(TEXT("%s : corps du soldat introuvable (%s). Lance Tools\\SpiderMaleSoldat\\corps_soldat_heros.py dans Unreal. Les armes marchent quand meme."),
 				*Mode.Nom.ToString(), *Mode.CostumeSoldat.ToString()));
 		}
 		return;
@@ -2559,7 +2577,7 @@ void ARoueModes::HabillerSoldat(APawn* Soldat, bool bCostume)
 			*Mode.Nom.ToString(), *Perso->GetName(), CorpsAvant.Num());
 	}
 
-	// (Re)met le costume si quelqu'un l'a change
+	// (Re)met le costume si quelqu'un l'a change (ou si on passe d'un heros a l'autre)
 	for (const FRoueCorpsAvant& Avant : CorpsAvant)
 	{
 		USkeletalMeshComponent* C = Avant.Composant.Get();
@@ -2567,6 +2585,22 @@ void ARoueModes::HabillerSoldat(APawn* Soldat, bool bCostume)
 		{
 			C->SetSkeletalMesh(Costume);
 			C->EmptyOverrideMaterials();
+		}
+	}
+
+	// PANTERA : yeux blancs sur le masque. Le joueur ne voit pas son propre corps en 1re personne :
+	// les yeux suivent ce reglage, sinon ils flotteraient devant la camera.
+	USkeletalMeshComponent* Corps = Perso->GetMesh();
+	MettreYeuxMasque(Corps, Mode.bYeuxMasque && Corps && Corps->SkeletalMesh == Costume);
+	if (Corps)
+	{
+		for (USceneComponent* Enfant : Corps->GetAttachChildren())
+		{
+			UPrimitiveComponent* Oeil = Cast<UPrimitiveComponent>(Enfant);
+			if (Oeil && Oeil->ComponentHasTag(RouePantera::TagYeux) && Oeil->bOwnerNoSee != Corps->bOwnerNoSee)
+			{
+				Oeil->SetOwnerNoSee(Corps->bOwnerNoSee);
+			}
 		}
 	}
 }

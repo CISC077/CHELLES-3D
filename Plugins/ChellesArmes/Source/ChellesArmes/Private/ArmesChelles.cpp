@@ -874,7 +874,48 @@ void AArmesChelles::LierClavier()
 	}
 	FInputKeyBinding& B = InputComponent->BindKey(Touche, IE_Pressed, this, &AArmesChelles::Changer);
 	B.bConsumeInput = false;
+	FKey ToucheFlash(*Reglages.ToucheFlash);
+	if (!ToucheFlash.IsValid())
+	{
+		ToucheFlash = EKeys::X;
+	}
+	FInputKeyBinding& Flash = InputComponent->BindKey(ToucheFlash, IE_Pressed, this, &AArmesChelles::FlashElectrique);
+	Flash.bConsumeInput = false;
 	bLieClavier = true;
+}
+
+void AArmesChelles::FlashElectrique()
+{
+	// FLASH ELECTRIQUE (2026-11-11) : double eclair (une main puis l'autre), meme effet que le tir FOUDRE :
+	// il saute ensuite sur les ennemis voisins. Reserve aux heros listes dans HerosFlash (Armes.txt).
+	APlayerController* PC = GetPC();
+	APawn* Pion = PC ? PC->GetPawn() : nullptr;
+	ACharacter* Perso = Cast<ACharacter>(Pion);
+	UWorld* Monde = GetWorld();
+	if (!Perso || !Perso->GetMesh() || !Perso->GetMesh()->SkeletalMesh || !Monde || Monde->IsPaused() || PC->bShowMouseCursor || !Reglages.bTirsSpeciaux)
+	{
+		return;
+	}
+	const FString Corps = Perso->GetMesh()->SkeletalMesh->GetName();
+	bool bHeros = false;
+	for (const FString& H : Reglages.HerosFlash)
+	{
+		bHeros = bHeros || Corps.Contains(H);
+	}
+	if (!bHeros)
+	{
+		Message(TEXT("FLASH ELECTRIQUE : reserve a Spider-Male, Spider-Femelle et PANTERA (roue TAB)."));
+		return;
+	}
+	const float Instant = Monde->GetTimeSeconds();
+	if (Instant - DernierFlash < FMath::Max(Reglages.Tirs[ChellesArmes::Foudre].Cadence, 0.8f))
+	{
+		return;
+	}
+	DernierFlash = Instant;
+	TirerMains(ChellesArmes::Foudre, PC, Pion);
+	TirerMains(ChellesArmes::Foudre, PC, Pion);
+	Message(TEXT("FLASH ELECTRIQUE !"));
 }
 
 void AArmesChelles::Changer()
