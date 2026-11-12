@@ -2,8 +2,27 @@
 
 Toutes les **2 heures de jeu**, une sirène retentit et le message rouge sang
 **ATTENTION PURGE ZOMBIE INVASION** dégouline et défile de droite à gauche au
-centre de l'écran pendant 30 secondes. Des hordes de zombies apparaissent à
-plusieurs endroits autour des joueurs (entre 30 et 70 m) et les poursuivent.
+centre de l'écran pendant 30 secondes. Les zombies **sortent de terre** un
+par un, à des endroits au hasard autour des joueurs (entre 8 et 40 m), puis
+les poursuivent.
+
+## Zombies de feu (12/11)
+
+- **Sortie de terre** : une butte de terre se soulève, des mottes de terre
+  volent, un peu de fumée et un grondement, et le zombie monte depuis sous le
+  sol (2,2 s). Pendant la montée il ne bouge pas et ne frappe pas.
+- **En flammes** : 3 feux sur le corps (torse, tête, avant-bras) et une lueur
+  orange qui vacille autour de lui.
+- **Yeux rouges lumineux**. Pour qu'ils brillent vraiment dans le noir, lancez
+  **une seule fois** `Tools\Zombies\CREER_YEUX_ZOMBIES.bat` (Unreal fermé) ou,
+  dans l'éditeur, File > Execute Python Script >
+  `Tools\Zombies\creer_yeux_zombies.py`. Sans ça, les yeux sont rouges mais
+  ne brillent pas.
+- Fluidité : au-delà de 45 m les flammes et la terre ne sont pas affichées, et
+  la lueur seulement à moins de 25 m. Si le jeu rame pendant l'invasion :
+  `FlammesParZombie=1` ou `LueurDuFeu=Non` dans `Zombies.txt`.
+- Les vagues du mode survie ont aussi des zombies de feu (mais elles gardent
+  leurs propres endroits d'apparition).
 
 - Un coup de zombie retire **20 %** de la vie du joueur (la vie de FPS_Game).
 - Une balle **dans la tête** tue le zombie tout de suite.
