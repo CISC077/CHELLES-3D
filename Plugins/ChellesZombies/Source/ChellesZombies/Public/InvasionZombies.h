@@ -6,11 +6,20 @@
 #include "InvasionZombies.generated.h"
 
 class ACharacter;
+class AController;
 class APawn;
 class UAudioComponent;
 class UDamageType;
+class UMaterialInterface;
+class UMaterialInstanceDynamic;
+class UParticleSystem;
+class UParticleSystemComponent;
+class UPointLightComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
 class UPrimitiveComponent;
 class USireneChelles;
+class USoundBase;
 class SAlerteZombies;
 
 /** Reglages lus dans Plugins\ChellesZombies\Zombies.txt (modifiable avec le Bloc-notes). */
@@ -27,13 +36,71 @@ struct FReglagesZombies
 	float DegatsZombiePourcent = 20.f;
 	float DegatsCorpsPourcent = 33.4f;
 	float VitesseZombie = 420.f;
-	float DistanceMinMetres = 30.f;
-	float DistanceMaxMetres = 70.f;
+	// Invasion : chaque zombie sort de terre a un endroit au hasard autour d'un joueur (entre Min et Max)
+	float DistanceMinMetres = 8.f;
+	float DistanceMaxMetres = 40.f;
 	float VolumeSirene = 1.f;
 	FString ClasseZombie = TEXT("/Game/FPS_Game/Blueprints/Bonus/AI/Zombie/BP_AI_CharZombie.BP_AI_CharZombie_C");
 	FString PeauZombie = TEXT("/Game/DecayedZombieB/Mesh/SK_DecayedZombie_B_wPants.SK_DecayedZombie_B_wPants");
 	FString Message = TEXT("ATTENTION PURGE ZOMBIE INVASION");
+
+	// Zombies de feu (12/11) : sortie de terre, flammes, yeux rouges
+	bool bSortieDeTerre = true;
+	float DureeSortieSecondes = 2.2f;
+	int32 FlammesParZombie = 3;
+	bool bLueurDuFeu = true;
+	bool bYeuxRouges = true;
+	/** Au-dela, flammes et lueur s'eteignent (on ne les voit plus) : jeu plus fluide. */
+	float DistanceEffetsMetres = 45.f;
+	// Place des yeux par rapport a l'os de la tete (cm) et taille
+	float YeuxHauteur = 8.f;
+	float YeuxAvant = 11.f;
+	float YeuxEcart = 3.3f;
+	float TailleYeux = 1.f;
 };
+
+/** Effets vus a l'ecran pour un zombie (sur chaque PC qui affiche le jeu). */
+struct FEffetsZombie
+{
+	/** Ce qu'on voit du zombie : sa peau DecayedZombieB (ou son corps s'il n'en a pas). */
+	TWeakObjectPtr<class USkeletalMeshComponent> Visuel;
+	TArray<TWeakObjectPtr<UParticleSystemComponent>> Flammes;
+	TWeakObjectPtr<UPointLightComponent> Lueur;
+	TArray<TWeakObjectPtr<UStaticMeshComponent>> Yeux;
+	bool bProche = true;
+	bool bLueurAllumee = true;
+	float Phase = 0.f;
+
+	// Sortie de terre : le corps visible monte depuis sous le sol
+	float AgeSortie = -1.f;
+	float Profondeur = 190.f;
+	bool bBaseConnue = false;
+	FVector BaseRelative = FVector::ZeroVector;
+	float ProchaineMotte = 0.f;
+	FVector Sol = FVector::ZeroVector;
+};
+
+/** Motte de terre projetee (ou butte de terre) pendant une sortie de terre. */
+struct FMotteTerre
+{
+	TWeakObjectPtr<UStaticMeshComponent> Forme;
+	FVector Position = FVector::ZeroVector;
+	FVector Vitesse = FVector::ZeroVector;
+	FVector Taille = FVector(0.1f);
+	float SolZ = 0.f;
+	float Age = 0.f;
+	float Vie = 1.5f;
+	bool bButte = false;
+};
+
+// Evenements pour les autres plugins (mode survie...). "Dynamiques" : un autre plugin s'y abonne
+// par leur nom, sans avoir besoin de compiler avec celui-ci.
+/** Un zombie vient d'etre tue au combat (Tueur peut etre nul). */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FZombieTueChelles, ACharacter*, Zombie, AController*, Tueur, bool, bTete);
+/** Un zombie vient d'etre touche sans mourir. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FZombieToucheChelles, ACharacter*, Zombie, AController*, Auteur);
+/** Un zombie va frapper un joueur : l'abonne peut mettre bCoupGereAilleurs a vrai pour annuler le coup. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCoupSurJoueurChelles, APawn*, Victime, float, Degats);
 
 /** Ce que le serveur retient pour chaque zombie. */
 struct FEtatZombie
@@ -48,6 +115,8 @@ struct FEtatZombie
 	FVector DirectionCoup = FVector::ZeroVector;
 
 	TWeakObjectPtr<APawn> Cible;
+	/** Dernier joueur qui l'a touche (pour les points du mode survie). */
+	TWeakObjectPtr<AController> DernierAuteur;
 	float ProchainChoixCible = 0.f;
 	float ProchaineAttaque = 0.f;
 	float CoupPrevuA = -1.f;
@@ -61,6 +130,9 @@ struct FEtatZombie
 
 	// Optimisation : loin des joueurs, son animation est calculee moins souvent
 	bool bAllege = false;
+
+	/** Il sort de terre jusqu'a ce moment : il ne bouge pas et n'attaque pas encore. */
+	float SortieJusqua = 0.f;
 };
 
 UCLASS(NotPlaceable, Transient)
@@ -84,6 +156,48 @@ public:
 	/** Le serveur (ou le jeu solo) decide de tout. */
 	bool EstServeur() const;
 
+	// ---- Pour les autres plugins (mode survie...), utilises par leur nom ----
+
+	/** Lance une vague commandee avec les reglages Vague* ci-dessous (serveur). Rien si deja en cours. */
+	UFUNCTION()
+	void LancerVagueCommandee();
+
+	/** Arrete la vague (ou l'invasion) en cours : les zombies restants s'effondrent (serveur). */
+	UFUNCTION()
+	void TerminerVagueCommandee();
+
+	/** Vrai = l'invasion automatique toutes les 2 h ne se declenche pas (un mode de jeu a la main). */
+	UPROPERTY(Transient)
+	bool bInvasionsAutoEnPause = false;
+
+	UPROPERTY(Transient) int32 VagueNombre = 10;
+	/** Vie d'un zombie normal (100 = 3 balles dans le corps, comme l'invasion). */
+	UPROPERTY(Transient) float VagueVie = 100.f;
+	UPROPERTY(Transient) float VagueVitesse = 420.f;
+	/** Part des zombies "costauds" (0 a 1) : plus de vie, un peu plus lents, plus grands. */
+	UPROPERTY(Transient) float VaguePartCostauds = 0.f;
+	UPROPERTY(Transient) float VagueVieCostaud = 300.f;
+	/** Les zombies apparaissent autour de ce point (la zone de jeu), entre RayonMin et RayonMax (cm). */
+	UPROPERTY(Transient) FVector VagueCentre = FVector::ZeroVector;
+	UPROPERTY(Transient) float VagueRayonMin = 1500.f;
+	UPROPERTY(Transient) float VagueRayonMax = 4000.f;
+	UPROPERTY(Transient) FString VagueMessage;
+	UPROPERTY(Transient) float VagueDureeMessage = 5.f;
+	UPROPERTY(Transient) float VagueVolumeSirene = 0.6f;
+
+	UPROPERTY(BlueprintAssignable)
+	FZombieTueChelles OnZombieTue;
+	UPROPERTY(BlueprintAssignable)
+	FZombieToucheChelles OnZombieTouche;
+	UPROPERTY(BlueprintAssignable)
+	FCoupSurJoueurChelles OnCoupSurJoueur;
+	/** Mis a vrai par un abonne de OnCoupSurJoueur : le coup n'est pas applique (ex. joueur mis "a terre"). */
+	UPROPERTY(Transient)
+	bool bCoupGereAilleurs = false;
+
+	/** Tag pose sur un joueur a terre ou mort en mode survie : les zombies l'ignorent. */
+	static const FName MarqueJoueurHorsJeu;
+
 protected:
 	// ---- Etat partage avec les joueurs connectes ----
 	UPROPERTY(Replicated)
@@ -102,13 +216,17 @@ protected:
 	void MulticastAlerte(const FString& Texte, float Duree, float Volume);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastFin(bool bRepoussee);
+	void MulticastFin(const FString& Texte);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastMort(ACharacter* Zombie, bool bTete, FVector Direction);
 
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastAttaque(ACharacter* Zombie);
+
+	/** Le zombie (deplace par le serveur) ressort de terre a sa nouvelle place. */
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastSortie(ACharacter* Zombie);
 
 	// ---- Degats recus par les zombies (serveur) ----
 	UFUNCTION()
@@ -128,14 +246,26 @@ private:
 	ACharacter* FaireApparaitreZombie(const FVector& Sol);
 	void PreparerZombie(ACharacter* Zombie);
 	void PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, float Maintenant);
-	void Tuer(ACharacter* Zombie, bool bTete, const FVector& Direction);
+	void Tuer(ACharacter* Zombie, bool bTete, const FVector& Direction, AController* Tueur = nullptr);
 	void Habiller(ACharacter* Zombie);
+
+	// Zombies de feu (effets seulement, sur chaque PC qui affiche le jeu)
+	void Embraser(ACharacter* Zombie);
+	void SortirDeTerre(ACharacter* Zombie);
+	void EteindreZombie(ACharacter* Zombie);
+	void TickEffets(float DeltaSeconds);
+	void LancerMotte(const FVector& Sol, bool bButte);
+	/** Serveur : le zombie reste immobile le temps de sortir de terre. */
+	void CommencerSortie(ACharacter* Zombie, FEtatZombie& Etat, bool bPrevenirLesJoueurs);
 
 	void JoueursVivants(TArray<APawn*>& Resultat) const;
 	static bool EstVivant(APawn* Joueur);
 	static float VieMax(APawn* Joueur);
 
 	FReglagesZombies Reglages;
+
+	/** Vague commandee en cours (au lieu d'une invasion automatique). */
+	bool bModeVague = false;
 
 	// Serveur
 	float ProchaineInvasion = 0.f;
@@ -170,4 +300,33 @@ private:
 
 	UPROPERTY(Transient)
 	class UAnimMontage* MontageAttaque = nullptr;
+
+	// Zombies de feu
+	TMap<TWeakObjectPtr<ACharacter>, FEffetsZombie> Effets;
+	TArray<FMotteTerre> Mottes;
+	float ProchainControleEffets = 0.f;
+
+	UPROPERTY(Transient)
+	UParticleSystem* Feu = nullptr;
+
+	UPROPERTY(Transient)
+	UParticleSystem* Fumee = nullptr;
+
+	UPROPERTY(Transient)
+	USoundBase* SonSortie = nullptr;
+
+	UPROPERTY(Transient)
+	USoundBase* SonFeu = nullptr;
+
+	UPROPERTY(Transient)
+	UStaticMesh* FormeSphere = nullptr;
+
+	UPROPERTY(Transient)
+	UStaticMesh* FormeCube = nullptr;
+
+	UPROPERTY(Transient)
+	UMaterialInterface* MatYeux = nullptr;
+
+	UPROPERTY(Transient)
+	UMaterialInstanceDynamic* MatTerre = nullptr;
 };

@@ -10,16 +10,22 @@
 // seulement regle au moment ou il apparait (vie, degats, vitesse) et habille avec la peau DecayedZombieB.
 #include "InvasionZombies.h"
 
+#include <initializer_list>
+
 #include "AIController.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Components/AudioComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/PointLightComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "CollisionQueryParams.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
@@ -28,11 +34,15 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Net/UnrealNetwork.h"
 #include "Particles/ParticleSystem.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "Sound/SoundBase.h"
+#include "TimerManager.h"
 #include "UObject/UnrealType.h"
 
 #include "SAlerteZombies.h"
@@ -41,6 +51,14 @@
 #define CHEMIN_MONTAGE_ATTAQUE TEXT("/Game/FPS_Game/Character/TPP/AnimStarterPack/Zombie/ZombieAttackMontage.ZombieAttackMontage")
 #define CHEMIN_SANG TEXT("/Game/FPS_Game/Particles/P_body_bullet_NoStop.P_body_bullet_NoStop")
 #define CHEMIN_SON_TETE TEXT("/Game/FPS_Game/Sounds/SFX/CharacterRelated/Other/Headshot.Headshot")
+
+// Zombies de feu : effets deja presents dans le projet (StarterContent / FPS_Game)
+#define CHEMIN_YEUX TEXT("/Game/Chelles/Zombies/M_YeuxZombies.M_YeuxZombies")
+#define CHEMIN_FORME_DE_BASE TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")
+
+// Ou bruler sur le corps (os du mannequin), dans l'ordre : FlammesParZombie= garde les N premiers
+static const TCHAR* const OsEnFlammes[] = { TEXT("spine_02"), TEXT("head"), TEXT("lowerarm_r"), TEXT("lowerarm_l"), TEXT("calf_l"), TEXT("calf_r") };
+static const float TailleFlammes[] = { 0.55f, 0.32f, 0.3f, 0.3f, 0.3f, 0.3f };
 
 static const FName NomPeau(TEXT("PeauZombieChelles"));
 static const FName MarqueZombie(TEXT("ChellesZombie"));
@@ -129,7 +147,37 @@ namespace
 		return Texte.Equals(TEXT("Oui"), ESearchCase::IgnoreCase) || Texte.Equals(TEXT("1")) || Texte.Equals(TEXT("true"), ESearchCase::IgnoreCase)
 			|| Texte.Equals(TEXT("Yes"), ESearchCase::IgnoreCase);
 	}
+
+	/** Ce qu'on voit du zombie : sa peau DecayedZombieB, sinon son corps. */
+	USkeletalMeshComponent* VisuelDe(ACharacter* Zombie)
+	{
+		TArray<USkeletalMeshComponent*> Composants;
+		Zombie->GetComponents<USkeletalMeshComponent>(Composants);
+		for (USkeletalMeshComponent* C : Composants)
+		{
+			if (C && C->GetFName() == NomPeau)
+			{
+				return C;
+			}
+		}
+		return Zombie->GetMesh();
+	}
+
+	template <typename T>
+	T* ChargerPremier(std::initializer_list<const TCHAR*> Chemins)
+	{
+		for (const TCHAR* Chemin : Chemins)
+		{
+			if (T* Objet = LoadObject<T>(nullptr, Chemin, nullptr, LOAD_NoWarn | LOAD_Quiet))
+			{
+				return Objet;
+			}
+		}
+		return nullptr;
+	}
 }
+
+const FName AInvasionZombies::MarqueJoueurHorsJeu(TEXT("ChellesHorsJeu"));
 
 AInvasionZombies::AInvasionZombies()
 {
@@ -171,6 +219,33 @@ void AInvasionZombies::BeginPlay()
 	{
 		Peau = Reglages.PeauZombie.IsEmpty() ? nullptr : LoadObject<USkeletalMesh>(nullptr, *Reglages.PeauZombie);
 		MontageAttaque = LoadObject<UAnimMontage>(nullptr, CHEMIN_MONTAGE_ATTAQUE);
+
+		// Zombies de feu
+		Feu = ChargerPremier<UParticleSystem>({ TEXT("/Game/StarterContent/Particles/P_Fire.P_Fire"), TEXT("/Game/FPS_Game/Particles/P_Fire.P_Fire") });
+		Fumee = ChargerPremier<UParticleSystem>({ TEXT("/Game/StarterContent/Particles/P_Smoke.P_Smoke"), TEXT("/Game/FPS_Game/Particles/P_Smoke.P_Smoke") });
+		SonSortie = ChargerPremier<USoundBase>({ TEXT("/Game/StarterContent/Audio/Explosion_Cue.Explosion_Cue"), TEXT("/Game/StarterContent/Audio/Explosion01.Explosion01") });
+		SonFeu = ChargerPremier<USoundBase>({ TEXT("/Game/StarterContent/Audio/Fire01_Cue.Fire01_Cue"), TEXT("/Game/StarterContent/Audio/Fire01.Fire01") });
+		FormeSphere = ChargerPremier<UStaticMesh>({ TEXT("/Engine/BasicShapes/Sphere.Sphere") });
+		FormeCube = ChargerPremier<UStaticMesh>({ TEXT("/Engine/BasicShapes/Cube.Cube") });
+		UMaterialInterface* DeBase = ChargerPremier<UMaterialInterface>({ CHEMIN_FORME_DE_BASE });
+		MatYeux = ChargerPremier<UMaterialInterface>({ CHEMIN_YEUX });
+		if (!MatYeux && DeBase)
+		{
+			// Sans le materiau lumineux (Tools\Zombies\creer_yeux_zombies.py) : simples yeux rouges
+			UMaterialInstanceDynamic* Rouge = UMaterialInstanceDynamic::Create(DeBase, this);
+			Rouge->SetVectorParameterValue(TEXT("Color"), FLinearColor(1.f, 0.f, 0.f));
+			MatYeux = Rouge;
+			UE_LOG(LogTemp, Log, TEXT("[Zombies] %s absent : yeux rouges simples (lancez Tools\\Zombies\\creer_yeux_zombies.py pour des yeux lumineux)."), CHEMIN_YEUX);
+		}
+		if (DeBase)
+		{
+			MatTerre = UMaterialInstanceDynamic::Create(DeBase, this);
+			MatTerre->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.11f, 0.065f, 0.035f));
+		}
+		if (!Feu)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Zombies] Particule P_Fire introuvable (StarterContent ou FPS_Game) : zombies sans flammes."));
+		}
 
 		if (UGameViewportClient* Vue = GetWorld()->GetGameViewport())
 		{
@@ -250,12 +325,22 @@ void AInvasionZombies::ChargerReglages()
 		else if (Cle == TEXT("DegatsZombiePourcent")) Reglages.DegatsZombiePourcent = FMath::Clamp(Nombre, 0.f, 100.f);
 		else if (Cle == TEXT("DegatsCorpsPourcent")) Reglages.DegatsCorpsPourcent = FMath::Clamp(Nombre, 1.f, 100.f);
 		else if (Cle == TEXT("VitesseZombie")) Reglages.VitesseZombie = FMath::Clamp(Nombre, 50.f, 2000.f);
-		else if (Cle == TEXT("DistanceApparitionMinMetres")) Reglages.DistanceMinMetres = FMath::Max(5.f, Nombre);
+		else if (Cle == TEXT("DistanceApparitionMinMetres")) Reglages.DistanceMinMetres = FMath::Max(3.f, Nombre);
 		else if (Cle == TEXT("DistanceApparitionMaxMetres")) Reglages.DistanceMaxMetres = FMath::Max(10.f, Nombre);
 		else if (Cle == TEXT("VolumeSirene")) Reglages.VolumeSirene = FMath::Clamp(Nombre, 0.f, 4.f);
 		else if (Cle == TEXT("ClasseZombie") && !Valeur.IsEmpty()) Reglages.ClasseZombie = Valeur;
 		else if (Cle == TEXT("PeauZombie")) Reglages.PeauZombie = Valeur;
 		else if (Cle == TEXT("Message") && !Valeur.IsEmpty()) Reglages.Message = Valeur;
+		else if (Cle == TEXT("SortieDeTerre")) Reglages.bSortieDeTerre = EstOui(Valeur);
+		else if (Cle == TEXT("DureeSortieSecondes")) Reglages.DureeSortieSecondes = FMath::Clamp(Nombre, 0.5f, 6.f);
+		else if (Cle == TEXT("FlammesParZombie")) Reglages.FlammesParZombie = FMath::Clamp((int32)Nombre, 0, (int32)UE_ARRAY_COUNT(OsEnFlammes));
+		else if (Cle == TEXT("LueurDuFeu")) Reglages.bLueurDuFeu = EstOui(Valeur);
+		else if (Cle == TEXT("YeuxRouges")) Reglages.bYeuxRouges = EstOui(Valeur);
+		else if (Cle == TEXT("DistanceEffetsMetres")) Reglages.DistanceEffetsMetres = FMath::Clamp(Nombre, 10.f, 300.f);
+		else if (Cle == TEXT("YeuxHauteur")) Reglages.YeuxHauteur = FMath::Clamp(Nombre, -30.f, 40.f);
+		else if (Cle == TEXT("YeuxAvant")) Reglages.YeuxAvant = FMath::Clamp(Nombre, -30.f, 40.f);
+		else if (Cle == TEXT("YeuxEcart")) Reglages.YeuxEcart = FMath::Clamp(Nombre, 0.f, 15.f);
+		else if (Cle == TEXT("TailleYeux")) Reglages.TailleYeux = FMath::Clamp(Nombre, 0.1f, 5.f);
 	}
 	Reglages.DistanceMaxMetres = FMath::Max(Reglages.DistanceMaxMetres, Reglages.DistanceMinMetres + 5.f);
 	UE_LOG(LogTemp, Log, TEXT("[Zombies] Reglages lus dans %s"), *Chemin);
@@ -282,7 +367,7 @@ void AInvasionZombies::TickServeur(float Maintenant)
 {
 	if (!bInvasionEnCours)
 	{
-		if (Reglages.bActif && Maintenant >= ProchaineInvasion)
+		if (Reglages.bActif && !bInvasionsAutoEnPause && Maintenant >= ProchaineInvasion)
 		{
 			TArray<APawn*> Joueurs;
 			JoueursVivants(Joueurs);
@@ -299,7 +384,22 @@ void AInvasionZombies::TickServeur(float Maintenant)
 	}
 
 	// Apparitions etalees (un zombie toutes les 0,3 s) a partir de 3 s apres la sirene
-	if (AFaireApparaitre > 0 && Maintenant >= ProchaineApparition && Maintenant >= DebutInvasion + 3.f)
+	// En mode vague (Dernier Refuge), jamais plus de NombreMaxZombies en meme temps : les autres attendent leur tour
+	bool bPlaceLibre = true;
+	if (bModeVague)
+	{
+		int32 Debout = 0;
+		for (ACharacter* Z : Zombies)
+		{
+			const FEtatZombie* EtatZ = Z ? Etats.Find(Z) : nullptr;
+			if (EtatZ && !EtatZ->bMort)
+			{
+				++Debout;
+			}
+		}
+		bPlaceLibre = Debout < Reglages.NombreMax;
+	}
+	if (AFaireApparaitre > 0 && bPlaceLibre && Maintenant >= ProchaineApparition && Maintenant >= DebutInvasion + 3.f)
 	{
 		ProchaineApparition = Maintenant + 0.3f;
 		if (Foyers.Num() == 0)
@@ -307,6 +407,22 @@ void AInvasionZombies::TickServeur(float Maintenant)
 			ChoisirFoyers();
 		}
 		bool bFait = false;
+		// Invasion : chaque zombie sort de terre a un endroit au hasard autour d'un joueur (8 a 40 m par defaut)
+		if (!bModeVague)
+		{
+			TArray<APawn*> Joueurs;
+			JoueursVivants(Joueurs);
+			for (int32 Essai = 0; Essai < 4 && !bFait && Joueurs.Num() > 0; ++Essai)
+			{
+				APawn* Autour = Joueurs[FMath::RandRange(0, Joueurs.Num() - 1)];
+				FVector Sol;
+				if (TrouverPointApparition(Autour->GetActorLocation(), Reglages.DistanceMinMetres * 100.f, Reglages.DistanceMaxMetres * 100.f, Sol)
+					&& FaireApparaitreZombie(Sol))
+				{
+					bFait = true;
+				}
+			}
+		}
 		for (int32 Essai = 0; Essai < 4 && !bFait && Foyers.Num() > 0; ++Essai)
 		{
 			const FVector& Foyer = Foyers[FMath::RandRange(0, Foyers.Num() - 1)];
@@ -323,29 +439,37 @@ void AInvasionZombies::TickServeur(float Maintenant)
 		}
 	}
 
-	// Les zombies vivants poursuivent et attaquent
+	// Les zombies vivants poursuivent et attaquent.
+	// ATTENTION : un coup de zombie previent les autres plugins (OnCoupSurJoueur) et applique des degats.
+	// Le mode survie peut alors terminer la partie (joueur a terre -> fin de vague), ce qui vide
+	// Zombies et Etats PENDANT cette boucle. On parcourt donc une copie de la liste, on relit l'etat
+	// a chaque zombie, et on s'arrete des que l'invasion est finie (sinon : crash "Index >= 0").
+	Zombies.RemoveAll([this](ACharacter* Z) { return !IsValid(Z) || !Etats.Contains(Z); });
+	const TArray<ACharacter*> AParcourir = Zombies;
 	int32 Vivants = 0;
-	for (int32 i = Zombies.Num() - 1; i >= 0; --i)
+	for (ACharacter* Z : AParcourir)
 	{
-		ACharacter* Z = Zombies[i];
-		FEtatZombie* Etat = Z ? Etats.Find(Z) : nullptr;
-		if (!IsValid(Z) || !Etat)
+		if (!bInvasionEnCours)
 		{
-			Zombies.RemoveAt(i);
-			continue;
+			return; // la partie a ete terminee par un abonne pendant cette image
 		}
-		if (Etat->bMort)
+		FEtatZombie* Etat = IsValid(Z) ? Etats.Find(Z) : nullptr;
+		if (!Etat || Etat->bMort)
 		{
 			continue;
 		}
 		if (Z->GetActorLocation().Z < -100000.f)
 		{
 			Z->Destroy();
-			Zombies.RemoveAt(i);
+			Zombies.Remove(Z);
 			continue;
 		}
 		++Vivants;
 		PiloterZombie(Z, *Etat, Maintenant);
+	}
+	if (!bInvasionEnCours)
+	{
+		return;
 	}
 
 	ZombiesRestants = Vivants + AFaireApparaitre;
@@ -393,6 +517,7 @@ void AInvasionZombies::TickLocal(float DeltaSeconds)
 			Habiller(Z);
 		}
 	}
+	TickEffets(DeltaSeconds);
 
 	if (Ecran.IsValid())
 	{
@@ -435,6 +560,7 @@ void AInvasionZombies::LancerInvasion()
 	JoueursVivants(Joueurs);
 	const float Maintenant = GetWorld()->GetTimeSeconds();
 
+	bModeVague = false;
 	bInvasionEnCours = true;
 	DebutInvasion = Maintenant;
 	FinInvasion = Maintenant + Reglages.DureeInvasionMinutes * 60.f;
@@ -451,12 +577,54 @@ void AInvasionZombies::LancerInvasion()
 	MulticastAlerte(Reglages.Message, Reglages.DureeMessageSecondes, Reglages.VolumeSirene);
 }
 
+void AInvasionZombies::LancerVagueCommandee()
+{
+	if (!EstServeur() || bInvasionEnCours)
+	{
+		return;
+	}
+	if (!ClasseZombie)
+	{
+		ClasseZombie = LoadClass<ACharacter>(nullptr, *Reglages.ClasseZombie);
+	}
+	if (!ClasseZombie)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Zombies] Impossible de lancer la vague : classe %s introuvable."), *Reglages.ClasseZombie);
+		return;
+	}
+	const float Maintenant = GetWorld()->GetTimeSeconds();
+	bModeVague = true;
+	bInvasionEnCours = true;
+	DebutInvasion = Maintenant;
+	FinInvasion = Maintenant + 3600.f; // une vague ne s'arrete pas toute seule : il faut tuer tous les zombies
+	AFaireApparaitre = FMath::Clamp(VagueNombre, 1, 300);
+	ProchaineApparition = Maintenant;
+	SecondesRestantes = 0.f;
+	Foyers.Reset();
+	ChoisirFoyers();
+
+	UE_LOG(LogTemp, Log, TEXT("[Zombies] VAGUE : %d zombies, vie %.0f, vitesse %.0f, costauds %.0f %%, %d foyer(s)."),
+		AFaireApparaitre, VagueVie, VagueVitesse, VaguePartCostauds * 100.f, Foyers.Num());
+
+	if (!VagueMessage.IsEmpty())
+	{
+		MulticastAlerte(VagueMessage, VagueDureeMessage, VagueVolumeSirene);
+	}
+}
+
+void AInvasionZombies::TerminerVagueCommandee()
+{
+	TerminerInvasion(false);
+}
+
 void AInvasionZombies::TerminerInvasion(bool bRepoussee)
 {
 	if (!EstServeur() || !bInvasionEnCours)
 	{
 		return;
 	}
+	const bool bEtaitVague = bModeVague;
+	bModeVague = false;
 	bInvasionEnCours = false;
 	AFaireApparaitre = 0;
 	ZombiesRestants = 0;
@@ -479,7 +647,8 @@ void AInvasionZombies::TerminerInvasion(bool bRepoussee)
 	UE_LOG(LogTemp, Log, TEXT("[Zombies] Fin de l'invasion (%s). Prochaine dans %.0f min."),
 		bRepoussee ? TEXT("repoussee") : TEXT("temps ecoule"), (ProchaineInvasion - Maintenant) / 60.f);
 
-	MulticastFin(bRepoussee);
+	// En vague commandee, c'est le plugin du mode de jeu qui affiche son propre message
+	MulticastFin(bEtaitVague ? FString() : (bRepoussee ? FString(TEXT("INVASION REPOUSSÉE !")) : FString(TEXT("FIN DE LA PURGE"))));
 }
 
 void AInvasionZombies::MulticastAlerte_Implementation(const FString& Texte, float Duree, float Volume)
@@ -506,14 +675,14 @@ void AInvasionZombies::MulticastAlerte_Implementation(const FString& Texte, floa
 	}
 }
 
-void AInvasionZombies::MulticastFin_Implementation(bool bRepoussee)
+void AInvasionZombies::MulticastFin_Implementation(const FString& Texte)
 {
 	if (GetNetMode() == NM_DedicatedServer)
 	{
 		return;
 	}
-	MessageFin = bRepoussee ? FString(TEXT("INVASION REPOUSSÉE !")) : FString(TEXT("FIN DE LA PURGE"));
-	AgeFin = 0.f;
+	MessageFin = Texte;
+	AgeFin = Texte.IsEmpty() ? 100.f : 0.f;
 	if (AgeAlerte >= 0.f)
 	{
 		AgeAlerte = -1.f;
@@ -548,6 +717,10 @@ bool AInvasionZombies::EstVivant(APawn* Joueur)
 	{
 		return false;
 	}
+	if (Joueur->Tags.Contains(MarqueJoueurHorsJeu))
+	{
+		return false; // a terre ou mort en mode survie : les zombies le laissent
+	}
 	bool bMort = false;
 	if (LireBooleen(Joueur, { TEXT("IsDead"), TEXT("isDead"), TEXT("bIsDead"), TEXT("Dead") }, bMort) && bMort)
 	{
@@ -578,6 +751,24 @@ void AInvasionZombies::ChoisirFoyers()
 	const int32 Voulus = FMath::Clamp(AFaireApparaitre / 6, 3, 8);
 	const float DistMin = Reglages.DistanceMinMetres * 100.f;
 	const float DistMax = Reglages.DistanceMaxMetres * 100.f;
+
+	// Vague commandee : les foyers sont autour de la zone de jeu (ex. le Refuge), pas des joueurs
+	if (bModeVague)
+	{
+		for (int32 i = 0; i < Voulus * 3 && Foyers.Num() < Voulus; ++i)
+		{
+			FVector Point;
+			if (TrouverPointApparition(VagueCentre, VagueRayonMin, FMath::Max(VagueRayonMax, VagueRayonMin + 300.f), Point))
+			{
+				Foyers.Add(Point);
+			}
+		}
+		if (Foyers.Num() > 0)
+		{
+			UE_LOG(LogTemp, Log, TEXT("[Zombies] %d foyer(s) d'apparition autour de la zone de la vague."), Foyers.Num());
+			return;
+		}
+	}
 
 	for (int32 i = 0; i < Voulus * 3 && Foyers.Num() < Voulus; ++i)
 	{
@@ -731,13 +922,28 @@ void AInvasionZombies::PreparerZombie(ACharacter* Zombie)
 	FEtatZombie Etat;
 	Etat.Vie = 100.f;
 	Etat.Vitesse = Reglages.VitesseZombie * FMath::FRandRange(0.8f, 1.15f);
+	if (bModeVague)
+	{
+		Etat.Vie = FMath::Max(1.f, VagueVie);
+		Etat.Vitesse = VagueVitesse * FMath::FRandRange(0.85f, 1.1f);
+		if (FMath::FRand() < VaguePartCostauds)
+		{
+			// Costaud : beaucoup plus de vie, un peu plus lent, plus grand (vu par le serveur ; en multi
+			// les autres joueurs le voient a taille normale)
+			Etat.Vie = FMath::Max(Etat.Vie, VagueVieCostaud);
+			Etat.Vitesse *= 0.85f;
+			Zombie->SetActorScale3D(FVector(1.2f));
+		}
+	}
 	if (UCharacterMovementComponent* Mouvement = Zombie->GetCharacterMovement())
 	{
 		Mouvement->MaxWalkSpeed = Etat.Vitesse;
 	}
 	Etat.DernierePosition = Zombie->GetActorLocation();
 	Etat.CoteContournement = FMath::RandBool() ? 1.f : -1.f;
-	Etats.Add(Zombie, Etat);
+	FEtatZombie& Ajoute = Etats.Add(Zombie, Etat);
+	// Il sort de terre : immobile le temps de la montee (les PC le voient monter quand ils l'habillent)
+	CommencerSortie(Zombie, Ajoute, false);
 }
 
 void AInvasionZombies::Habiller(ACharacter* Zombie)
@@ -751,7 +957,10 @@ void AInvasionZombies::Habiller(ACharacter* Zombie)
 	Corps->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 	if (!Peau)
 	{
-		return; // pas de peau DecayedZombieB : on garde l'apparence du Blueprint
+		// pas de peau DecayedZombieB : on garde l'apparence du Blueprint
+		Embraser(Zombie);
+		SortirDeTerre(Zombie);
+		return;
 	}
 
 	// La peau DecayedZombieB a les memes os que le mannequin : elle suit exactement ses animations de zombie
@@ -768,6 +977,10 @@ void AInvasionZombies::Habiller(ACharacter* Zombie)
 	// Le corps d'origine devient invisible mais garde ses collisions : les balles touchent ses os (tete...)
 	Corps->SetHiddenInGame(true, false);
 	Corps->SetCastShadow(false);
+
+	// Zombie de feu : flammes, yeux rouges, puis il sort de terre
+	Embraser(Zombie);
+	SortirDeTerre(Zombie);
 }
 
 void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, float Maintenant)
@@ -792,6 +1005,12 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 		Etat.Cible = Meilleur;
 	}
 
+	// 1 bis) Il sort encore de terre : il ne bouge pas et n'attaque pas
+	if (Maintenant < Etat.SortieJusqua)
+	{
+		return;
+	}
+
 	// 2) Coup en cours : les degats tombent au milieu de l'animation
 	if (Etat.CoupPrevuA > 0.f && Maintenant >= Etat.CoupPrevuA)
 	{
@@ -803,7 +1022,20 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 			if (Ecart.Size2D() < 240.f && FMath::Abs(Ecart.Z) < 200.f)
 			{
 				const float Degats = VieMax(Victime) * Reglages.DegatsZombiePourcent / 100.f;
-				UGameplayStatics::ApplyDamage(Victime, Degats, Zombie->GetController(), Zombie, UDamageType::StaticClass());
+				// Un mode de jeu (survie) peut gerer le coup lui-meme : joueur "a terre" au lieu de mourir
+				bCoupGereAilleurs = false;
+				OnCoupSurJoueur.Broadcast(Victime, Degats);
+				const bool bGereAilleurs = bCoupGereAilleurs;
+				bCoupGereAilleurs = false;
+				if (!bGereAilleurs && bInvasionEnCours && IsValid(Victime) && IsValid(Zombie))
+				{
+					UGameplayStatics::ApplyDamage(Victime, Degats, Zombie->GetController(), Zombie, UDamageType::StaticClass());
+				}
+				// Le coup a pu terminer la partie (Etats vide) ou tuer ce zombie : "Etat" n'est alors plus utilisable
+				if (!bInvasionEnCours || !IsValid(Zombie) || Etats.Find(Zombie) != &Etat || Etat.bMort)
+				{
+					return;
+				}
 			}
 		}
 	}
@@ -840,6 +1072,7 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 		{
 			const float DemiHauteur = Zombie->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 			Zombie->SetActorLocation(Sol + FVector(0.f, 0.f, DemiHauteur + 5.f), false, nullptr, ETeleportType::TeleportPhysics);
+			CommencerSortie(Zombie, Etat, true); // il ressort de terre plus pres
 		}
 		return;
 	}
@@ -892,10 +1125,12 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 				// Coince depuis 8 s : il reapparait ailleurs autour du joueur
 				Etat.Bloque = 0;
 				FVector Sol;
-				if (TrouverPointApparition(Cible->GetActorLocation(), 1500.f, Reglages.DistanceMinMetres * 100.f, Sol))
+				const float Proche = Reglages.DistanceMinMetres * 100.f;
+				if (TrouverPointApparition(Cible->GetActorLocation(), Proche, FMath::Max(1500.f, Proche + 500.f), Sol))
 				{
 					const float DemiHauteur = Zombie->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 					Zombie->SetActorLocation(Sol + FVector(0.f, 0.f, DemiHauteur + 5.f), false, nullptr, ETeleportType::TeleportPhysics);
+					CommencerSortie(Zombie, Etat, true); // il ressort de terre ailleurs
 				}
 			}
 		}
@@ -963,22 +1198,44 @@ void AInvasionZombies::ZombieToucheQuelconque(AActor* Touche, float Degats, cons
 		return;
 	}
 
+	// Qui a tire (pour les points du mode survie)
+	AController* Tireur = Auteur;
+	if (!Tireur && Causeur)
+	{
+		Tireur = Causeur->GetInstigatorController();
+		if (!Tireur)
+		{
+			if (APawn* PionCauseur = Cast<APawn>(Causeur->GetOwner()))
+			{
+				Tireur = PionCauseur->GetController();
+			}
+		}
+	}
+	if (Tireur)
+	{
+		Etat->DernierAuteur = Tireur;
+	}
+
 	const bool bPrecis = Etat->ImageCoupPrecis == GFrameCounter;
 	if (bPrecis && Etat->bCoupTete)
 	{
 		UE_LOG(LogTemp, Verbose, TEXT("[Zombies] Tir dans la tete : %s"), *Z->GetName());
-		Tuer(Z, true, Etat->DirectionCoup);
+		Tuer(Z, true, Etat->DirectionCoup, Tireur);
 		return;
 	}
 
 	Etat->Vie -= Reglages.DegatsCorpsPourcent;
 	if (Etat->Vie <= 0.5f)
 	{
-		Tuer(Z, false, bPrecis ? Etat->DirectionCoup : FVector::ZeroVector);
+		Tuer(Z, false, bPrecis ? Etat->DirectionCoup : FVector::ZeroVector, Tireur);
+	}
+	else
+	{
+		OnZombieTouche.Broadcast(Z, Tireur);
 	}
 }
 
-void AInvasionZombies::Tuer(ACharacter* Zombie, bool bTete, const FVector& Direction)
+void AInvasionZombies::Tuer(ACharacter* Zombie, bool bTete, const FVector& Direction, AController* Tueur)
 {
 	FEtatZombie* Etat = Etats.Find(Zombie);
 	if (Etat)
@@ -1005,6 +1262,12 @@ void AInvasionZombies::Tuer(ACharacter* Zombie, bool bTete, const FVector& Direc
 	Zombie->SetLifeSpan(12.f);
 
 	MulticastMort(Zombie, bTete, Direction);
+
+	// Seulement les vraies morts au combat (pas l'effondrement de fin d'invasion)
+	if (Tueur)
+	{
+		OnZombieTue.Broadcast(Zombie, Tueur, bTete);
+	}
 }
 
 void AInvasionZombies::MulticastMort_Implementation(ACharacter* Zombie, bool bTete, FVector Direction)
@@ -1017,6 +1280,9 @@ void AInvasionZombies::MulticastMort_Implementation(ACharacter* Zombie, bool bTe
 	{
 		Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+
+	// Plus de flammes ni d'yeux rouges (et s'il sortait encore de terre, il s'arrete la)
+	EteindreZombie(Zombie);
 
 	USkeletalMeshComponent* Corps = Zombie->GetMesh();
 	if (!Corps)
@@ -1048,5 +1314,428 @@ void AInvasionZombies::MulticastMort_Implementation(ACharacter* Zombie, bool bTe
 		{
 			UGameplayStatics::PlaySoundAtLocation(this, Son, Tete);
 		}
+	}
+}
+
+// ===================================================================================
+//  Zombies de feu : sortie de terre, flammes, yeux rouges
+//  (seulement de l'affichage, sur chaque PC : le serveur ne fait que les garder immobiles
+//   le temps de la sortie)
+// ===================================================================================
+
+void AInvasionZombies::CommencerSortie(ACharacter* Zombie, FEtatZombie& Etat, bool bPrevenirLesJoueurs)
+{
+	if (!Reglages.bSortieDeTerre || !IsValid(Zombie))
+	{
+		return;
+	}
+	const float Maintenant = GetWorld()->GetTimeSeconds();
+	// + 0,3 s : le temps que le zombie arrive chez les autres joueurs en multijoueur
+	Etat.SortieJusqua = Maintenant + Reglages.DureeSortieSecondes + 0.3f;
+	Etat.ProchainControle = Etat.SortieJusqua + 1.f;
+	Etat.DernierePosition = Zombie->GetActorLocation();
+	Etat.Bloque = 0;
+	Etat.ContournerJusqua = 0.f;
+	if (UCharacterMovementComponent* Mouvement = Zombie->GetCharacterMovement())
+	{
+		Mouvement->StopMovementImmediately();
+	}
+	if (bPrevenirLesJoueurs)
+	{
+		MulticastSortie(Zombie);
+	}
+}
+
+void AInvasionZombies::MulticastSortie_Implementation(ACharacter* Zombie)
+{
+	if (GetNetMode() == NM_DedicatedServer || !IsValid(Zombie) || !Zombie->Tags.Contains(MarqueHabille))
+	{
+		return; // pas encore habille ici : il sortira de terre quand il le sera
+	}
+	SortirDeTerre(Zombie);
+}
+
+void AInvasionZombies::Embraser(ACharacter* Zombie)
+{
+	if (GetNetMode() == NM_DedicatedServer || !IsValid(Zombie))
+	{
+		return;
+	}
+	USkeletalMeshComponent* Visuel = VisuelDe(Zombie);
+	if (!Visuel)
+	{
+		return;
+	}
+	FEffetsZombie& E = Effets.FindOrAdd(Zombie);
+	E.Visuel = Visuel;
+	E.Phase = FMath::FRandRange(0.f, 20.f);
+
+	// 1) Flammes sur le corps (elles restent droites, le feu monte vers le ciel)
+	if (Feu)
+	{
+		const int32 Nombre = FMath::Min(Reglages.FlammesParZombie, (int32)UE_ARRAY_COUNT(OsEnFlammes));
+		for (int32 i = 0; i < Nombre; ++i)
+		{
+			const FName Os(OsEnFlammes[i]);
+			if (!Visuel->DoesSocketExist(Os))
+			{
+				continue;
+			}
+			UParticleSystemComponent* Flamme = UGameplayStatics::SpawnEmitterAttached(Feu, Visuel, Os, FVector::ZeroVector, FRotator::ZeroRotator,
+				FVector(TailleFlammes[i]), EAttachLocation::SnapToTarget, false);
+			if (Flamme)
+			{
+				Flamme->SetUsingAbsoluteRotation(true);
+				Flamme->SetWorldRotation(FRotator::ZeroRotator);
+				E.Flammes.Add(Flamme);
+			}
+		}
+	}
+
+	// 2) Lueur orange du feu (petite lampe sans ombre, seulement pres du joueur)
+	if (Reglages.bLueurDuFeu)
+	{
+		UPointLightComponent* Lueur = NewObject<UPointLightComponent>(Zombie);
+		const FName Poitrine(TEXT("spine_03"));
+		if (Visuel->DoesSocketExist(Poitrine))
+		{
+			Lueur->SetupAttachment(Visuel, Poitrine);
+		}
+		else
+		{
+			Lueur->SetupAttachment(Visuel);
+			Lueur->SetRelativeLocation(FVector(0.f, 0.f, 120.f));
+		}
+		Lueur->SetMobility(EComponentMobility::Movable);
+		Lueur->SetCastShadows(false);
+		Lueur->bAffectTranslucentLighting = false;
+		Lueur->SetLightColor(FLinearColor(1.f, 0.38f, 0.08f));
+		Lueur->SetIntensity(3000.f);
+		Lueur->SetAttenuationRadius(320.f);
+		Lueur->RegisterComponent();
+		Zombie->AddInstanceComponent(Lueur);
+		E.Lueur = Lueur;
+		E.bLueurAllumee = true;
+	}
+
+	// 3) Deux yeux rouges lumineux, colles a l'os de la tete (ils suivent tous ses mouvements)
+	const FName Tete(TEXT("head"));
+	USkeletalMesh* Modele = Visuel->SkeletalMesh;
+	if (Reglages.bYeuxRouges && FormeSphere && MatYeux && Modele && Visuel->DoesSocketExist(Tete) && Modele->RefSkeleton.FindBoneIndex(Tete) != INDEX_NONE)
+	{
+		// Position calculee dans la pose de reference du mannequin (il regarde vers +Y, la tete en haut)
+		const FTransform TeteRepos(Modele->GetComposedRefPoseMatrix(Tete));
+		for (const float Cote : { -1.f, 1.f })
+		{
+			const FVector OeilRepos = TeteRepos.GetLocation() + FVector(Cote * Reglages.YeuxEcart, Reglages.YeuxAvant, Reglages.YeuxHauteur);
+			UStaticMeshComponent* Oeil = NewObject<UStaticMeshComponent>(Zombie);
+			Oeil->SetStaticMesh(FormeSphere);
+			Oeil->SetMaterial(0, MatYeux);
+			Oeil->SetMobility(EComponentMobility::Movable);
+			Oeil->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Oeil->SetGenerateOverlapEvents(false);
+			Oeil->SetCastShadow(false);
+			Oeil->SetupAttachment(Visuel, Tete);
+			Oeil->SetRelativeLocation(TeteRepos.InverseTransformPosition(OeilRepos));
+			Oeil->SetUsingAbsoluteScale(true);
+			Oeil->SetRelativeScale3D(FVector(0.028f * Reglages.TailleYeux));
+			Oeil->RegisterComponent();
+			Zombie->AddInstanceComponent(Oeil);
+			E.Yeux.Add(Oeil);
+		}
+	}
+}
+
+void AInvasionZombies::SortirDeTerre(ACharacter* Zombie)
+{
+	if (GetNetMode() == NM_DedicatedServer || !Reglages.bSortieDeTerre || !IsValid(Zombie))
+	{
+		return;
+	}
+	FEffetsZombie& E = Effets.FindOrAdd(Zombie);
+	USkeletalMeshComponent* Visuel = E.Visuel.Get();
+	if (!Visuel)
+	{
+		Visuel = VisuelDe(Zombie);
+		E.Visuel = Visuel;
+	}
+	if (!Visuel)
+	{
+		return;
+	}
+	if (!E.bBaseConnue)
+	{
+		E.BaseRelative = Visuel->GetRelativeLocation();
+		E.bBaseConnue = true;
+	}
+	const float DemiHauteur = Zombie->GetCapsuleComponent() ? Zombie->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 90.f;
+	E.Profondeur = DemiHauteur * 2.f + 15.f; // toute sa hauteur : la tete commence sous le sol
+	E.AgeSortie = 0.f;
+	E.ProchaineMotte = 0.f;
+	E.Sol = Zombie->GetActorLocation() - FVector(0.f, 0.f, DemiHauteur);
+	Visuel->SetRelativeLocation(E.BaseRelative - FVector(0.f, 0.f, E.Profondeur));
+
+	// Effets de terre et sons seulement s'il est assez pres pour etre vu
+	bool bProche = true;
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+	{
+		if (PC->PlayerCameraManager)
+		{
+			bProche = FVector::DistSquared(PC->PlayerCameraManager->GetCameraLocation(), E.Sol) < FMath::Square(Reglages.DistanceEffetsMetres * 100.f);
+		}
+	}
+	E.bProche = bProche;
+	if (!bProche)
+	{
+		return;
+	}
+	LancerMotte(E.Sol, true); // butte de terre qui se souleve
+	if (Fumee)
+	{
+		if (UParticleSystemComponent* Nuage = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), Fumee, E.Sol, FRotator::ZeroRotator, FVector(0.8f), true))
+		{
+			TWeakObjectPtr<UParticleSystemComponent> Faible(Nuage);
+			FTimerHandle Minuteur;
+			GetWorldTimerManager().SetTimer(Minuteur, FTimerDelegate::CreateLambda([Faible]()
+			{
+				if (Faible.IsValid())
+				{
+					Faible->DeactivateSystem();
+				}
+			}), FMath::Max(0.8f, Reglages.DureeSortieSecondes * 0.6f), false);
+		}
+	}
+	if (SonSortie)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, SonSortie, E.Sol, 0.3f, 0.45f); // grondement sourd
+	}
+	if (SonFeu)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, SonFeu, E.Sol, 0.5f, 1.f);
+	}
+}
+
+void AInvasionZombies::EteindreZombie(ACharacter* Zombie)
+{
+	FEffetsZombie* E = Effets.Find(Zombie);
+	if (!E)
+	{
+		return;
+	}
+	// S'il etait encore sous terre, il reprend sa place avant de tomber
+	if (E->AgeSortie >= 0.f && E->Visuel.IsValid())
+	{
+		E->Visuel->SetRelativeLocation(E->BaseRelative);
+	}
+	if (E->Lueur.IsValid())
+	{
+		E->Lueur->DestroyComponent();
+	}
+	for (const TWeakObjectPtr<UStaticMeshComponent>& Oeil : E->Yeux)
+	{
+		if (Oeil.IsValid())
+		{
+			Oeil->DestroyComponent(); // yeux eteints : il est mort
+		}
+	}
+	// Le corps brule encore un peu, puis le feu s'eteint
+	const TArray<TWeakObjectPtr<UParticleSystemComponent>> Flammes = E->Flammes;
+	if (Flammes.Num() > 0 && GetWorld())
+	{
+		FTimerHandle Minuteur;
+		GetWorldTimerManager().SetTimer(Minuteur, FTimerDelegate::CreateLambda([Flammes]()
+		{
+			for (const TWeakObjectPtr<UParticleSystemComponent>& F : Flammes)
+			{
+				if (F.IsValid())
+				{
+					F->DeactivateSystem();
+				}
+			}
+		}), 3.f, false);
+	}
+	Effets.Remove(Zombie);
+}
+
+void AInvasionZombies::LancerMotte(const FVector& Sol, bool bButte)
+{
+	if (!FormeSphere || !FormeCube || Mottes.Num() > 160)
+	{
+		return;
+	}
+	UStaticMeshComponent* Forme = NewObject<UStaticMeshComponent>(this);
+	Forme->SetStaticMesh(bButte ? FormeSphere : FormeCube);
+	if (MatTerre)
+	{
+		Forme->SetMaterial(0, MatTerre);
+	}
+	Forme->SetMobility(EComponentMobility::Movable);
+	Forme->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Forme->SetGenerateOverlapEvents(false);
+	Forme->SetCastShadow(false);
+	Forme->RegisterComponent();
+
+	FMotteTerre M;
+	M.Forme = Forme;
+	M.bButte = bButte;
+	M.SolZ = Sol.Z + 3.f;
+	if (bButte)
+	{
+		M.Position = Sol;
+		M.Taille = FVector(1.3f, 1.3f, 0.22f);
+		M.Vie = Reglages.DureeSortieSecondes + 2.5f;
+		Forme->SetWorldRotation(FRotator(0.f, FMath::FRandRange(0.f, 360.f), 0.f));
+	}
+	else
+	{
+		const float Angle = FMath::FRandRange(0.f, 2.f * PI);
+		const FVector Dehors(FMath::Cos(Angle), FMath::Sin(Angle), 0.f);
+		M.Position = Sol + Dehors * 20.f + FVector(0.f, 0.f, 5.f);
+		M.Vitesse = Dehors * FMath::FRandRange(80.f, 220.f) + FVector(0.f, 0.f, FMath::FRandRange(250.f, 480.f));
+		M.Taille = FVector(FMath::FRandRange(0.05f, 0.11f));
+		M.Vie = FMath::FRandRange(1.2f, 1.8f);
+		Forme->SetWorldRotation(FRotator(FMath::FRandRange(0.f, 360.f), FMath::FRandRange(0.f, 360.f), FMath::FRandRange(0.f, 360.f)));
+	}
+	Forme->SetWorldLocation(M.Position);
+	Forme->SetWorldScale3D(M.Taille * 0.01f);
+	Mottes.Add(M);
+}
+
+void AInvasionZombies::TickEffets(float DeltaSeconds)
+{
+	UWorld* W = GetWorld();
+	const float Maintenant = W->GetTimeSeconds();
+
+	FVector Camera = FVector::ZeroVector;
+	bool bCamera = false;
+	if (APlayerController* PC = W->GetFirstPlayerController())
+	{
+		if (PC->PlayerCameraManager)
+		{
+			Camera = PC->PlayerCameraManager->GetCameraLocation();
+			bCamera = true;
+		}
+	}
+	const bool bControle = Maintenant >= ProchainControleEffets;
+	if (bControle)
+	{
+		ProchainControleEffets = Maintenant + 0.4f;
+	}
+	const float DistEffets = Reglages.DistanceEffetsMetres * 100.f;
+	const float DistLueur = FMath::Min(DistEffets, 2500.f);
+
+	for (auto It = Effets.CreateIterator(); It; ++It)
+	{
+		ACharacter* Z = It.Key().Get();
+		if (!IsValid(Z))
+		{
+			It.RemoveCurrent();
+			continue;
+		}
+		FEffetsZombie& E = It.Value();
+
+		// Optimisation : loin du joueur, flammes et lueur eteintes (on ne les voit plus)
+		if (bControle && bCamera)
+		{
+			const float DistCarre = FVector::DistSquared(Camera, Z->GetActorLocation());
+			const bool bProche = DistCarre < FMath::Square(DistEffets);
+			if (bProche != E.bProche)
+			{
+				E.bProche = bProche;
+				for (const TWeakObjectPtr<UParticleSystemComponent>& F : E.Flammes)
+				{
+					if (F.IsValid())
+					{
+						if (bProche)
+						{
+							F->ActivateSystem(true);
+						}
+						else
+						{
+							F->DeactivateSystem();
+						}
+					}
+				}
+			}
+			const bool bLueur = DistCarre < FMath::Square(DistLueur);
+			if (E.Lueur.IsValid() && bLueur != E.bLueurAllumee)
+			{
+				E.bLueurAllumee = bLueur;
+				E.Lueur->SetVisibility(bLueur);
+			}
+		}
+
+		// La lueur du feu vacille
+		if (E.bLueurAllumee && E.Lueur.IsValid())
+		{
+			const float T = Maintenant * 9.f + E.Phase;
+			E.Lueur->SetIntensity(3000.f * (0.75f + 0.15f * FMath::Sin(T) + 0.1f * FMath::Sin(T * 2.7f + 1.3f)));
+		}
+
+		// Sortie de terre : le corps monte (vite au debut puis plus lentement) en tremblant un peu
+		if (E.AgeSortie >= 0.f)
+		{
+			E.AgeSortie += DeltaSeconds;
+			const float A = FMath::Clamp(E.AgeSortie / Reglages.DureeSortieSecondes, 0.f, 1.f);
+			const float Monte = 1.f - FMath::Pow(1.f - A, 2.2f);
+			FVector Tremble = FVector::ZeroVector;
+			if (A < 1.f)
+			{
+				Tremble = FVector(FMath::FRandRange(-1.5f, 1.5f), FMath::FRandRange(-1.5f, 1.5f), 0.f) * (1.f - A);
+			}
+			if (USkeletalMeshComponent* V = E.Visuel.Get())
+			{
+				V->SetRelativeLocation(E.BaseRelative + FVector(0.f, 0.f, -E.Profondeur * (1.f - Monte)) + Tremble);
+			}
+			// Mottes de terre projetees pendant qu'il sort
+			if (E.bProche && A < 0.75f && E.AgeSortie >= E.ProchaineMotte)
+			{
+				E.ProchaineMotte = E.AgeSortie + 0.12f;
+				LancerMotte(E.Sol, false);
+				LancerMotte(E.Sol, false);
+			}
+			if (A >= 1.f)
+			{
+				E.AgeSortie = -1.f;
+			}
+		}
+	}
+
+	// Mottes et buttes de terre
+	for (int32 i = Mottes.Num() - 1; i >= 0; --i)
+	{
+		FMotteTerre& M = Mottes[i];
+		UStaticMeshComponent* Forme = M.Forme.Get();
+		M.Age += DeltaSeconds;
+		if (!Forme || M.Age >= M.Vie)
+		{
+			if (Forme)
+			{
+				Forme->DestroyComponent();
+			}
+			Mottes.RemoveAtSwap(i);
+			continue;
+		}
+		float Echelle = 1.f;
+		if (M.bButte)
+		{
+			// Se souleve vite, reste, puis s'affaisse dans le sol
+			const float Fin = FMath::Clamp((M.Vie - M.Age) / 1.5f, 0.f, 1.f);
+			Echelle = FMath::Clamp(M.Age / 0.3f, 0.f, 1.f) * Fin;
+			Forme->SetWorldLocation(M.Position - FVector(0.f, 0.f, (1.f - Fin) * 20.f));
+		}
+		else
+		{
+			M.Vitesse.Z -= 980.f * DeltaSeconds;
+			M.Position += M.Vitesse * DeltaSeconds;
+			if (M.Position.Z < M.SolZ)
+			{
+				M.Position.Z = M.SolZ;
+				M.Vitesse = FVector::ZeroVector;
+			}
+			Forme->SetWorldLocation(M.Position);
+			Echelle = FMath::Clamp((M.Vie - M.Age) / 0.5f, 0.f, 1.f);
+		}
+		Forme->SetWorldScale3D(M.Taille * FMath::Max(Echelle, 0.01f));
 	}
 }
