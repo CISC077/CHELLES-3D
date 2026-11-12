@@ -45,3 +45,12 @@ Les réglages de vie/dégâts/vitesse sont appliqués seulement aux zombies cré
 pendant l'invasion, jamais aux fichiers du projet.
 
 Journal : `Saved\Logs\FPS_Chelles.log`, lignes `[Zombies]`.
+
+## Utilisé par les modes de survie
+
+Le plugin **ChellesSurvie** (Dernier Refuge) commande les vagues de ce
+plugin. Pour lui, l'invasion a reçu : des vagues commandées
+(`LancerVagueCommandee`), des événements (zombie tué, zombie touché, coup
+sur un joueur) et une pause des invasions automatiques. Le jeu libre ne
+change pas. Après une mise à jour, recompilez **ChellesZombies puis
+ChellesSurvie**.
