@@ -4,6 +4,8 @@ rem  CHELLES 3D - Cree la DEMO BETA (jeu Windows a donner aux amis).
 rem  20 minutes de jeu puis ecran FIN DE LA DEMO (plugin ChellesDemo).
 rem  Ne modifie pas le projet : le jeu exporte est cree dans un autre dossier.
 rem  FERMEZ UNREAL avant de lancer ce fichier (double-clic).
+rem  -IgnoreCookErrors : les vieux blueprints casses du pack FPS_Game (copie System, jamais utilisee)
+rem  ne bloquent plus l'export. Les erreurs restent listees dans Erreurs_demo.txt.
 rem  Duree : 1 a 3 heures la premiere fois (les fois suivantes c'est plus rapide).
 rem ------------------------------------------------------------------
 setlocal EnableExtensions
@@ -74,7 +76,7 @@ if exist "%APPDATA%\Unreal Engine\AutomationTool\Logs" rmdir /s /q "%APPDATA%\Un
 echo.
 echo ===== Etape 1/3 : compilation + cuisson + paquet (1 a 3 heures, ne fermez pas cette fenetre)
 echo Debut : %date% %time%
-call "%UE%\Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun -project="%UPROJECT%" -noP4 -platform=Win64 -clientconfig=Shipping -build -nocompileeditor -cook -map=/Game/Maps/Rachid -stage -pak -compressed -prereqs -nodebuginfo -archive -archivedirectory="%SORTIE%" -unattended -utf8output
+call "%UE%\Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun -project="%UPROJECT%" -noP4 -platform=Win64 -clientconfig=Shipping -build -nocompileeditor -cook -map=/Game/Maps/Rachid -stage -pak -compressed -prereqs -nodebuginfo -archive -archivedirectory="%SORTIE%" -IgnoreCookErrors -unattended -utf8output
 set "RESULTAT=%errorlevel%"
 echo Fin : %date% %time%
 
