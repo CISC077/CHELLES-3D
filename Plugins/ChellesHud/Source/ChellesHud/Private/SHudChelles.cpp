@@ -1,4 +1,4 @@
-// CHELLES 3D - HUD du joueur : le dessin (vie, niveau, XP, pouvoir, zombies)
+// CHELLES 3D - HUD du joueur : le dessin (vie, niveau, XP, pouvoir, zombies, mini-carte)
 // Les accents sont ecrits avec des codes unicode pour que Visual Studio les lise correctement.
 #include "SHudChelles.h"
 
@@ -162,7 +162,9 @@ void SHudChelles::TeteZombie(FSlateWindowElementList& Sortie, int32 Couche, cons
 	Crane.Add(Centre + FVector2D(-0.45f * R, R));
 	Crane.Add(Centre + FVector2D(-0.55f * R, 0.5f * R));
 	Crane.Add(Centre + FVector2D(-R, 0.35f * R));
-	Crane.Add(Crane[0]);
+	// copie d'abord : ajouter Crane[0] directement plante si le tableau s'agrandit pendant l'ajout
+	const FVector2D PremierPoint = Crane[0];
+	Crane.Add(PremierPoint);
 	Trait(Crane, 2.f);
 	// yeux en croix
 	for (int32 Cote = -1; Cote <= 1; Cote += 2)
@@ -175,6 +177,147 @@ void SHudChelles::TeteZombie(FSlateWindowElementList& Sortie, int32 Couche, cons
 	// dents
 	Trait({ Centre + FVector2D(-0.3f * R, 0.62f * R), Centre + FVector2D(0.3f * R, 0.62f * R) }, 1.5f);
 	Trait({ Centre + FVector2D(0.f, 0.5f * R), Centre + FVector2D(0.f, 0.85f * R) }, 1.5f);
+}
+
+float SHudChelles::DessinerCarte(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Ecran) const
+{
+	if (!Etat.bCarte)
+	{
+		return 0.f;
+	}
+	const FSlateFontInfo PolicePetite = FCoreStyle::GetDefaultFontStyle("Regular", 8);
+	const FSlateFontInfo PoliceNord = FCoreStyle::GetDefaultFontStyle("Bold", 10);
+
+	// Carte carree en haut a droite, plus petite sur les petits ecrans
+	const float Cote = FMath::RoundToFloat(FMath::Clamp(Ecran.Y * 0.22f, 150.f, 230.f));
+	const float Bord = 6.f;
+	const float Legende = 18.f;
+	const FVector2D TaillePanneau(Cote + 2.f * Bord, Cote + 2.f * Bord + Legende);
+	const FVector2D CoinPanneau(FMath::RoundToFloat(Ecran.X - TaillePanneau.X - 22.f), 22.f);
+	Panneau(Sortie, Couche + 2, G, CoinPanneau, TaillePanneau, HudFond, HudCyanVif * FLinearColor(1.f, 1.f, 1.f, 0.6f));
+	Boite(Sortie, Couche + 4, G, CoinPanneau + FVector2D(12.f, 0.f), FVector2D(70.f, 3.f), HudCyanVif);
+
+	const FVector2D Coin = CoinPanneau + FVector2D(Bord, Bord);
+	const float Demi = Cote * 0.5f;
+	const FVector2D Centre = Coin + FVector2D(Demi, Demi);
+
+	// ---- Fond : le quartier vu du ciel, sinon un quadrillage sombre ----
+	if (Etat.bImageCarte && BrushCarte.GetResourceObject())
+	{
+		FSlateDrawElement::MakeBox(Sortie, Couche + 4, G.ToPaintGeometry(Coin, FVector2D(Cote, Cote)), &BrushCarte,
+			ESlateDrawEffect::None, FLinearColor(0.8f, 0.82f, 0.9f, 1.f));
+	}
+	else
+	{
+		Boite(Sortie, Couche + 4, G, Coin, FVector2D(Cote, Cote), FLinearColor(0.02f, 0.05f, 0.1f, 0.9f));
+		for (int32 i = 1; i < 8; ++i)
+		{
+			const float D = Cote * i / 8.f;
+			Boite(Sortie, Couche + 5, G, Coin + FVector2D(D, 0.f), FVector2D(1.f, Cote), FLinearColor(0.f, 0.9f, 1.f, 0.07f));
+			Boite(Sortie, Couche + 5, G, Coin + FVector2D(0.f, D), FVector2D(Cote, 1.f), FLinearColor(0.f, 0.9f, 1.f, 0.07f));
+		}
+	}
+
+	// Cercle a mi-distance et croix au centre, pour juger les distances
+	{
+		TArray<FVector2D> Cercle;
+		for (int32 i = 0; i <= 48; ++i)
+		{
+			const float A = 2.f * PI * i / 48.f;
+			Cercle.Add(Centre + FVector2D(FMath::Cos(A), FMath::Sin(A)) * Demi * 0.5f);
+		}
+		FSlateDrawElement::MakeLines(Sortie, Couche + 5, G.ToPaintGeometry(), Cercle, ESlateDrawEffect::None,
+			FLinearColor(0.f, 0.9f, 1.f, 0.25f), true, 1.f);
+		Boite(Sortie, Couche + 5, G, FVector2D(Centre.X, Coin.Y), FVector2D(1.f, Cote), FLinearColor(0.f, 0.9f, 1.f, 0.12f));
+		Boite(Sortie, Couche + 5, G, FVector2D(Coin.X, Centre.Y), FVector2D(Cote, 1.f), FLinearColor(0.f, 0.9f, 1.f, 0.12f));
+	}
+
+	// ---- Points : teleporteurs, autres joueurs, zombies ----
+	auto Losange = [&](const FVector2D& P, float R, const FLinearColor& C, float Epaisseur)
+	{
+		TArray<FVector2D> L;
+		L.Add(P + FVector2D(0.f, -R));
+		L.Add(P + FVector2D(R, 0.f));
+		L.Add(P + FVector2D(0.f, R));
+		L.Add(P + FVector2D(-R, 0.f));
+		L.Add(P + FVector2D(0.f, -R));
+		FSlateDrawElement::MakeLines(Sortie, Couche + 6, G.ToPaintGeometry(), L, ESlateDrawEffect::None, C, true, Epaisseur);
+	};
+	const float Pulse = 0.65f + 0.35f * FMath::Abs(FMath::Sin(Etat.Horloge * 4.f));
+	const FLinearColor RougeZombie(1.f, 0.12f, 0.1f, 1.f);
+	const FLinearColor CyanJoueur(0.2f, 0.95f, 1.f, 1.f);
+	for (const FPointCarteChelles& Point : Etat.PointsCarte)
+	{
+		const FVector2D P = Centre + FVector2D(FMath::Clamp(Point.Pos.X, -1.f, 1.f), FMath::Clamp(Point.Pos.Y, -1.f, 1.f)) * (Demi - 6.f);
+		const float Alpha = Point.bAuBord ? 0.65f : 1.f;
+		switch (Point.Type)
+		{
+		case FPointCarteChelles::Teleporteur:
+		{
+			const float R = Point.bAuBord ? 4.f : 6.f;
+			Losange(P, R + 1.5f, FLinearColor(0.f, 0.f, 0.f, 0.6f * Alpha), 4.f);
+			Losange(P, R, HudRose * FLinearColor(1.f, 1.f, 1.f, Alpha), 2.f);
+			Boite(Sortie, Couche + 7, G, P - FVector2D(1.5f, 1.5f), FVector2D(3.f, 3.f), FLinearColor(1.f, 1.f, 1.f, Alpha));
+			break;
+		}
+		case FPointCarteChelles::Joueur:
+		{
+			const float R = Point.bAuBord ? 3.f : 4.f;
+			Boite(Sortie, Couche + 6, G, P - FVector2D(R + 1.f, R + 1.f), FVector2D(2.f * R + 2.f, 2.f * R + 2.f), FLinearColor(0.f, 0.f, 0.f, 0.6f * Alpha));
+			Boite(Sortie, Couche + 7, G, P - FVector2D(R, R), FVector2D(2.f * R, 2.f * R), CyanJoueur * FLinearColor(1.f, 1.f, 1.f, Alpha));
+			break;
+		}
+		default:
+		{
+			const float R = 3.f;
+			Boite(Sortie, Couche + 6, G, P - FVector2D(R + 1.f, R + 1.f), FVector2D(2.f * R + 2.f, 2.f * R + 2.f), FLinearColor(0.f, 0.f, 0.f, 0.55f));
+			Boite(Sortie, Couche + 7, G, P - FVector2D(R, R), FVector2D(2.f * R, 2.f * R), RougeZombie * FLinearColor(1.f, 1.f, 1.f, Pulse));
+			break;
+		}
+		}
+	}
+
+	// ---- Le joueur : fleche doree au centre, toujours vers le haut (la carte tourne avec la camera) ----
+	{
+		TArray<FVector2D> Fleche;
+		Fleche.Add(Centre + FVector2D(0.f, -8.f));
+		Fleche.Add(Centre + FVector2D(6.f, 6.f));
+		Fleche.Add(Centre + FVector2D(0.f, 3.f));
+		Fleche.Add(Centre + FVector2D(-6.f, 6.f));
+		Fleche.Add(Centre + FVector2D(0.f, -8.f));
+		FSlateDrawElement::MakeLines(Sortie, Couche + 6, G.ToPaintGeometry(), Fleche, ESlateDrawEffect::None, FLinearColor(0.f, 0.f, 0.f, 0.7f), true, 4.5f);
+		FSlateDrawElement::MakeLines(Sortie, Couche + 7, G.ToPaintGeometry(), Fleche, ESlateDrawEffect::None, HudDore, true, 2.5f);
+	}
+
+	// ---- N (nord) colle au bord, dans la bonne direction ----
+	{
+		FVector2D Nord = Etat.CarteNord;
+		const float Plus = FMath::Max(FMath::Abs(Nord.X), FMath::Abs(Nord.Y));
+		if (Plus > KINDA_SMALL_NUMBER)
+		{
+			Nord /= Plus; // sur le bord du carre
+			const FVector2D P = Centre + Nord * (Demi - 9.f);
+			Boite(Sortie, Couche + 6, G, P - FVector2D(7.f, 7.f), FVector2D(14.f, 14.f), FLinearColor(0.f, 0.f, 0.f, 0.65f));
+			Ecrire(Sortie, Couche + 7, G, P, TEXT("N"), PoliceNord, HudDore, 0.5f);
+		}
+	}
+
+	// Echelle en haut a gauche de la carte
+	Ecrire(Sortie, Couche + 6, G, Coin + FVector2D(5.f, 8.f), FString::Printf(TEXT("%d m"), FMath::RoundToInt(Etat.CarteRayonMetres)),
+		PolicePetite, FLinearColor(1.f, 1.f, 1.f, 0.8f), 0.f);
+
+	// ---- Legende sous la carte ----
+	{
+		const float Y = Coin.Y + Cote + Legende * 0.5f + 2.f;
+		float X = Coin.X + 8.f;
+		Losange(FVector2D(X, Y), 4.f, HudRose, 2.f);
+		Ecrire(Sortie, Couche + 6, G, FVector2D(X + 8.f, Y), TEXT("TÉLÉPORTEUR"), PolicePetite, FLinearColor(1.f, 0.75f, 0.92f, 1.f), 0.f);
+		X = Coin.X + Cote * 0.6f;
+		Boite(Sortie, Couche + 6, G, FVector2D(X - 3.f, Y - 3.f), FVector2D(6.f, 6.f), RougeZombie);
+		Ecrire(Sortie, Couche + 6, G, FVector2D(X + 7.f, Y), TEXT("ZOMBIE"), PolicePetite, FLinearColor(1.f, 0.75f, 0.75f, 1.f), 0.f);
+	}
+
+	return TaillePanneau.Y;
 }
 
 int32 SHudChelles::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSlateRect& Clip,
@@ -353,13 +496,18 @@ int32 SHudChelles::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 	}
 
 	// =====================================================================
-	// Panneau en haut a droite : invasion de zombies en cours
+	// Mini-carte en haut a droite
+	// =====================================================================
+	const float HauteurCarte = DessinerCarte(Sortie, Couche, G, Ecran);
+
+	// =====================================================================
+	// Panneau en haut a droite (sous la mini-carte) : invasion de zombies en cours
 	// =====================================================================
 	if (Etat.bZombies && Etat.bInvasion)
 	{
 		const float LargeurZ = 250.f;
 		const float HauteurZ = 104.f;
-		const FVector2D CoinZ(FMath::RoundToFloat(Ecran.X - LargeurZ - 22.f), 22.f);
+		const FVector2D CoinZ(FMath::RoundToFloat(Ecran.X - LargeurZ - 22.f), HauteurCarte > 0.f ? 22.f + HauteurCarte + 12.f : 22.f);
 		const float Pulse = 0.6f + 0.4f * FMath::Abs(FMath::Sin(Etat.Horloge * 3.f));
 		Panneau(Sortie, Couche + 2, G, CoinZ, FVector2D(LargeurZ, HauteurZ), FLinearColor(0.08f, 0.f, 0.f, 0.8f),
 			HudSang * FLinearColor(1.f, 1.f, 1.f, Pulse));
