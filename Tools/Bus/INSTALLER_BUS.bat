@@ -58,7 +58,10 @@ echo Plugin ChellesBus compile.
 
 echo.
 echo ===== 2/2 Creation de BP_Arret_Bus (1 a 3 minutes)...
-"%UE%\Engine\Binaries\Win64\UE4Editor-Cmd.exe" "%PROJET%\FPS_Chelles.uproject" -run=pythonscript -script="%PROJET%\Tools\Bus\creer_arret_bus.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -unattended -nosplash -stdout > "%PROJET%\Tools\Bus\creer_arret_bus_unreal.log" 2>&1
+rem Le chemin du projet contient un espace ("CHELLES 3D") : Unreal lirait mal -script=, on copie le script dans un dossier sans espace
+set "SCRIPT=%TEMP%\ChellesBus_creer_arret_bus.py"
+copy /y "%PROJET%\Tools\Bus\creer_arret_bus.py" "%SCRIPT%" >nul
+"%UE%\Engine\Binaries\Win64\UE4Editor-Cmd.exe" "%PROJET%\FPS_Chelles.uproject" -run=pythonscript -script="%SCRIPT%" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -unattended -nosplash -stdout > "%PROJET%\Tools\Bus\creer_arret_bus_unreal.log" 2>&1
 
 echo.
 echo ===== Resultat =====
