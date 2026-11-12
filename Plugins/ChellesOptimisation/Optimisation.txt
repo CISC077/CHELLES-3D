@@ -1,0 +1,23 @@
+# CHELLES 3D - reglages de l'optimisation (modifiable avec le Bloc-notes, relu a chaque Play)
+# 1 = oui, 0 = non. Les distances sont en metres.
+
+Actif=1
+
+# --- PNJ (passants, ennemis, zombies, autres personnages non joueurs)
+# Au-dela de cette distance du joueur : invisibles, animation et deplacement en pause.
+# Ils reviennent tout seuls quand on se rapproche.
+PNJ=1
+DistancePNJ=100
+
+# --- Fleurs, herbe, petites plantes (foliage peint + herbe du Landscape)
+# Affichees seulement pres du joueur (fondu entre 75 % et 100 % de la distance).
+Fleurs=1
+DistanceFleurs=40
+# Hauteur max d'une plante concernee (les arbres plus hauts ne changent pas)
+TailleMaxFleursMetres=3
+
+# --- Neige
+# 0 = on coupe la grande couche lointaine (flocons jusqu'a 150 m et 400 m de haut)
+NeigeLointaine=0
+# Taille de la zone de flocons qui suit le joueur (avant : 40 m). Meme densite de flocons.
+TailleNeigeMetres=60
