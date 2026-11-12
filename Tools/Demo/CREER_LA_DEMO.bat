@@ -68,6 +68,17 @@ set "OK="
 set /p "OK=Continuer ? (O/N) : "
 if /i not "%OK%"=="O" exit /b 0
 
+rem ---- Mode rapide : si seul le code (plugins C++) a change, on reutilise la cuisson precedente
+set "CUISSON=-cook"
+set "RAPIDE="
+if exist "%PROJET%\Saved\Cooked\WindowsNoEditor\FPS_Chelles\Content\Maps\Rachid.umap" (
+    echo.
+    echo Une cuisson precedente existe. Si vous n'avez change QUE des plugins
+    echo et rien dans Unreal ^(cartes, blueprints, textures^), on peut la reutiliser : 10 a 20 min au lieu d'1 heure.
+    set /p "RAPIDE=Mode rapide ? (O/N) : "
+)
+if /i "%RAPIDE%"=="O" set "CUISSON=-skipcook"
+
 set "JOURNAL=%~dp0Journal"
 if exist "%JOURNAL%" rmdir /s /q "%JOURNAL%"
 if exist "%~dp0Erreurs_demo.txt" del "%~dp0Erreurs_demo.txt"
@@ -77,7 +88,7 @@ if exist "%APPDATA%\Unreal Engine\AutomationTool\Logs" rmdir /s /q "%APPDATA%\Un
 echo.
 echo ===== Etape 1/3 : compilation + cuisson + paquet (1 a 3 heures, ne fermez pas cette fenetre)
 echo Debut : %date% %time%
-call "%UE%\Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun -project="%UPROJECT%" -noP4 -platform=Win64 -clientconfig=Shipping -build -nocompileeditor -cook -map=/Game/Maps/Rachid -stage -pak -compressed -prereqs -nodebuginfo -archive -archivedirectory="%SORTIE%" -IgnoreCookErrors -unattended -utf8output
+call "%UE%\Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun -project="%UPROJECT%" -noP4 -platform=Win64 -clientconfig=Shipping -build -nocompileeditor %CUISSON% -map=/Game/Maps/Rachid -stage -pak -compressed -prereqs -nodebuginfo -archive -archivedirectory="%SORTIE%" -IgnoreCookErrors -unattended -utf8output
 set "RESULTAT=%errorlevel%"
 echo Fin : %date% %time%
 

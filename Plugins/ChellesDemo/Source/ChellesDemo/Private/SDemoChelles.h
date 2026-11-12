@@ -20,9 +20,11 @@ public:
 	/** Bouton QUITTER LE JEU : recoit le clavier / la manette a la fin. */
 	TSharedPtr<SWidget> BoutonPrincipal() const { return BoutonFacebook; }
 
-	virtual bool SupportsKeyboardFocus() const override { return true; }
+	/** Jamais le clavier : sinon il serait vole au jeu et au menu. */
+	virtual bool SupportsKeyboardFocus() const override { return false; }
 
 private:
+	EVisibility VisibiliteRacine() const;
 	EVisibility VisibiliteCompteur() const;
 	EVisibility VisibiliteAlerte() const;
 	EVisibility VisibiliteFin() const;

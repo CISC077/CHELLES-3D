@@ -51,6 +51,10 @@ void SDemoChelles::Construct(const FArguments& InArgs)
 	const FSlateBrush* Blanc = FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
 	TSharedPtr<SWidget> BoutonQuitter;
 
+	// Tout l'ecran est couvert par ce widget : il doit laisser passer la souris et le clavier
+	// vers le jeu et le menu, sauf quand l'ecran FIN DE LA DEMO est affiche.
+	SetVisibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &SDemoChelles::VisibiliteRacine)));
+
 	ChildSlot
 	[
 		SNew(SOverlay)
@@ -165,6 +169,12 @@ void SDemoChelles::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+}
+
+EVisibility SDemoChelles::VisibiliteRacine() const
+{
+	const ADemoChelles* D = Demo.Get();
+	return (D && D->EstTerminee()) ? EVisibility::SelfHitTestInvisible : EVisibility::HitTestInvisible;
 }
 
 EVisibility SDemoChelles::VisibiliteCompteur() const
