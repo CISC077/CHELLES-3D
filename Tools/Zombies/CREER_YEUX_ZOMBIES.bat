@@ -19,7 +19,13 @@ set "RELAIS=%TEMP%\chelles_yeux_relais.py"
 > "%RELAIS%" echo exec(open(r"%~dp0%SCRIPT%", encoding="utf-8").read())
 set "CHELLES_QUITTER=1"
 echo Unreal s'ouvre, cree le materiau puis se referme tout seul (1 a 3 minutes)...
+if exist "%~dp0yeux.log" del "%~dp0yeux.log"
 "%UE%\Engine\Binaries\Win64\UE4Editor.exe" "%PROJET%\FPS_Chelles.uproject" -ExecutePythonScript="%RELAIS%"
 echo.
-type "%~dp0yeux.log"
+if exist "%~dp0yeux.log" (
+    type "%~dp0yeux.log"
+) else (
+    echo Pas de journal : Unreal s'est ferme avant la fin.
+    echo Ouvrez Unreal puis File ^> Execute Python Script ^> Tools\Zombies\%SCRIPT%
+)
 pause

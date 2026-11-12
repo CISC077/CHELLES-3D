@@ -21,7 +21,11 @@ NOM = "M_YeuxZombies"
 COULEUR = unreal.LinearColor(1.0, 0.03, 0.0, 1.0)  # rouge
 INTENSITE = 60.0  # plus haut = brille plus fort
 
-ICI = os.path.dirname(os.path.abspath(__file__))
+# Dossier du script, trouve a partir du projet (le .bat lance ce script par un relais
+# place dans %TEMP% : __file__ ne pointe donc pas ici)
+ICI = os.path.join(os.path.abspath(unreal.Paths.project_dir()), "Tools", "Zombies")
+if not os.path.isdir(ICI):
+    ICI = os.path.abspath(unreal.Paths.project_saved_dir())
 JOURNAL = os.path.join(ICI, "yeux.log")
 
 
@@ -34,8 +38,9 @@ def ecrire(texte):
 def creer():
     chemin = DOSSIER + "/" + NOM
     if unreal.EditorAssetLibrary.does_asset_exist(chemin):
-        unreal.EditorAssetLibrary.delete_asset(chemin)
-        ecrire("Ancien materiau supprime, on le refait.")
+        ecrire("Le materiau existe deja : " + chemin + " (rien a faire).")
+        ecrire("Pour le refaire : supprimez-le dans le Content Browser puis relancez ce script.")
+        return
     outils = unreal.AssetToolsHelpers.get_asset_tools()
     mat = outils.create_asset(NOM, DOSSIER, unreal.Material, unreal.MaterialFactoryNew())
     if mat is None:
@@ -63,8 +68,6 @@ def creer():
 
 
 def principal():
-    with open(JOURNAL, "w", encoding="utf-8") as f:
-        f.write("Yeux rouges des zombies - CHELLES 3D\n")
     try:
         creer()
         ecrire("Termine. Relancez le jeu : les zombies ont les yeux rouges lumineux.")
@@ -74,4 +77,22 @@ def principal():
         unreal.SystemLibrary.quit_editor()
 
 
-principal()
+# On attend que l'editeur soit COMPLETEMENT ouvert avant de creer le materiau.
+# (Lance trop tot par le .bat, Unreal plantait : "Assertion failed IsValid() SharedPointer.h".)
+ATTENTE_IMAGES = 120  # environ 2 a 5 secondes apres l'ouverture
+_compteur = [0]
+_rappel = [None]
+
+
+def _chaque_image(_delta):
+    _compteur[0] += 1
+    if _compteur[0] < ATTENTE_IMAGES:
+        return
+    unreal.unregister_slate_post_tick_callback(_rappel[0])
+    principal()
+
+
+with open(JOURNAL, "w", encoding="utf-8") as f:
+    f.write("Yeux rouges des zombies - CHELLES 3D\n")
+ecrire("Attente de l'ouverture complete de l'editeur...")
+_rappel[0] = unreal.register_slate_post_tick_callback(_chaque_image)
