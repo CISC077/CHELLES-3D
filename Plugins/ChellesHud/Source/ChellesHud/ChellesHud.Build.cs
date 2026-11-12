@@ -12,7 +12,8 @@ public class ChellesHud : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"Slate",
-			"SlateCore"
+			"SlateCore",
+			"UMG"
 		});
 	}
 }

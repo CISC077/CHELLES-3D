@@ -4,6 +4,19 @@
 #include "CoreMinimal.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SLeafWidget.h"
+#include "Styling/SlateBrush.h"
+
+/** Un point sur la mini-carte : zombie, teleporteur ou autre joueur. */
+struct FPointCarteChelles
+{
+	enum EType : uint8 { Zombie, Teleporteur, Joueur };
+
+	/** Position sur la carte : -1..1 (X vers la droite, Y vers le bas), le joueur est au centre (0, 0). */
+	FVector2D Pos = FVector2D::ZeroVector;
+	EType Type = Zombie;
+	/** Vrai si le point est plus loin que le bord : il est colle au bord de la carte. */
+	bool bAuBord = false;
+};
 
 /** Ce que le HUD doit afficher, rempli a chaque image par AHudChelles. */
 struct FEtatHudChelles
@@ -32,6 +45,16 @@ struct FEtatHudChelles
 	int32 ZombiesRestants = 0;
 	float SecondesInvasion = 0.f;
 
+	// Mini-carte en haut a droite (bCarte = false : cachee avec Chelles.MiniCarte 0)
+	bool bCarte = false;
+	/** Vrai si la vue du quartier vue du ciel est prete (sinon fond sombre quadrille). */
+	bool bImageCarte = false;
+	/** Distance du centre au bord de la carte, en metres (pour l'echelle). */
+	float CarteRayonMetres = 80.f;
+	/** Direction du nord sur la carte (vecteur -1..1, Y vers le bas). */
+	FVector2D CarteNord = FVector2D(0.f, -1.f);
+	TArray<FPointCarteChelles> PointsCarte;
+
 	/** Temps qui passe, pour les clignotements. */
 	float Horloge = 0.f;
 };
@@ -50,7 +73,12 @@ public:
 
 	FEtatHudChelles Etat;
 
+	/** Image du quartier vue du ciel (render target rempli par AHudChelles). */
+	FSlateBrush BrushCarte;
+
 private:
+	/** Mini-carte en haut a droite ; renvoie sa hauteur (0 si cachee). */
+	float DessinerCarte(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Ecran) const;
 	void Boite(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Pos,
 		const FVector2D& Taille, const FLinearColor& Couleur) const;
 	/** Panneau aux coins coupes (comme le menu) : fond + contour. */
