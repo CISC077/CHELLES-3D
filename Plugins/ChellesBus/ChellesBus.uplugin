@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Bus pendant les zombies",
+	"Description": "Pendant l'invasion zombie : plus aucune voiture sur la route, un bus BP_Bus_sity fait le tour des arrets de bus poses dans la carte (portes ouvertes par les joueurs, attente 20 s / 10 s).",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesBus",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

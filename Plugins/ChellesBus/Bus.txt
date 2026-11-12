@@ -1,0 +1,34 @@
+# CHELLES 3D - Bus pendant l'invasion zombie
+# Modifiez une valeur, enregistrez, relancez le jeu (pas besoin de recompiler).
+
+# Oui / Non : tout le plugin (route vide + bus)
+Actif=Oui
+
+# Pendant l'invasion, toutes les voitures de la circulation disparaissent (elles reviennent apres)
+RetirerLesVoitures=Oui
+
+# Le bus du pack Bus_sity
+ClasseBus=/Game/Bus_sity/Blueprints/Bus_sity/BP_Bus_sity.BP_Bus_sity_C
+
+# Vitesse en ligne droite (il ralentit tout seul dans les virages et avant les arrets)
+VitesseKmh=30
+
+# Attente a chaque arret
+AttenteJoueurDehorsSecondes=20
+AttenteJoueurDedansSecondes=10
+
+# Touche pour ouvrir / fermer une porte (pres de la porte, bus a l'arret)
+TouchePorte=E
+DistancePorteMetres=3.5
+
+# Hauteur du plancher du bus au-dessus de la route (cm). Si on flotte dans le bus : baisser. Si on s'enfonce : monter.
+HauteurPlancher=35
+
+# Si le bus roule de travers ou a reculons : 90, -90 ou 180
+CorrectionOrientation=0
+
+# Un arret plus loin que cela d'une route est ignore
+DistanceMaxArretRouteMetres=40
+
+# Message a l'ecran au debut de l'invasion
+MessageDepart=Oui
