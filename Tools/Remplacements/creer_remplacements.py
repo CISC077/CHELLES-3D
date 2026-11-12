@@ -8,8 +8,8 @@ et Config\\DefaultEngine.ini redirige les anciens chemins vers eux.
 Rien n'est supprime. Si un jour tu reinstalles le vrai pack, il suffit
 d'enlever la ligne de redirection correspondante dans DefaultEngine.ini.
 
-Lance par Creer_les_remplacements.bat (Unreal ferme), ou dans l'editeur :
-File > Execute Python Script.
+Dans Unreal : File > Execute Python Script > choisir ce fichier.
+Puis fermer et rouvrir Unreal. (Ou Creer_les_remplacements.bat, Unreal ferme.)
 """
 import unreal
 
@@ -48,6 +48,18 @@ for n, r in GK.items():
 MATERIAUX.append(("/Game/GothicChapel/Materials/Tiled/Window_Glass_A", "MaterialInstanceConstant", VITRAIL))
 MATERIAUX.append(("/Game/GothicChapel/Materials/Unique/MI_Door_ABC", "MaterialInstanceConstant", BOIS))
 MATERIAUX.append(("/Game/CityPark/Materials/ParkSquare/MI_ParkSquare13", "MaterialInstanceConstant", PIERRE))
+
+import os
+import shutil
+
+# 0) deux grosses textures de ModularFences : copie depuis la quarantaine
+PROJET = os.path.abspath(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()))
+for _n in ("Tex_Decorative_Brick_D", "Tex_Decorative_Brick_N"):
+    _src = os.path.join(PROJET, "_Quarantaine", "Content", "ModularFences", "Textures", _n + ".uasset")
+    _dst = os.path.join(PROJET, "Content", "ModularFences", "Textures", _n + ".uasset")
+    if not os.path.exists(_dst) and os.path.exists(_src):
+        shutil.copy2(_src, _dst)
+        unreal.log("[Remplacements] texture recopiee : " + _n)
 
 outils = unreal.AssetToolsHelpers.get_asset_tools()
 MEL = unreal.MaterialEditingLibrary
