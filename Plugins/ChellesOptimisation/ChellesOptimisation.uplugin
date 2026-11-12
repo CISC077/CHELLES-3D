@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Optimisation",
+	"Description": "Neige seulement autour du joueur, fleurs et herbe affichees seulement de pres, PNJ caches et mis en pause au-dela de 100 m. Reglages dans Optimisation.txt.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesOptimisation",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
