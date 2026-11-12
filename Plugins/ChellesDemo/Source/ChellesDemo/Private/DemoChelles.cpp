@@ -70,7 +70,7 @@ ADemoChelles::ADemoChelles()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bTickEvenWhenPaused = true; // pour garder l'ecran de fin, meme en pause
-	SetReplicates(false);
+	bReplicates = false;
 	SetCanBeDamaged(false);
 }
 
@@ -165,7 +165,7 @@ FText ADemoChelles::Alerte() const
 FText ADemoChelles::Message() const
 {
 	return FText::FromString(LireTexte(TEXT("Message"),
-		TEXT("Cette version est une démo. Si tu es intéressé par la version complète, ")
+		TEXT("Cette version est une d\u00E9mo. Si tu es int\u00E9ress\u00E9 par la version compl\u00E8te, ")
 		TEXT("il te suffit de nous rejoindre sur FACEBOOK et nous en discuterons.")));
 }
 
@@ -272,13 +272,13 @@ void ADemoChelles::Tick(float Delta)
 	if (!bAlerte5 && Reste <= 5.f * 60.f)
 	{
 		bAlerte5 = true;
-		TexteAlerte = FText::FromString(TEXT("DÉMO : PLUS QUE 5 MINUTES"));
+		TexteAlerte = FText::FromString(TEXT("D\u00C9MO : PLUS QUE 5 MINUTES"));
 		FinAlerte = Maintenant + 6.0;
 	}
 	if (!bAlerte1 && Reste <= 60.f)
 	{
 		bAlerte1 = true;
-		TexteAlerte = FText::FromString(TEXT("DÉMO : DERNIÈRE MINUTE !"));
+		TexteAlerte = FText::FromString(TEXT("D\u00C9MO : DERNI\u00C8RE MINUTE !"));
 		FinAlerte = Maintenant + 6.0;
 	}
 	if (Reste <= 0.f)

@@ -109,7 +109,7 @@ void SDemoChelles::Construct(const FArguments& InArgs)
 					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(FText::FromString(TEXT("CHELLES 3D  ·  VERSION BÊTA")))
+						.Text(FText::FromString(TEXT("CHELLES 3D  \u00B7  VERSION B\u00CATA")))
 						.Font(DemoPolice(TEXT("Bold"), 20, DemoMagenta))
 						.ColorAndOpacity(DemoCyan)
 					]
@@ -117,7 +117,7 @@ void SDemoChelles::Construct(const FArguments& InArgs)
 					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0.f, 10.f, 0.f, 4.f)
 					[
 						SNew(STextBlock)
-						.Text(FText::FromString(TEXT("FIN DE LA DÉMO")))
+						.Text(FText::FromString(TEXT("FIN DE LA D\u00C9MO")))
 						.Font(DemoPolice(TEXT("Black"), 72, DemoMagenta))
 						.ColorAndOpacity(DemoOr)
 						.ShadowOffset(FVector2D(3.f, 3.f))
@@ -127,7 +127,7 @@ void SDemoChelles::Construct(const FArguments& InArgs)
 					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(FText::FromString(TEXT("Merci d'avoir joué !")))
+						.Text(FText::FromString(TEXT("Merci d'avoir jou\u00E9 !")))
 						.Font(DemoPolice(TEXT("Bold"), 24, DemoCyan))
 						.ColorAndOpacity(DemoBlanc)
 					]
@@ -170,7 +170,8 @@ void SDemoChelles::Construct(const FArguments& InArgs)
 EVisibility SDemoChelles::VisibiliteCompteur() const
 {
 	const ADemoChelles* D = Demo.Get();
-	return (D && !D->EstTerminee() && D->EnTrainDeJouer()) ? EVisibility::HitTestInvisible : EVisibility::Collapsed;
+	// toujours affiche (meme dans les menus) pour qu'on voie que la demo tourne
+	return (D && !D->EstTerminee()) ? EVisibility::HitTestInvisible : EVisibility::Collapsed;
 }
 
 EVisibility SDemoChelles::VisibiliteAlerte() const
@@ -189,7 +190,9 @@ FText SDemoChelles::TexteCompteur() const
 {
 	const ADemoChelles* D = Demo.Get();
 	const int32 Reste = D ? FMath::CeilToInt(D->SecondesRestantes()) : 0;
-	return FText::FromString(FString::Printf(TEXT("DÉMO BÊTA  ·  %d:%02d"), Reste / 60, Reste % 60));
+	const bool bEnPause = D && !D->EnTrainDeJouer();
+	return FText::FromString(FString::Printf(TEXT("D\u00C9MO B\u00CATA  \u00B7  %d:%02d%s"), Reste / 60, Reste % 60,
+		bEnPause ? TEXT("  (en pause : menu)") : TEXT("")));
 }
 
 FSlateColor SDemoChelles::CouleurCompteur() const
