@@ -70,6 +70,7 @@ if /i not "%OK%"=="O" exit /b 0
 
 set "JOURNAL=%~dp0Journal"
 if exist "%JOURNAL%" rmdir /s /q "%JOURNAL%"
+if exist "%~dp0Erreurs_demo.txt" del "%~dp0Erreurs_demo.txt"
 mkdir "%JOURNAL%"
 if exist "%APPDATA%\Unreal Engine\AutomationTool\Logs" rmdir /s /q "%APPDATA%\Unreal Engine\AutomationTool\Logs"
 
