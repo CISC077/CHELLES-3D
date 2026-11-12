@@ -13,6 +13,8 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "HAL/IConsoleManager.h"
+#include "Blueprint/UserWidget.h"
+#include "UObject/UObjectHash.h"
 #include "Misc/App.h"
 #include "UObject/UnrealType.h"
 
@@ -30,6 +32,11 @@ static float GMiniCarteZoom = 80.f;
 static FAutoConsoleVariableRef CVarMiniCarteZoom(
 	TEXT("Chelles.MiniCarteZoom"), GMiniCarteZoom,
 	TEXT("Mini-carte : distance du centre au bord, en metres (20 a 500, 80 par defaut)."));
+
+static int32 GCacherBulleAide = 1;
+static FAutoConsoleVariableRef CVarCacherBulleAide(
+	TEXT("Chelles.CacherBulleAide"), GCacherBulleAide,
+	TEXT("1 = cache la bulle d'aide 'Show Controls Tutorial / Show Simple Controls Guide' du pack SuperheroFlight (par defaut), 0 = la laisser."));
 
 static float GMiniCarteNord = -90.f;
 static FAutoConsoleVariableRef CVarMiniCarteNord(
@@ -612,6 +619,35 @@ void AHudChelles::LireCarte()
 	}
 }
 
+void AHudChelles::CacherBulleAide()
+{
+	if (!GCacherBulleAide)
+	{
+		return;
+	}
+	// La bulle est dans WBP_MainHUD, que BP_Player (SuperheroFlight) ajoute a l'ecran : ce widget ne contient que des aides
+	// (bulle T / Tab, guide des commandes de vol, video du tutoriel). On le cache, sans modifier aucun Blueprint du pack.
+	// Si le jeu le remontre (touche T ou F1), il est recache dans la demi-seconde.
+	TArray<UObject*> Widgets;
+	GetObjectsOfClass(UUserWidget::StaticClass(), Widgets, true);
+	for (UObject* Objet : Widgets)
+	{
+		UUserWidget* Widget = Cast<UUserWidget>(Objet);
+		if (!Widget || Widget->IsPendingKill() || Widget->HasAnyFlags(RF_ClassDefaultObject) || Widget->GetWorld() != GetWorld())
+		{
+			continue;
+		}
+		const UClass* Classe = Widget->GetClass();
+		const bool bBulle = Classe->GetPathName().Contains(TEXT("/SuperheroFlight/"))
+			&& (Classe->GetName().StartsWith(TEXT("WBP_MainHUD")) || Classe->GetName().StartsWith(TEXT("WBP_Tutorial_Box")));
+		if (bBulle && Widget->GetVisibility() != ESlateVisibility::Collapsed)
+		{
+			Widget->SetVisibility(ESlateVisibility::Collapsed);
+			UE_LOG(LogTemp, Log, TEXT("[HUD] Bulle d'aide SuperheroFlight cachee (%s). Console : Chelles.CacherBulleAide 0 pour la garder."), *Widget->GetName());
+		}
+	}
+}
+
 void AHudChelles::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -629,6 +665,13 @@ void AHudChelles::Tick(float DeltaSeconds)
 	FEtatHudChelles& E = Hud->Etat;
 	E.Horloge += Reel;
 	E.AgeCoup += Reel;
+
+	// Bulle d'aide du pack de vol, toutes les 0,5 s, meme quand le HUD est cache
+	if (W && W->GetRealTimeSeconds() >= ProchaineBulleAide)
+	{
+		ProchaineBulleAide = W->GetRealTimeSeconds() + 0.5f;
+		CacherBulleAide();
+	}
 
 	// Pas de HUD pendant le menu, la pause, le chat ou les options (souris visible), ni sans personnage
 	APlayerController* PC = GetPC();

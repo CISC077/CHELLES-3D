@@ -49,6 +49,8 @@ private:
 	void LirePouvoirs();
 	void LireZombies();
 	void LireCarte();
+	/** Cache la bulle d'aide "Show Controls Tutorial / Show Simple Controls Guide" du pack SuperheroFlight (elle recouvre la mini-carte). */
+	void CacherBulleAide();
 	/** Cherche les teleporteurs, les zombies et le decor a cacher sur la vue du ciel (toutes les 2 s). */
 	void ChercherPointsCarte();
 	void PreparerVueDuCiel();
@@ -70,6 +72,7 @@ private:
 	TArray<TWeakObjectPtr<AActor>> ZombiesVus;
 	float ProchainePointsCarte = 0.f;
 	float ProchaineVueDuCiel = 0.f;
+	float ProchaineBulleAide = 0.f;
 	/** Resultat du test "nom de classe" pour chaque classe deja vue (1 = teleporteur, 2 = zombie, 4 = ciel/nuage). */
 	TMap<TWeakObjectPtr<UClass>, uint8> GenreClasse;
 
