@@ -81,6 +81,8 @@ def main():
         x, y, z = e["position"]
         p, yaw, r = e["rotation"]
         a.set_actor_location_and_rotation(unreal.Vector(x, y, z), unreal.Rotator(r, p, yaw), False, True)
+        ex, ey, ez = e.get("echelle", [1.0, 1.0, 1.0])
+        a.set_actor_scale3d(unreal.Vector(ex, ey, ez))
         if e.get("dossier") is not None:
             a.set_folder_path(e["dossier"] if e["dossier"] != "None" else "")
         c = corps(a)

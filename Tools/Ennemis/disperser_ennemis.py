@@ -13,7 +13,8 @@ Ce que fait le script :
   3. habille chaque sorte d'ennemi en bandit avec SA couleur (le premier bandit reste BLEU) :
        AI_Soldier      -> rouge        AI_Charger -> vert       AI_Patrol  -> violet
        AI_Soldier_Boss -> noir         AI_Genesis -> orange     AI_Patrol1 -> jaune
-  4. ajoute des ennemis pour arriver a TOTAL_ENNEMIS (melange des sortes ci-dessus) ;
+  4. met exactement NB_BOSS boss (3), TAILLE_BOSS fois plus grands (x3), puis ajoute
+     des ennemis pour arriver a TOTAL_ENNEMIS (melange des sortes ci-dessus) ;
   5. eparpille TOUS les ennemis (bandits compris) sur le NavMesh de la ville,
      a ESPACEMENT metres les uns des autres et loin du point de depart du joueur ;
   6. enregistre Rachid.
@@ -54,10 +55,11 @@ COULEUR_PAR_SORTE = {
     "AI_Patrol": "Violet",
     "AI_Patrol1": "Jaune",
 }
-# melange des ennemis AJOUTES (poids) ; le boss reste rare
+# melange des autres ennemis AJOUTES (poids) ; les boss sont geres par NB_BOSS
 MELANGE_AJOUTS = [("AI_Soldier", 4), ("AI_Patrol", 3), ("AI_Patrol1", 2),
-                  ("AI_Charger", 2), ("AI_Genesis", 2), ("AI_Soldier_Boss", 1)]
-MAX_BOSS = 3
+                  ("AI_Charger", 2), ("AI_Genesis", 2)]
+NB_BOSS = 3                 # il y aura exactement ce nombre de boss (AI_Soldier_Boss)
+TAILLE_BOSS = 3.0           # les boss sont 3 fois plus grands que les autres ennemis
 # sortes deplacees (eparpillees) mais pas rhabillees
 SORTES_GARDEES = ("AI_Soldier_Bandit",)
 
@@ -391,7 +393,8 @@ def main():
     compte = {}
     for a in ennemis:
         compte[sorte(a)] = compte.get(sorte(a), 0) + 1
-    a_ajouter = max(0, TOTAL_ENNEMIS - len(ennemis))
+    boss_manquants = max(0, NB_BOSS - compte.get("AI_Soldier_Boss", 0))
+    a_ajouter = max(boss_manquants, TOTAL_ENNEMIS - len(ennemis))
     resume = ", ".join("%s x%d" % (k, v) for k, v in sorted(compte.items())) or "aucun"
     log("Ennemis deja dans la carte : %d (%s)" % (len(ennemis), resume))
 
@@ -404,10 +407,10 @@ def main():
                     "Le script va :\n"
                     "- habiller les ennemis non-bandits en bandits de couleurs differentes\n"
                     "  (le premier bandit reste bleu) ;\n"
-                    "- en ajouter %d pour arriver a %d ;\n"
+                    "- en ajouter %d pour arriver a %d (dont %d boss geants x%g) ;\n"
                     "- les eparpiller tous sur la ville (%d m entre eux).\n\n"
                     "Une copie de Rachid est faite avant. Continuer ?"
-                    % (len(ennemis), resume, a_ajouter, TOTAL_ENNEMIS, int(ESPACEMENT))):
+                    % (len(ennemis), resume, a_ajouter, TOTAL_ENNEMIS, NB_BOSS, TAILLE_BOSS, int(ESPACEMENT))):
         log("Annule par l'utilisateur. Rien n'a ete modifie.")
         return
 
@@ -432,6 +435,7 @@ def main():
                 "position": [a.get_actor_location().x, a.get_actor_location().y, a.get_actor_location().z],
                 "rotation": [a.get_actor_rotation().pitch, a.get_actor_rotation().yaw, a.get_actor_rotation().roll],
                 "dossier": str(a.get_folder_path()),
+                "echelle": [a.get_actor_scale3d().x, a.get_actor_scale3d().y, a.get_actor_scale3d().z],
                 "mesh": chemin(c.get_editor_property("skeletal_mesh")) if c else None,
                 "materiaux": [chemin(m) for m in c.get_editor_property("override_materials")] if c else [],
             }
@@ -460,18 +464,14 @@ def main():
             classes[s] = c
         else:
             log("   ATTENTION : Blueprint %s introuvable" % s)
-    nb_boss = compte.get("AI_Soldier_Boss", 0)
     tirage = [s for s, poids in MELANGE_AJOUTS if s in classes for _ in range(poids)]
     centre, etendue = zone
     pos_tmp = unreal.Vector(centre.x, centre.y, centre.z)
     ajoutes = 0
     for i in range(a_ajouter):
-        s = random.choice(tirage)
-        if s == "AI_Soldier_Boss":
-            if nb_boss >= MAX_BOSS:
-                s = "AI_Soldier"
-            else:
-                nb_boss += 1
+        s = "AI_Soldier_Boss" if i < boss_manquants else random.choice(tirage)
+        if s not in classes:
+            continue
         a = ell.spawn_actor_from_class(classes[s], pos_tmp, unreal.Rotator(0, 0, 0))
         if a is None:
             log("   ERREUR : impossible de poser %s" % s)
@@ -494,6 +494,12 @@ def main():
             continue
         if habiller(a, mesh_bandit, habits, mat):
             par_couleur[nom] = par_couleur.get(nom, 0) + 1
+    nb_boss = 0
+    for a in ennemis:
+        if sorte(a) == "AI_Soldier_Boss":
+            a.set_actor_scale3d(unreal.Vector(TAILLE_BOSS, TAILLE_BOSS, TAILLE_BOSS))
+            nb_boss += 1
+    log("   %d boss mis a la taille x%g" % (nb_boss, TAILLE_BOSS))
     log("4/6 habilles : %s (bandits bleus inchanges)" %
         ", ".join("%s x%d" % kv for kv in sorted(par_couleur.items())))
 
@@ -512,7 +518,7 @@ def main():
     random.shuffle(ennemis)
     for a, p in zip(ennemis, places):
         rot = unreal.Rotator(0.0, 0.0, random.uniform(-180.0, 180.0))
-        a.set_actor_location_and_rotation(unreal.Vector(p.x, p.y, p.z + 110.0), rot, False, True)
+        a.set_actor_location_and_rotation(unreal.Vector(p.x, p.y, p.z + 110.0 * a.get_actor_scale3d().z), rot, False, True)
         a.set_folder_path(DOSSIER_OUTLINER)
     for a in ennemis[len(places):]:
         if a_tag(a, TAG_AJOUTE):  # un ennemi ajoute sans place : on l'enleve

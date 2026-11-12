@@ -9,7 +9,7 @@
 |---|---|
 | AI_Soldier_Bandit (le premier) | bleu (inchangé) |
 | AI_Soldier | rouge |
-| AI_Soldier_Boss | noir |
+| AI_Soldier_Boss | noir, **3 boss, 3 fois plus grands** (`NB_BOSS`, `TAILLE_BOSS`) |
 | AI_Charger | vert |
 | AI_Genesis | orange |
 | AI_Patrol | violet |
