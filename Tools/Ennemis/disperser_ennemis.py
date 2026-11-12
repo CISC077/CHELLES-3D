@@ -9,7 +9,7 @@ Ce que fait le script :
   1. enregistre Rachid puis copie Rachid.umap dans Tools/Ennemis/sauvegarde/ ;
   2. cree des tenues de couleur (dossier /Game/Bandit_Sport/Material/Chelles) :
        rouge, vert, noir = materiaux du pack Bandit_Sport ;
-       orange, violet, jaune = nouvelle matiere "teinte" (M_Bandit_clothes_Teinte) ;
+       orange, violet, jaune = nouvelle matiere "teinte" (M_Bandit_clothes_Teinte_v2) ;
   3. habille chaque sorte d'ennemi en bandit avec SA couleur (le premier bandit reste BLEU) :
        AI_Soldier      -> rouge        AI_Charger -> vert       AI_Patrol  -> violet
        AI_Soldier_Boss -> noir         AI_Genesis -> orange     AI_Patrol1 -> jaune
@@ -80,7 +80,7 @@ TEINTES = {  # couleurs lineaires, multipliees par le tissu du pack
     "Violet": (0.42, 0.06, 0.85),
     "Jaune": (1.0, 0.82, 0.02),
 }
-INTENSITE_TEINTE = 2.4      # plus grand = tenue plus claire (modifiable ensuite dans M_Bandit_clothes_Teinte)
+INTENSITE_TEINTE = 2.4      # plus grand = tenue plus claire (modifiable ensuite dans M_Bandit_clothes_Teinte_v2)
 SECOURS = {"Orange": "Vert", "Violet": "Rouge", "Jaune": "Noir"}  # si la teinte ne peut pas etre creee
 
 TAG_AJOUTE = "ChellesEnnemiAjoute"
@@ -182,9 +182,16 @@ def regler_sampler(expr, tex):
         log("   (type de texture non regle pour %s : %s)" % (tex.get_name(), e))
 
 
+def relier(de, sortie, vers, entree):
+    ok = unreal.MaterialEditingLibrary.connect_material_expressions(de, sortie, vers, entree)
+    if ok is False:
+        log("   ATTENTION : liaison %s -> %s.%s ratee" % (de.get_name(), vers.get_name(), entree))
+    return ok
+
+
 def creer_matiere_teinte():
     """M_Bandit_clothes_Teinte : tissu du pack en gris x Couleur x Intensite."""
-    ch = DOSSIER_NOUVEAUX + "/M_Bandit_clothes_Teinte"
+    ch = DOSSIER_NOUVEAUX + "/M_Bandit_clothes_Teinte_v2"
     if eal.does_asset_exist(ch):
         return eal.load_asset(ch)
     tex_couleur = charger("/Game/Bandit_Sport/Textures/T_Thief_clothes_BaseColor_blue")
@@ -193,7 +200,7 @@ def creer_matiere_teinte():
     if not tex_couleur:
         raise RuntimeError("texture T_Thief_clothes_BaseColor_blue introuvable")
     outils = unreal.AssetToolsHelpers.get_asset_tools()
-    mat = outils.create_asset("M_Bandit_clothes_Teinte", DOSSIER_NOUVEAUX, unreal.Material, unreal.MaterialFactoryNew())
+    mat = outils.create_asset("M_Bandit_clothes_Teinte_v2", DOSSIER_NOUVEAUX, unreal.Material, unreal.MaterialFactoryNew())
     mat.set_editor_property("used_with_skeletal_mesh", True)
     mel = unreal.MaterialEditingLibrary
     MP = unreal.MaterialProperty
@@ -211,7 +218,7 @@ def creer_matiere_teinte():
     inten.set_editor_property("default_value", INTENSITE_TEINTE)
     m1 = mel.create_material_expression(mat, unreal.MaterialExpressionMultiply, -560, -150)
     mel.connect_material_expressions(gris, "", m1, "A")
-    mel.connect_material_expressions(couleur, "RGB", m1, "B")
+    relier(couleur, "", m1, "B")
     m2 = mel.create_material_expression(mat, unreal.MaterialExpressionMultiply, -330, -100)
     mel.connect_material_expressions(m1, "", m2, "A")
     mel.connect_material_expressions(inten, "", m2, "B")
@@ -239,14 +246,14 @@ def creer_matiere_teinte():
 def creer_matiere_deux_teintes():
     """M_Bandit_clothes_DeuxTeintes : haut du corps = CouleurHaut, bas = CouleurBas
     (separation a la taille, reglable avec Decalage en cm, positif = plus bas)."""
-    ch = DOSSIER_NOUVEAUX + "/M_Bandit_clothes_DeuxTeintes"
+    ch = DOSSIER_NOUVEAUX + "/M_Bandit_clothes_DeuxTeintes_v2"
     if eal.does_asset_exist(ch):
         return eal.load_asset(ch)
     tex_couleur = charger("/Game/Bandit_Sport/Textures/T_Thief_clothes_BaseColor_blue")
     tex_normal = charger("/Game/Bandit_Sport/Textures/T_Thief_clothes_Normal")
     tex_orm = charger("/Game/Bandit_Sport/Textures/T_Thief_clothes_OcclusionRoughnessMetallic")
     outils = unreal.AssetToolsHelpers.get_asset_tools()
-    mat = outils.create_asset("M_Bandit_clothes_DeuxTeintes", DOSSIER_NOUVEAUX, unreal.Material, unreal.MaterialFactoryNew())
+    mat = outils.create_asset("M_Bandit_clothes_DeuxTeintes_v2", DOSSIER_NOUVEAUX, unreal.Material, unreal.MaterialFactoryNew())
     mat.set_editor_property("used_with_skeletal_mesh", True)
     mel = unreal.MaterialEditingLibrary
     MP = unreal.MaterialProperty
@@ -292,8 +299,8 @@ def creer_matiere_deux_teintes():
     bas.set_editor_property("parameter_name", "CouleurBas")
     bas.set_editor_property("default_value", unreal.LinearColor(0.02, 0.02, 0.02, 1.0))
     lerp = E(mat, unreal.MaterialExpressionLinearInterpolate, -560, -40)
-    mel.connect_material_expressions(bas, "RGB", lerp, "A")
-    mel.connect_material_expressions(haut, "RGB", lerp, "B")
+    relier(bas, "", lerp, "A")
+    relier(haut, "", lerp, "B")
     mel.connect_material_expressions(sat, "", lerp, "Alpha")
 
     inten = E(mat, unreal.MaterialExpressionScalarParameter, -560, 120)
@@ -338,7 +345,7 @@ def preparer_tenues_boss():
             else:
                 mi = outils.create_asset("MI_Bandit_clothes_%s" % nom, DOSSIER_NOUVEAUX,
                                          unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
-                mel.set_material_instance_parent(mi, parent)
+            mel.set_material_instance_parent(mi, parent)
             mel.set_material_instance_vector_parameter_value(mi, "CouleurHaut", unreal.LinearColor(h[0], h[1], h[2], 1.0))
             mel.set_material_instance_vector_parameter_value(mi, "CouleurBas", unreal.LinearColor(b[0], b[1], b[2], 1.0))
             mel.update_material_instance(mi)
@@ -359,7 +366,7 @@ def creer_instance(nom_couleur, parent, rgb):
         outils = unreal.AssetToolsHelpers.get_asset_tools()
         mi = outils.create_asset("MI_Bandit_clothes_%s" % nom_couleur, DOSSIER_NOUVEAUX,
                                  unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
-        mel.set_material_instance_parent(mi, parent)
+    mel.set_material_instance_parent(mi, parent)
     mel.set_material_instance_vector_parameter_value(mi, "Couleur", unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0))
     mel.update_material_instance(mi)
     eal.save_asset(ch, only_if_is_dirty=False)
