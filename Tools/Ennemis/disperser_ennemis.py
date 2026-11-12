@@ -13,7 +13,8 @@ Ce que fait le script :
   3. habille chaque sorte d'ennemi en bandit avec SA couleur (le premier bandit reste BLEU) :
        AI_Soldier      -> rouge        AI_Charger -> vert       AI_Patrol  -> violet
        AI_Soldier_Boss -> noir         AI_Genesis -> orange     AI_Patrol1 -> jaune
-  4. met exactement NB_BOSS boss (3), TAILLE_BOSS fois plus grands (x3), puis ajoute
+  4. met exactement NB_BOSS boss (3), TAILLE_BOSS fois plus grands (x3), habilles en deux
+     couleurs (rouge+noir, bleu+noir, jaune+rouge), puis ajoute
      des ennemis pour arriver a TOTAL_ENNEMIS (melange des sortes ci-dessus) ;
   5. eparpille TOUS les ennemis (bandits compris) sur le NavMesh de la ville,
      a ESPACEMENT metres les uns des autres et loin du point de depart du joueur ;
@@ -60,6 +61,12 @@ MELANGE_AJOUTS = [("AI_Soldier", 4), ("AI_Patrol", 3), ("AI_Patrol1", 2),
                   ("AI_Charger", 2), ("AI_Genesis", 2)]
 NB_BOSS = 3                 # il y aura exactement ce nombre de boss (AI_Soldier_Boss)
 TAILLE_BOSS = 3.0           # les boss sont 3 fois plus grands que les autres ennemis
+# tenue en DEUX couleurs pour chaque boss : (haut, bas) en couleurs lineaires
+BOSS_TENUES = [
+    ("Boss_RougeNoir", (0.85, 0.02, 0.02), (0.02, 0.02, 0.02)),
+    ("Boss_BleuNoir", (0.03, 0.12, 0.9), (0.02, 0.02, 0.02)),
+    ("Boss_JauneRouge", (1.0, 0.8, 0.02), (0.85, 0.02, 0.02)),
+]
 # sortes deplacees (eparpillees) mais pas rhabillees
 SORTES_GARDEES = ("AI_Soldier_Bandit",)
 
@@ -229,6 +236,120 @@ def creer_matiere_teinte():
     return mat
 
 
+def creer_matiere_deux_teintes():
+    """M_Bandit_clothes_DeuxTeintes : haut du corps = CouleurHaut, bas = CouleurBas
+    (separation a la taille, reglable avec Decalage en cm, positif = plus bas)."""
+    ch = DOSSIER_NOUVEAUX + "/M_Bandit_clothes_DeuxTeintes"
+    if eal.does_asset_exist(ch):
+        return eal.load_asset(ch)
+    tex_couleur = charger("/Game/Bandit_Sport/Textures/T_Thief_clothes_BaseColor_blue")
+    tex_normal = charger("/Game/Bandit_Sport/Textures/T_Thief_clothes_Normal")
+    tex_orm = charger("/Game/Bandit_Sport/Textures/T_Thief_clothes_OcclusionRoughnessMetallic")
+    outils = unreal.AssetToolsHelpers.get_asset_tools()
+    mat = outils.create_asset("M_Bandit_clothes_DeuxTeintes", DOSSIER_NOUVEAUX, unreal.Material, unreal.MaterialFactoryNew())
+    mat.set_editor_property("used_with_skeletal_mesh", True)
+    mel = unreal.MaterialEditingLibrary
+    MP = unreal.MaterialProperty
+    E = mel.create_material_expression
+
+    t_c = E(mat, unreal.MaterialExpressionTextureSample, -1300, -300)
+    t_c.set_editor_property("texture", tex_couleur)
+    regler_sampler(t_c, tex_couleur)
+    gris = E(mat, unreal.MaterialExpressionDesaturation, -1000, -300)
+    mel.connect_material_expressions(t_c, "RGB", gris, "")
+
+    # hauteur du pixel par rapport au centre du personnage
+    wp = E(mat, unreal.MaterialExpressionWorldPosition, -1600, 100)
+    op = E(mat, unreal.MaterialExpressionObjectPositionWS, -1600, 200)
+    sub = E(mat, unreal.MaterialExpressionSubtract, -1400, 150)
+    mel.connect_material_expressions(wp, "", sub, "A")
+    mel.connect_material_expressions(op, "", sub, "B")
+    masque = E(mat, unreal.MaterialExpressionComponentMask, -1250, 150)
+    masque.set_editor_property("r", False)
+    masque.set_editor_property("g", False)
+    masque.set_editor_property("b", True)
+    masque.set_editor_property("a", False)
+    mel.connect_material_expressions(sub, "", masque, "")
+    dec = E(mat, unreal.MaterialExpressionScalarParameter, -1250, 300)
+    dec.set_editor_property("parameter_name", "Decalage")
+    dec.set_editor_property("default_value", 0.0)
+    plus = E(mat, unreal.MaterialExpressionAdd, -1100, 180)
+    mel.connect_material_expressions(masque, "", plus, "A")
+    mel.connect_material_expressions(dec, "", plus, "B")
+    raide = E(mat, unreal.MaterialExpressionMultiply, -950, 180)
+    raide.set_editor_property("const_b", 0.2)
+    mel.connect_material_expressions(plus, "", raide, "A")
+    demi = E(mat, unreal.MaterialExpressionAdd, -820, 180)
+    demi.set_editor_property("const_b", 0.5)
+    mel.connect_material_expressions(raide, "", demi, "A")
+    sat = E(mat, unreal.MaterialExpressionSaturate, -700, 180)
+    mel.connect_material_expressions(demi, "", sat, "")
+
+    haut = E(mat, unreal.MaterialExpressionVectorParameter, -900, -120)
+    haut.set_editor_property("parameter_name", "CouleurHaut")
+    haut.set_editor_property("default_value", unreal.LinearColor(0.85, 0.02, 0.02, 1.0))
+    bas = E(mat, unreal.MaterialExpressionVectorParameter, -900, 20)
+    bas.set_editor_property("parameter_name", "CouleurBas")
+    bas.set_editor_property("default_value", unreal.LinearColor(0.02, 0.02, 0.02, 1.0))
+    lerp = E(mat, unreal.MaterialExpressionLinearInterpolate, -560, -40)
+    mel.connect_material_expressions(bas, "RGB", lerp, "A")
+    mel.connect_material_expressions(haut, "RGB", lerp, "B")
+    mel.connect_material_expressions(sat, "", lerp, "Alpha")
+
+    inten = E(mat, unreal.MaterialExpressionScalarParameter, -560, 120)
+    inten.set_editor_property("parameter_name", "Intensite")
+    inten.set_editor_property("default_value", INTENSITE_TEINTE)
+    m1 = E(mat, unreal.MaterialExpressionMultiply, -400, -200)
+    mel.connect_material_expressions(gris, "", m1, "A")
+    mel.connect_material_expressions(lerp, "", m1, "B")
+    m2 = E(mat, unreal.MaterialExpressionMultiply, -250, -120)
+    mel.connect_material_expressions(m1, "", m2, "A")
+    mel.connect_material_expressions(inten, "", m2, "B")
+    mel.connect_material_property(m2, "", MP.MP_BASE_COLOR)
+    if tex_normal:
+        t_n = E(mat, unreal.MaterialExpressionTextureSample, -560, 300)
+        t_n.set_editor_property("texture", tex_normal)
+        regler_sampler(t_n, tex_normal)
+        mel.connect_material_property(t_n, "RGB", MP.MP_NORMAL)
+    if tex_orm:
+        t_o = E(mat, unreal.MaterialExpressionTextureSample, -560, 550)
+        t_o.set_editor_property("texture", tex_orm)
+        regler_sampler(t_o, tex_orm)
+        mel.connect_material_property(t_o, "R", MP.MP_AMBIENT_OCCLUSION)
+        mel.connect_material_property(t_o, "G", MP.MP_ROUGHNESS)
+        mel.connect_material_property(t_o, "B", MP.MP_METALLIC)
+    mel.recompile_material(mat)
+    eal.save_asset(ch, only_if_is_dirty=False)
+    log("   matiere creee : %s" % ch)
+    return mat
+
+
+def preparer_tenues_boss():
+    """Une tenue deux couleurs par boss ; secours = noir."""
+    res = []
+    try:
+        parent = creer_matiere_deux_teintes()
+        mel = unreal.MaterialEditingLibrary
+        outils = unreal.AssetToolsHelpers.get_asset_tools()
+        for nom, h, b in BOSS_TENUES:
+            ch = "%s/MI_Bandit_clothes_%s" % (DOSSIER_NOUVEAUX, nom)
+            if eal.does_asset_exist(ch):
+                mi = eal.load_asset(ch)
+            else:
+                mi = outils.create_asset("MI_Bandit_clothes_%s" % nom, DOSSIER_NOUVEAUX,
+                                         unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+                mel.set_material_instance_parent(mi, parent)
+            mel.set_material_instance_vector_parameter_value(mi, "CouleurHaut", unreal.LinearColor(h[0], h[1], h[2], 1.0))
+            mel.set_material_instance_vector_parameter_value(mi, "CouleurBas", unreal.LinearColor(b[0], b[1], b[2], 1.0))
+            mel.update_material_instance(mi)
+            eal.save_asset(ch, only_if_is_dirty=False)
+            res.append((nom, mi))
+            log("   tenue %s prete" % nom)
+    except Exception as e:
+        log("   ATTENTION : tenues des boss impossibles (%s) -> boss en noir" % e)
+    return res
+
+
 def creer_instance(nom_couleur, parent, rgb):
     ch = "%s/MI_Bandit_clothes_%s" % (DOSSIER_NOUVEAUX, nom_couleur)
     mel = unreal.MaterialEditingLibrary
@@ -321,28 +442,93 @@ def zone_navmesh(acteurs):
     return None
 
 
-def chercher_positions(monde, nombre, centre, rayon, joueur):
-    nav = unreal.NavigationSystemV1
-    candidats = []
-    essais = 0
+def lire_impact(hit):
+    """(point, normale, acteur) d'un HitResult, selon la version de l'API."""
+    try:
+        return (hit.get_editor_property("impact_point"), hit.get_editor_property("impact_normal"),
+                hit.get_editor_property("actor"))
+    except Exception:
+        pass
+    t = hit.to_tuple()
+    return t[5], t[7], t[9]
+
+
+def tracer(monde, debut, fin):
+    try:
+        hit = unreal.SystemLibrary.line_trace_single(
+            monde, debut, fin, unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, False, [],
+            unreal.DrawDebugTrace.NONE, True)
+    except Exception:
+        return None
+    if hit is None:
+        return None
+    try:
+        r = lire_impact(hit)
+        if isinstance(hit, tuple) or r[0] is None:
+            return None
+        return r
+    except Exception:
+        return None
+
+
+def sur_navmesh(monde, p):
+    try:
+        r = tuple_vecteur(unreal.NavigationSystemV1.project_point_to_navigation(
+            monde, p, None, None, unreal.Vector(150.0, 150.0, 250.0)))
+    except Exception:
+        return None
+    return r
+
+
+MOTS_PAS_SOL = ("sky", "ciel", "neige", "snow", "cloud", "water", "eau", "tree", "arbre", "foliage")
+
+
+def chercher_positions(monde, nombre, centre, etendue, joueur):
+    """Tire des points au hasard sur toute la ville, descend jusqu'au sol, garde ceux
+    qui sont au niveau de la rue (pas sur les toits) et sur le NavMesh si possible."""
+    haut_z = centre.z + etendue.z
+    bas_z = centre.z - etendue.z
+    impacts = []
     debut = time.time()
-    while len(candidats) < nombre * 25 and essais < nombre * 60 and time.time() - debut < 60:
+    essais = 0
+    while len(impacts) < nombre * 40 and essais < nombre * 150 and time.time() - debut < 90:
         essais += 1
-        p = None
-        try:
-            p = tuple_vecteur(nav.get_random_reachable_point_in_radius(monde, centre, rayon))
-        except Exception:
-            p = None
-        if p is None:
-            try:
-                p = tuple_vecteur(nav.get_random_point_in_navigable_radius(monde, centre, rayon))
-            except Exception:
-                p = None
-        if p is not None:
-            candidats.append(p)
-    log("   %d points du NavMesh trouves (%d essais)" % (len(candidats), essais))
-    if not candidats:
+        x = random.uniform(centre.x - etendue.x, centre.x + etendue.x)
+        y = random.uniform(centre.y - etendue.y, centre.y + etendue.y)
+        r = tracer(monde, unreal.Vector(x, y, haut_z), unreal.Vector(x, y, bas_z))
+        if r is None:
+            continue
+        p, n, act = r
+        if n is None or n.z < 0.8:
+            continue
+        if act is not None:
+            if isinstance(act, unreal.Pawn):
+                continue
+            nom = (act.get_class().get_name() + " " + act.get_actor_label()).lower()
+            if any(m in nom for m in MOTS_PAS_SOL):
+                continue
+        impacts.append(p)
+    log("   %d points de sol trouves (%d tirs)" % (len(impacts), essais))
+    if not impacts:
         return []
+
+    # niveau de la rue : les toits sont bien plus hauts que la majorite des impacts
+    zs = sorted(p.z for p in impacts)
+    rue = zs[int(len(zs) * 0.3)]
+    candidats = [p for p in impacts if p.z <= rue + 350.0]
+    log("   niveau de la rue ~ %.1f m, %d points gardes (toits exclus)" % (rue / 100.0, len(candidats)))
+
+    # NavMesh : on garde les points ou les ennemis pourront marcher (si le NavMesh repond)
+    nav = []
+    for p in candidats:
+        q = sur_navmesh(monde, p)
+        if q is not None and math.hypot(q.x - p.x, q.y - p.y) < 150.0 and abs(q.z - p.z) < 250.0:
+            nav.append(p)
+    if len(nav) >= nombre:
+        candidats = nav
+        log("   %d points sur le NavMesh" % len(nav))
+    else:
+        log("   NavMesh peu ou pas joignable depuis le script (%d points) : on garde le niveau de la rue" % len(nav))
 
     def dist(a, b):
         return math.hypot(a.x - b.x, a.y - b.y) / 100.0
@@ -494,28 +680,35 @@ def main():
             continue
         if habiller(a, mesh_bandit, habits, mat):
             par_couleur[nom] = par_couleur.get(nom, 0) + 1
-    nb_boss = 0
-    for a in ennemis:
-        if sorte(a) == "AI_Soldier_Boss":
-            a.set_actor_scale3d(unreal.Vector(TAILLE_BOSS, TAILLE_BOSS, TAILLE_BOSS))
-            nb_boss += 1
-    log("   %d boss mis a la taille x%g" % (nb_boss, TAILLE_BOSS))
+    boss = sorted([a for a in ennemis if sorte(a) == "AI_Soldier_Boss"],
+                  key=lambda a: (a_tag(a, TAG_AJOUTE), a.get_actor_label()))
+    for a in boss[NB_BOSS:]:  # boss en trop ajoutes par un passage precedent
+        if a_tag(a, TAG_AJOUTE):
+            ennemis.remove(a)
+            ell.destroy_actor(a)
+    boss = [a for a in boss if a in ennemis]
+    tenues_boss = preparer_tenues_boss()
+    for i, a in enumerate(boss):
+        a.set_actor_scale3d(unreal.Vector(TAILLE_BOSS, TAILLE_BOSS, TAILLE_BOSS))
+        if tenues_boss:
+            nom, mi = tenues_boss[i % len(tenues_boss)]
+            habiller(a, mesh_bandit, habits, mi)
+            par_couleur["Noir"] = par_couleur.get("Noir", 0) - 1
+            par_couleur[nom] = par_couleur.get(nom, 0) + 1
+    par_couleur = {k: v for k, v in par_couleur.items() if v > 0}
+    log("   %d boss, taille x%g" % (len(boss), TAILLE_BOSS))
     log("4/6 habilles : %s (bandits bleus inchanges)" %
         ", ".join("%s x%d" % kv for kv in sorted(par_couleur.items())))
 
     # ---- 5. eparpillement
     joueur = depart_joueur(acteurs)
-    rayon = math.hypot(etendue.x, etendue.y)
-    origine = joueur if joueur is not None else centre
-    if joueur is not None:
-        rayon += math.hypot(joueur.x - centre.x, joueur.y - centre.y)
-    log("5/6 recherche de places sur le NavMesh (rayon %.0f m autour de %s) ..." %
-        (rayon / 100.0, "depart du joueur" if joueur is not None else "centre de la ville"))
-    places = chercher_positions(monde, len(ennemis), origine, rayon, joueur)
+    log("5/6 recherche de places dans la ville (%.0f x %.0f m) ..." % (etendue.x / 50.0, etendue.y / 50.0))
+    places = chercher_positions(monde, len(ennemis), centre, etendue, joueur)
     if len(places) < len(ennemis):
         log("   ATTENTION : seulement %d places pour %d ennemis : les autres ne bougent pas. "
-            "Le NavMesh est-il construit (Build > Build Paths) ?" % (len(places), len(ennemis)))
+            "Envoyez Tools/Ennemis/ennemis.log." % (len(places), len(ennemis)))
     random.shuffle(ennemis)
+    ennemis.sort(key=lambda a: sorte(a) != "AI_Soldier_Boss")
     for a, p in zip(ennemis, places):
         rot = unreal.Rotator(0.0, 0.0, random.uniform(-180.0, 180.0))
         a.set_actor_location_and_rotation(unreal.Vector(p.x, p.y, p.z + 110.0 * a.get_actor_scale3d().z), rot, False, True)

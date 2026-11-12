@@ -9,7 +9,7 @@
 |---|---|
 | AI_Soldier_Bandit (le premier) | bleu (inchangé) |
 | AI_Soldier | rouge |
-| AI_Soldier_Boss | noir, **3 boss, 3 fois plus grands** (`NB_BOSS`, `TAILLE_BOSS`) |
+| AI_Soldier_Boss | **3 boss, 3 fois plus grands**, en deux couleurs : rouge+noir, bleu+noir, jaune+rouge (`NB_BOSS`, `TAILLE_BOSS`, `BOSS_TENUES`) |
 | AI_Charger | vert |
 | AI_Genesis | orange |
 | AI_Patrol | violet |
@@ -27,3 +27,4 @@ Copie de la carte faite avant chaque passage : `Tools\Ennemis\sauvegarde\`.
 ## Régler une couleur
 Ouvrir `Content/Bandit_Sport/Material/Chelles/MI_Bandit_clothes_Orange` (ou Violet, Jaune) et changer **Couleur**.
 Tenue trop sombre ou trop claire : paramètre **Intensite**.
+Boss : `MI_Bandit_clothes_Boss_...` → **CouleurHaut**, **CouleurBas**, et **Decalage** (en cm) pour monter/descendre la limite entre les deux couleurs.
