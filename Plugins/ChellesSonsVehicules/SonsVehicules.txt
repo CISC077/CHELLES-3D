@@ -1,0 +1,60 @@
+# CHELLES 3D - Reglages des sons des vehicules (moteur, acceleration, klaxon)
+# Modifiez avec le Bloc-notes puis relancez le jeu (ou console touche ² : Chelles.Vehicules Relire).
+# Pas besoin de recompiler. Les lignes qui commencent par # sont des commentaires.
+# Le volume du joueur se regle dans le menu : OPTIONS > AUDIO > VEHICULES.
+
+# Oui = sons actifs, Non = le plugin ne fait rien
+Actif=Oui
+
+# Volume general des sons de vehicules (1 = normal, 0.5 = moitie, 1.5 = plus fort)
+Volume=1.0
+
+# Touche du klaxon quand on conduit (motoneige, voiture de la roue TAB...). On klaxonne tant qu'on appuie.
+# H est deja la touche "Horn" de la motoneige : meme touche partout.
+ToucheKlaxon=H
+
+# Distance (en metres) a laquelle on entend encore un moteur
+DistanceMoteur=45
+# Nombre maximum de moteurs entendus en meme temps (les plus proches). Plus = plus lourd pour le PC.
+MoteursMax=8
+
+# ---- Sons utilises (clic droit sur un son dans le Content Browser > Copy Reference, collez juste /Game/...) ----
+# Moteur des voitures de la circulation et des voitures sans son (essence, parametre RPM)
+Voiture.Moteur=/Game/DriveableCar_basic/Sound/cues/standard/standard_mix_Cue
+Voiture.Volume=0.55
+Voiture.Ralenti=150
+Voiture.RegimeMax=4500
+# Taille d'un rapport de boite (km/h) : le moteur monte puis redescend a chaque changement de vitesse
+Voiture.Rapport=22
+
+# Moteur du bus (diesel, parametre RPM)
+Bus.Moteur=/Game/DV_Car_Horo/Sounds/Cues/SC_Car_Hatchback_Horo_Engine
+Bus.Volume=0.9
+Bus.Ralenti=800
+Bus.RegimeMax=5000
+Bus.Rapport=14
+Bus.Grave=0.85
+
+# Moteur de la motoneige si son propre son ne marche pas (parametres Speed et RPM)
+Motoneige.Moteur=/Game/DV_Snowmobile/Sounds/Cues/SC_Snowmobile_engine
+Motoneige.Volume=0.6
+Motoneige.Ralenti=800
+Motoneige.RegimeMax=6500
+Motoneige.Rapport=30
+
+# Klaxon (le son tourne en boucle tant qu'on appuie)
+Klaxon=/Game/DV_Car_Horo/Sounds/Cues/SC_Car_Horn
+KlaxonVolume=0.8
+# Klaxon du bus : meme son, plus grave
+KlaxonBusGrave=0.75
+
+# ---- Les voitures de la circulation klaxonnent de temps en temps ----
+KlaxonIA=Oui
+# Une voiture arretee depuis ce nombre de secondes (bouchon, pieton devant) peut klaxonner
+KlaxonIAArret=3
+# Chance (en %) qu'une voiture bloquee klaxonne, verifiee chaque seconde
+KlaxonIAChance=12
+# Petit coup de klaxon au hasard dans la circulation : en moyenne une fois toutes les N secondes (0 = jamais)
+KlaxonIAHasard=50
+# Le bus klaxonne quand il repart d'un arret
+KlaxonBusDepart=Oui

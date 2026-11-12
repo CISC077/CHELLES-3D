@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Sons des vehicules",
+	"Description": "Bruit du moteur (ralenti + monte avec la vitesse et l'acceleration) et klaxon pour tous les vehicules de CHELLES 3D : voitures de la circulation, motoneige, voiture de la roue Tab, bus. Touche H = klaxon. Reglages dans SonsVehicules.txt, volume dans OPTIONS > AUDIO > VEHICULES. Retirable sans toucher au reste du projet.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesSonsVehicules",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
