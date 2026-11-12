@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Demo beta",
+	"Description": "Version demo de CHELLES 3D : 20 minutes de jeu puis ecran FIN DE LA DEMO (lien Facebook, Quitter). Actif seulement dans le jeu exporte (pas dans l'editeur). Reglages dans Config/DefaultGame.ini, section [ChellesDemo]. Retirable sans toucher au reste du projet.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesDemo",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
