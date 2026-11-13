@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Chat global",
+	"Description": "Chat global partage entre les joueurs du jeu et les visiteurs du site chelles3d.fr (serveur WebSocket du VPS). Touche B en jeu, CHAT GLOBAL ON/OFF dans OPTIONS > JEU. Retirable sans toucher au reste du projet.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesChat",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

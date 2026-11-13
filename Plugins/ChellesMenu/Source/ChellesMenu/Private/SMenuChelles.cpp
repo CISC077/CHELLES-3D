@@ -848,6 +848,19 @@ namespace ChellesOptions
 		EcrireBool(TEXT("Chat"), !ChatActif());
 	}
 
+	// --- Chat global (joueurs du jeu + visiteurs du site), lu par le plugin ChellesChat
+	static bool ChatGlobalActif() { return LireBool(TEXT("ChatGlobal"), true); }
+
+	static FText TexteChatGlobal()
+	{
+		return FText::FromString(FString::Printf(TEXT("CHAT GLOBAL SITE + JEU (B) : %s"), ChatGlobalActif() ? TEXT("ON") : TEXT("OFF")));
+	}
+
+	static void ChangerChatGlobal()
+	{
+		EcrireBool(TEXT("ChatGlobal"), !ChatGlobalActif());
+	}
+
 	static FText TexteAide()
 	{
 		return FText::FromString(FString::Printf(TEXT("AIDE TUTO & ASTUCES : %s"), AideActive() ? TEXT("ON") : TEXT("OFF")));
@@ -2154,10 +2167,11 @@ TSharedRef<SWidget> SMenuChelles::OngletJeu()
 {
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteChat(); }, [](int32) { ChellesOptions::ChangerChat(); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteChatGlobal(); }, [](int32) { ChellesOptions::ChangerChatGlobal(); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteAide(); }, [](int32) { ChellesOptions::ChangerAide(); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TextePvp(); }, [](int32) { ChellesOptions::ChangerPvp(); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteDifficulte(); }, [](int32 S) { ChellesOptions::ChangerDifficulte(S); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("En jeu, ENTR\u00C9E ouvre le panneau de droite : chat entre joueurs (en multi) et aide Tuto & Astuces. Le PVP est choisi par celui qui h\u00E9berge la partie. L'effet de la difficult\u00E9 sur les ennemis viendra apr\u00E8s le test LAN."))) ];
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("En jeu, ENTR\u00C9E ouvre le panneau de droite : chat entre joueurs (en multi) et aide Tuto & Astuces. B ouvre le CHAT GLOBAL \u00E0 gauche : tous les joueurs du jeu et les visiteurs du site chelles3d.fr. Le PVP est choisi par celui qui h\u00E9berge la partie. L'effet de la difficult\u00E9 sur les ennemis viendra apr\u00E8s le test LAN."))) ];
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranTouches()
