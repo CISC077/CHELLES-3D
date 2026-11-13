@@ -253,6 +253,10 @@ namespace ChellesOptions
 		{ TEXT("VolumeMusique"), TEXT("MUSIQUE"), TEXT("SC_Music") },
 		{ TEXT("VolumeEffets"), TEXT("EFFETS (SFX)"), TEXT("SC_SFX") },
 		{ TEXT("VolumeVoix"), TEXT("VOIX"), TEXT("SC_Voice") },
+		// Pas de classe de son : lu directement par le plugin ChellesAmbiance (sons de quartier, vent, nuit...)
+		{ TEXT("VolumeAmbiance"), TEXT("AMBIANCE"), nullptr },
+		// Pas de classe de son : lu directement par le plugin ChellesSonsVehicules (moteurs, klaxons)
+		{ TEXT("VolumeVehicules"), TEXT("V\u00C9HICULES"), nullptr },
 	};
 	static USoundMix* GMix = nullptr;
 	static TWeakObjectPtr<UWorld> GMondeMix;
@@ -279,6 +283,10 @@ namespace ChellesOptions
 		}
 		for (int32 i = 0; i < (int32)UE_ARRAY_COUNT(Canaux); ++i)
 		{
+			if (!Canaux[i].Classe)
+			{
+				continue;
+			}
 			if (USoundClass* Classe = ClasseSon(Canaux[i].Classe))
 			{
 				UGameplayStatics::SetSoundMixClassOverride(Monde, GMix, Classe, VolumeCanal(i), 1.f, 0.f, true);
@@ -312,9 +320,33 @@ namespace ChellesOptions
 	static bool InverserManette() { return LireBool(TEXT("InverserManette"), false); }
 	static bool Qwerty() { return LireBool(TEXT("ClavierQwerty"), false); }
 
-	/** AZERTY : Z/Q pour avancer/aller a gauche.  QWERTY : W/A a la place (S et D ne bougent pas). */
+	/** AZERTY : Z/Q pour avancer/aller a gauche.  QWERTY : W/A a la place (S et D ne bougent pas).
+	 *  En QWERTY, W sert a avancer : les actions posees sur W (camera) passent sur Z, meme place sur le clavier. */
 	static void Disposition(UPlayerInput* Entrees, bool bQwerty)
 	{
+		if (bQwerty)
+		{
+			TArray<FInputActionKeyMapping> ActionsW;
+			for (const FInputActionKeyMapping& M : Entrees->ActionMappings)
+			{
+				if (M.Key == EKeys::W)
+				{
+					ActionsW.Add(M);
+				}
+			}
+			for (const FInputActionKeyMapping& M : ActionsW)
+			{
+				Entrees->RemoveActionMapping(M);
+				FInputActionKeyMapping Nouveau = M;
+				Nouveau.Key = EKeys::Z;
+				Entrees->AddActionMapping(Nouveau);
+			}
+			if (ActionsW.Num() > 0)
+			{
+				Entrees->ForceRebuildingKeyMaps(false);
+			}
+		}
+
 		const FKey Avant = bQwerty ? EKeys::Z : EKeys::W;
 		const FKey Gauche = bQwerty ? EKeys::Q : EKeys::A;
 		const FKey NouvelAvant = bQwerty ? EKeys::W : EKeys::Z;
@@ -384,7 +416,7 @@ namespace ChellesOptions
 			Ajouter(TEXT("Grenade"), TEXT("GRENADE"), EKeys::G, TEXT("GrenadeThrow"));
 			Ajouter(TEXT("CorpsACorps"), TEXT("CORPS \u00C0 CORPS"), EKeys::V, TEXT("Melee"));
 			Ajouter(TEXT("Inventaire"), TEXT("INVENTAIRE"), EKeys::I, TEXT("Inventory"));
-			Ajouter(TEXT("Camera"), TEXT("CAM\u00C9RA"), EKeys::X, TEXT("Camera"));
+			Ajouter(TEXT("Camera"), TEXT("CAM\u00C9RA"), EKeys::W, TEXT("Camera,ChangeCamera"));
 		}
 		return Liste;
 	}
@@ -768,6 +800,7 @@ namespace ChellesOptions
 			{
 				K = T.Defaut;
 				if (Qwerty() && K == EKeys::Z) { K = EKeys::W; }
+				else if (Qwerty() && K == EKeys::W) { K = EKeys::Z; }
 				if (Qwerty() && K == EKeys::Q) { K = EKeys::A; }
 			}
 			Nom = K.GetDisplayName().ToString().ToUpper();
@@ -813,6 +846,19 @@ namespace ChellesOptions
 	static void ChangerChat()
 	{
 		EcrireBool(TEXT("Chat"), !ChatActif());
+	}
+
+	// --- Chat global (joueurs du jeu + visiteurs du site), lu par le plugin ChellesChat
+	static bool ChatGlobalActif() { return LireBool(TEXT("ChatGlobal"), true); }
+
+	static FText TexteChatGlobal()
+	{
+		return FText::FromString(FString::Printf(TEXT("CHAT GLOBAL SITE + JEU (B) : %s"), ChatGlobalActif() ? TEXT("ON") : TEXT("OFF")));
+	}
+
+	static void ChangerChatGlobal()
+	{
+		EcrireBool(TEXT("ChatGlobal"), !ChatGlobalActif());
 	}
 
 	static FText TexteAide()
@@ -1728,7 +1774,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	{
 		MontrerApercu();
 	}
-	const int32 SexeActuel = TenueChoisie.EstSpiderMan() ? int32(ChellesHabillage::SpiderMan) : TenueChoisie.Sexe;
+	const int32 SexeActuel = (TenueChoisie.EstSpiderMan() && !TenueChoisie.EstPantera()) ? int32(ChellesHabillage::SpiderMan) : TenueChoisie.Sexe;
 
 	TSharedRef<SVerticalBox> Gauche = SNew(SVerticalBox);
 	Gauche->AddSlot().AutoHeight()[ Titre(FText::FromString(TEXT("HABILLAGE")), FText::FromString(TEXT("// SEXE, TENUE ET LOOK DE TON JOUEUR"))) ];
@@ -1737,7 +1783,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	auto BoutonSexe = [this, SexeActuel](const TCHAR* Nom, int32 Sexe) -> TSharedRef<SWidget>
 	{
 		const FString Libelle = (SexeActuel == Sexe) ? FString::Printf(TEXT("[ %s ]"), Nom) : FString(Nom);
-		return Bouton(FText::FromString(Libelle), 34, [this, Sexe]()
+		return Bouton(FText::FromString(Libelle), 30, [this, Sexe]()
 		{
 			ModifierTenue([Sexe](ChellesHabillage::FTenue& T)
 			{
@@ -1754,17 +1800,22 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("F\u00C9MININ"), ChellesHabillage::Feminin) ]
 		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("MASCULIN"), ChellesHabillage::Masculin) ]
-		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("SPIDER-MAN"), ChellesHabillage::SpiderMan) ]
+		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("SPIDER-MALE"), ChellesHabillage::SpiderMan) ]
+		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("PANTERA"), ChellesHabillage::Pantera) ]
 	];
 
 	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
-	if (TenueChoisie.EstSpiderMan())
+	if (TenueChoisie.EstPantera())
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues SPIDER-MAN, le h\u00E9ros que tu as d\u00E9j\u00E0 dans tout le jeu.\nChoisis F\u00C9MININ ou MASCULIN pour cr\u00E9er ton propre look : visage, cheveux, haut, bas, chaussures, chapeau, lunettes..."))) ];
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues PANTERA : tenue noire, masque noir, yeux blancs.\nIl vole comme Spider-Male, mais 20 secondes maximum : ensuite il doit se poser. Clic gauche = tirs des mains (laser, feu, glace, foudre), O = changer de tir.\nTu commences en PANTERA ; TAB pour changer de mode."))) ];
+	}
+	else if (TenueChoisie.EstSpiderMan())
+	{
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues SPIDER-MALE, le h\u00E9ros que tu as d\u00E9j\u00E0 dans tout le jeu.\nChoisis F\u00C9MININ ou MASCULIN pour cr\u00E9er ton propre look : visage, cheveux, haut, bas, chaussures, chapeau, lunettes..."))) ];
 	}
 	else if (!Modele)
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Packs de personnages introuvables dans Content (Action_Male_and_Female, Female_Mannequin). Tu restes en Spider-Man."))) ];
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Packs de personnages introuvables dans Content (Action_Male_and_Female, Female_Mannequin). Tu restes en Spider-Male."))) ];
 	}
 	else
 	{
@@ -1834,7 +1885,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 		]
 	];
 	Gauche->AddSlot().AutoHeight()[ BoutonRetour() ];
-	Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Clic gauche / droite (ou fl\u00E8ches) pour changer. Ton look est vu par les autres joueurs en multi. La roue TAB garde Spider-Man, motoneige, cheval..."))) ];
+	Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Clic gauche / droite (ou fl\u00E8ches) pour changer. Ton look est vu par les autres joueurs en multi. La roue TAB garde Spider-Male, PANTERA, motoneige, cheval..."))) ];
 
 	TSharedRef<SWidget> Droite = PinceauApercu.IsValid()
 		? StaticCastSharedRef<SWidget>(SNew(SZoneApercuChelles).Acteur(ApercuActeur).Image(PinceauApercu.Get()))
@@ -2096,18 +2147,31 @@ TSharedRef<SWidget> SMenuChelles::OngletAudio()
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Reglage([]() { return ChellesOptions::TexteCanal(2); }, [](int32 S) { ChellesOptions::ChangerCanal(2, S); }) ]
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Curseur([]() { return ChellesOptions::VolumeCanal(2); }, [](float V) { ChellesOptions::DefinirVolumeCanal(2, V); }) ]
 		]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Reglage([]() { return ChellesOptions::TexteCanal(3); }, [](int32 S) { ChellesOptions::ChangerCanal(3, S); }) ]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Curseur([]() { return ChellesOptions::VolumeCanal(3); }, [](float V) { ChellesOptions::DefinirVolumeCanal(3, V); }) ]
+		]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Reglage([]() { return ChellesOptions::TexteCanal(4); }, [](int32 S) { ChellesOptions::ChangerCanal(4, S); }) ]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[ Curseur([]() { return ChellesOptions::VolumeCanal(4); }, [](float V) { ChellesOptions::DefinirVolumeCanal(4, V); }) ]
+		]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteSon(); }, [](int32 S) { ChellesOptions::ChangerSon(S); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Le volume g\u00E9n\u00E9ral agit sur tout le jeu. Musique / effets / voix agissent sur les sons class\u00E9s comme tels dans le pack FPS, et sur les sons de ce menu. En jeu : Page Haut / Page Bas = volume musique, N = couper, Fin = piste suivante."))) ];
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Le volume g\u00E9n\u00E9ral agit sur tout le jeu. Musique / effets / voix agissent sur les sons class\u00E9s comme tels dans le pack FPS, et sur les sons de ce menu. Ambiance = bruits du quartier (ville, oiseaux, vent, nuit, neige, invasion). V\u00E9hicules = moteurs et klaxons (H = klaxonner en conduisant). En jeu : Page Haut / Page Bas = volume musique, N = couper, Fin = piste suivante."))) ];
 }
 
 TSharedRef<SWidget> SMenuChelles::OngletJeu()
 {
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteChat(); }, [](int32) { ChellesOptions::ChangerChat(); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteChatGlobal(); }, [](int32) { ChellesOptions::ChangerChatGlobal(); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteAide(); }, [](int32) { ChellesOptions::ChangerAide(); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TextePvp(); }, [](int32) { ChellesOptions::ChangerPvp(); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteDifficulte(); }, [](int32 S) { ChellesOptions::ChangerDifficulte(S); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("En jeu, ENTR\u00C9E ouvre le panneau de droite : chat entre joueurs (en multi) et aide Tuto & Astuces. Le PVP est choisi par celui qui h\u00E9berge la partie. L'effet de la difficult\u00E9 sur les ennemis viendra apr\u00E8s le test LAN."))) ];
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("En jeu, ENTR\u00C9E ouvre le panneau de droite : chat entre joueurs (en multi) et aide Tuto & Astuces. B ouvre le CHAT GLOBAL \u00E0 gauche : tous les joueurs du jeu et les visiteurs du site chelles3d.fr. Le PVP est choisi par celui qui h\u00E9berge la partie. L'effet de la difficult\u00E9 sur les ennemis viendra apr\u00E8s le test LAN."))) ];
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranTouches()
