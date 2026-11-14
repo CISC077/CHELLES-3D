@@ -1,0 +1,26 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Conduite du SUV",
+	"Description": "Rend le SUV de la roue TAB stable et facile a conduire, comme la motoneige : plus d'adherence des pneus, centre de gravite plus bas, braquage plus doux, la voiture ne glisse plus sur le cote et ne part plus en tete-a-queue. Ne modifie aucun fichier du pack (tout est fait pendant le jeu). Reglages dans ConduiteSUV.txt.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesConduite",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "PhysXVehicles",
+			"Enabled": true
+		}
+	]
+}
