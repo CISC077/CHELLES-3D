@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles JetPack",
+	"Description": "JetPacks a ramasser dans la carte : le joueur qui en ramasse un peut voler (Espace monter, Ctrl/C descendre, Maj turbo, N lacher). Couleur reglable. Solo et multijoueur.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesJetPack",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
