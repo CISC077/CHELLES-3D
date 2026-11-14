@@ -273,6 +273,15 @@ def creer_blueprints(cls_cpp, dos):
         regler(c, "nom_couleur", affiche)
         eal.save_asset(DOSSIER_BP + "/BP_JetPack_" + nom, False)
         classes.append((nom, cls))
+    # notre materiau colorable (le materiau Mask du pack n'a pas de reglage lisible)
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("colorer_jetpacks", os.path.join(ICI, "colorer_jetpacks.py"))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.colorer()
+    except Exception:
+        log("   ATTENTION couleurs :\n" + traceback.format_exc())
     log("1/5 Blueprints prets dans %s : BP_JetPack + %s"
         % (DOSSIER_BP, ", ".join("BP_JetPack_" + n for n, _c in classes)))
     return classes
