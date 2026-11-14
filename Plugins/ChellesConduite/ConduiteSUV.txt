@@ -1,0 +1,36 @@
+# CHELLES 3D - Reglages de la conduite du SUV (voiture de la roue TAB)
+# Modifiez avec le Bloc-notes puis relancez le Play. Pas besoin de recompiler.
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = SUV stable, Non = conduite d'origine du pack
+Actif=Oui
+
+# Vehicules concernes (nom du Blueprint, separes par des virgules).
+# Exemple pour les autres voitures du pack : SUV_BP_child,Hatchback_BP_Child,Sedane_BP_child
+Vehicules=SUV_BP_child
+
+# ---- Aide a chaque image (change tout de suite avec : console touche ² puis Chelles.SUV Relire) ----
+# Supprime la glisse sur le cote. 0 = glisse d'origine, 5 = un peu de glisse, 10 = colle a la route, 20 = sur des rails
+Adherence=10
+# Vitesse de rotation maxi de la voiture (degres par seconde) : empeche les tete-a-queue
+VirageMax=70
+# Rayon de virage le plus serre (metres)
+RayonMini=6
+# Force maxi dans les virages a grande vitesse (9.8 = 1 g). Plus petit = tourne moins vite a fond
+ForceVirage=9
+# Empeche la caisse de se pencher et de se retourner (0 = rien, 6 = normal, 15 = tres raide)
+AntiRoulis=6
+# Plaque la voiture au sol quand elle va vite (0 = rien, 0.4 = normal, 1 = beaucoup)
+Appui=0.4
+
+# ---- Reglages de la voiture (pris au prochain Play) ----
+# Centre de gravite descendu (en cm, negatif = plus bas = plus stable)
+AbaisserCentre=-40
+# Adherence des pneus (1 = pack d'origine, 2 = deux fois plus)
+Friction=2.0
+# Rigidite laterale des pneus (1 = pack d'origine)
+Rigidite=1.5
+# Angle maxi des roues avant en degres (plus petit = direction plus douce). 0 = garder celui du pack
+Braquage=40
+# Amortisseurs (0 = garder ceux du pack, 0.7 = fermes, la voiture tangue moins)
+Amortissement=0.7
