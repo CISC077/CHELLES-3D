@@ -96,41 +96,49 @@ def main():
     log("2/4 %d modeles d'un passage precedent enleves" % len(anciens))
 
     # 3. pose
-    meshes, manquants, n = {}, set(), 0
+    modeles, manquants, n = {}, set(), 0
     for i, p in enumerate(poses):
         ch = p["modele"]
-        if ch not in meshes:
-            meshes[ch] = eal.load_asset(ch) if eal.does_asset_exist(ch) else None
-        m = meshes[ch]
-        if not isinstance(m, unreal.StaticMesh):
+        bp = p.get("blueprint", False)
+        if ch not in modeles:
+            obj = None
+            if eal.does_asset_exist(ch):
+                obj = eal.load_blueprint_class(ch) if bp else eal.load_asset(ch)
+            modeles[ch] = obj
+        m = modeles[ch]
+        if m is None or (not bp and not isinstance(m, unreal.StaticMesh)):
             manquants.add(ch)
             continue
         x, y, z = p["position"]
-        a = ell.spawn_actor_from_object(m, unreal.Vector(x, y, z), unreal.Rotator(roll=0.0, pitch=0.0, yaw=p["yaw"]))
+        rot = unreal.Rotator(roll=0.0, pitch=0.0, yaw=p["yaw"])
+        if bp:
+            a = ell.spawn_actor_from_class(m, unreal.Vector(x, y, z), rot)
+        else:
+            a = ell.spawn_actor_from_object(m, unreal.Vector(x, y, z), rot)
         if a is None:
             continue
         a.set_actor_scale3d(unreal.Vector(*p["echelle"]))
-        a.set_actor_label("Habillage_%04d_%s" % (i, m.get_name()))
+        a.set_actor_label("Habillage_%04d_%s" % (i, ch.rsplit("/", 1)[-1]))
         a.set_folder_path("%s/%s" % (DOSSIER_OUTLINER, p.get("pack", "Pack")))
         tags = list(a.get_editor_property("tags"))
         tags.append(unreal.Name(TAG_AJOUTE))
         a.set_editor_property("tags", tags)
-        c = a.static_mesh_component
         try:
-            c.set_mobility(unreal.ComponentMobility.MOVABLE)  # comme les tuiles : pas de lightmap a calculer
+            a.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)  # comme les tuiles : pas de lightmap
         except Exception:
             pass
-        try:
-            c.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
-            c.set_editor_property("can_ever_affect_navigation", False)
-        except Exception:
-            pass
-        if DISTANCE_AFFICHAGE_M > 0:
+        for c in a.get_components_by_class(unreal.PrimitiveComponent):
             try:
-                c.set_editor_property("ld_max_draw_distance", DISTANCE_AFFICHAGE_M * 100.0)
-                c.set_cull_distance(DISTANCE_AFFICHAGE_M * 100.0)
+                c.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+                c.set_editor_property("can_ever_affect_navigation", False)
             except Exception:
                 pass
+            if DISTANCE_AFFICHAGE_M > 0:
+                try:
+                    c.set_editor_property("ld_max_draw_distance", DISTANCE_AFFICHAGE_M * 100.0)
+                    c.set_cull_distance(DISTANCE_AFFICHAGE_M * 100.0)
+                except Exception:
+                    pass
         n += 1
     for ch in sorted(manquants):
         log("   modele introuvable (pack deplace ?) : %s" % ch)

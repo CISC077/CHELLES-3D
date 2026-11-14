@@ -46,6 +46,7 @@ importlib.reload(hc)
 
 TRAVERSABLE_IDS = {111032114, 111031897, 111022267, 111003037, 111023866, 111029096}
 NOMS_CUBE = ("cube", "shape_cube", "1m_cube", "sm_cube", "box", "batiment")
+BP_MESURES = []  # Blueprints poses un instant pour les mesurer
 
 
 def log(msg):
@@ -82,113 +83,187 @@ def valeur_tag(ad, nom):
     return None
 
 
+def bornes_visibles(acteur):
+    """(min, max) des modeles visibles d'un acteur (Static Mesh, instances, personnages) ou None."""
+    mn = mx = None
+    for classe in (unreal.StaticMeshComponent, unreal.SkeletalMeshComponent):
+        for c in acteur.get_components_by_class(classe):
+            try:
+                if isinstance(c, unreal.StaticMeshComponent) and c.get_editor_property("static_mesh") is None:
+                    continue
+                if not c.get_editor_property("visible") or c.get_editor_property("hidden_in_game"):
+                    continue
+                o, e, _r = unreal.SystemLibrary.get_component_bounds(c)
+            except Exception:
+                continue
+            lo = (o.x - e.x, o.y - e.y, o.z - e.z)
+            hi = (o.x + e.x, o.y + e.y, o.z + e.z)
+            mn = lo if mn is None else tuple(min(p, q) for p, q in zip(mn, lo))
+            mx = hi if mx is None else tuple(max(p, q) for p, q in zip(mx, hi))
+    if mn is None:
+        return None
+    return mn, mx
+
+
+def modele_depuis_bornes(chemin, nom, nature, mn, mx, ox=0.0, oy=0.0, oz=0.0, blueprint=False):
+    x, y, z = mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]
+    return {
+        "chemin": chemin, "nom": nom, "pack": hc.pack_de(chemin), "nature": nature, "blueprint": blueprint,
+        "x": x, "y": y, "z": z, "lo": max(x, y), "la": min(x, y), "axe_long": "X" if x >= y else "Y",
+        "centre": [(mx[0] + mn[0]) / 2 - ox, (mx[1] + mn[1]) / 2 - oy], "bas": mn[2] - oz,
+    }
+
+
 def inventaire_packs():
     ar = unreal.AssetRegistryHelpers.get_asset_registry()
     flt = unreal.ARFilter(class_names=["StaticMesh"], package_paths=["/Game"], recursive_paths=True)
     tous = ar.get_assets(flt)
     log("1/4 %d modeles 3D (StaticMesh) dans le Content" % len(tous))
-    candidats = []
-    sans_taille = 0
-    charges = 0
-    debut = time.time()
+    modeles = []
     for ad in tous:
         paquet = str(ad.package_name)
         nom = str(ad.asset_name)
-        if any(paquet.startswith(d) for d in hc.DOSSIERS_EXCLUS):
+        if hc.nature_modele(paquet, nom, 1e4, 1e4, 1e4) is None:  # tri sur le nom avant d'ouvrir le modele
             continue
-        taille = valeur_tag(ad, "ApproxSize")
-        dims = None
-        if taille:
-            n = re.findall(r"[\d.]+", taille)
-            if len(n) >= 3:
-                dims = [float(v) for v in n[:3]]
-        if dims is None:
-            sans_taille += 1
-            if charges > 6000 or time.time() - debut > 900:
-                continue
-            m = eal.load_asset(paquet)
-            charges += 1
-            if not isinstance(m, unreal.StaticMesh):
-                continue
-            b = m.get_bounding_box()
-            dims = [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z]
-        nature = hc.nature_modele(paquet + "/", nom, dims[0], dims[1], dims[2])
-        if nature:
-            candidats.append((paquet, nom, nature))
-    if sans_taille:
-        log("   %d modeles sans taille enregistree (%d ouverts pour les mesurer)" % (sans_taille, charges))
-
-    modeles = []
-    for paquet, nom, nature in candidats:
         m = eal.load_asset(paquet)
         if not isinstance(m, unreal.StaticMesh):
             continue
         b = m.get_bounding_box()
-        x, y, z = b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z
-        if hc.nature_modele(paquet + "/", nom, x, y, z) is None:
+        mn, mx = (b.min.x, b.min.y, b.min.z), (b.max.x, b.max.y, b.max.z)
+        nature = hc.nature_modele(paquet, nom, mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2])
+        if nature:
+            modeles.append(modele_depuis_bornes(paquet, nom, nature, mn, mx))
+    log("   %d modeles 3D de maisons / immeubles retenus" % len(modeles))
+
+    # Blueprints de batiments entiers : poses un instant tres loin sous la carte pour les mesurer
+    flt = unreal.ARFilter(class_names=["Blueprint"], package_paths=["/Game"], recursive_paths=True)
+    n_bp = 0
+    ici = unreal.Vector(0.0, 0.0, -500000.0)
+    for ad in ar.get_assets(flt):
+        paquet = str(ad.package_name)
+        if not hc.blueprint_candidat(paquet):
             continue
-        pack = paquet.split("/")[2] if paquet.count("/") >= 2 else "?"
-        modeles.append({
-            "chemin": paquet, "nom": nom, "pack": pack, "nature": nature,
-            "x": x, "y": y, "z": z, "lo": max(x, y), "la": min(x, y), "axe_long": "X" if x >= y else "Y",
-            "centre": [(b.max.x + b.min.x) / 2, (b.max.y + b.min.y) / 2], "bas": b.min.z,
-        })
-    log("   %d modeles de maisons / immeubles retenus" % len(modeles))
+        try:
+            classe = eal.load_blueprint_class(paquet)
+            a = ell.spawn_actor_from_class(classe, ici, unreal.Rotator(0.0, 0.0, 0.0)) if classe else None
+        except Exception:
+            a = None
+        if a is None:
+            continue
+        BP_MESURES.append(1)
+        try:
+            bornes = bornes_visibles(a)
+        finally:
+            ell.destroy_actor(a)
+        if bornes is None:
+            continue
+        mn, mx = bornes
+        nom = str(ad.asset_name)
+        nature = hc.nature_modele(paquet, nom, mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2], blueprint=True)
+        if nature:
+            modeles.append(modele_depuis_bornes(paquet, nom, nature, mn, mx, ici.x, ici.y, ici.z, blueprint=True))
+            n_bp += 1
+    log("   %d Blueprints d'immeubles retenus" % n_bp)
     return modeles
 
 
 # ------------------------------------------------------------------ 2. batiments simples de Rachid
-def recalage_tuiles(acteurs):
-    """Decalage entre le repere des donnees OSM et la carte, tuile par tuile."""
-    man_path = os.path.join(OUT, "manifest.json")
-    if not os.path.exists(man_path):
-        log("   manifest.json introuvable : batiments OSM ignores")
-        return {}, {}
-    man = json.load(open(man_path, encoding="utf-8"))
-    boites = {t["name"]: t["box_cm"] for t in man["tiles"] if t.get("buildings")}
-    par_nom = {a.get_actor_label(): a for a in acteurs if a.get_actor_label() in boites}
-    decal = {}
-    for nom, bx in boites.items():
-        a = par_nom.get(nom)
-        if a is None:
-            log("   tuile %s absente de la carte" % nom)
+def correspondance_axes(m, bx):
+    """Comment le repere des donnees (FBX, cm) devient le repere du modele importe : local[i] = signe[i] * fbx[perm[i]]."""
+    import itertools
+    b = m.get_bounding_box()
+    lc = [(b.max.x + b.min.x) / 2, (b.max.y + b.min.y) / 2, (b.max.z + b.min.z) / 2]
+    le = [(b.max.x - b.min.x) / 2, (b.max.y - b.min.y) / 2, (b.max.z - b.min.z) / 2]
+    meilleur = None
+    for perm in itertools.permutations(range(3)):
+        for signes in itertools.product((1, -1), repeat=3):
+            err = sum(abs(le[i] - bx[3 + perm[i]]) + abs(lc[i] - signes[i] * bx[perm[i]]) for i in range(3))
+            if meilleur is None or err < meilleur[0]:
+                meilleur = (err, perm, signes)
+    return meilleur
+
+
+def tuiles_de_la_carte(acteurs, boites):
+    """Acteurs de la carte qui affichent une tuile de batiments (trouves par leur modele, pas par leur nom)."""
+    res = []
+    for a in acteurs:
+        if not isinstance(a, unreal.StaticMeshActor):
             continue
-        o, e = a.get_actor_bounds(False)
-        if max(abs(e.x - bx[3]), abs(e.y - bx[4]), abs(e.z - bx[5])) > 60:
-            log("   tuile %s tournee ou redimensionnee : ignoree" % nom)
+        try:
+            m = a.static_mesh_component.get_editor_property("static_mesh")
+        except Exception:
             continue
-        decal[nom] = (o.x - bx[0], o.y + bx[1], o.z - bx[2])
-    log("   %d tuiles de batiments recalees sur la carte" % len(decal))
-    return decal, boites
+        if m is None or m.get_name() not in boites:
+            continue
+        err, perm, signes = correspondance_axes(m, boites[m.get_name()])
+        t = a.get_actor_transform()
+        r = a.get_actor_rotation()
+        s = a.get_actor_scale3d()
+        log("   tuile %-26s acteur \"%s\" pos (%.0f, %.0f, %.0f) rot (%.0f, %.0f, %.0f) echelle (%.2f, %.2f, %.2f)%s" % (
+            m.get_name(), a.get_actor_label(), t.translation.x, t.translation.y, t.translation.z,
+            r.roll, r.pitch, r.yaw, s.x, s.y, s.z, "" if err < 150 else "  -> modele different des donnees, ignoree"))
+        if err < 150:
+            res.append((m.get_name(), a, perm, signes))
+    return res
 
 
 def cibles_osm(acteurs):
     osm = os.path.join(OUT, "osm.json")
-    if not os.path.exists(osm):
-        log("   osm.json introuvable : batiments OSM ignores")
+    man_path = os.path.join(OUT, "manifest.json")
+    if not (os.path.exists(osm) and os.path.exists(man_path)):
+        log("   osm.json / manifest.json introuvables : batiments des tuiles ignores")
         return []
-    decal, boites = recalage_tuiles(acteurs)
-    if not decal:
+    man = json.load(open(man_path, encoding="utf-8"))
+    boites = {t["name"]: t["box_cm"] for t in man["tiles"] if t.get("buildings")}
+    tuiles = tuiles_de_la_carte(acteurs, boites)
+    presentes = {n for n, _a, _p, _s in tuiles}
+    for n in sorted(boites):
+        if n not in presentes:
+            log("   tuile %s : pas dans la carte" % n)
+    if not tuiles:
         return []
-    cibles = []
-    for b in hc.batiments_osm(json.load(open(osm, encoding="utf-8"))):
+    # chaque batiment OSM -> sa tuile (meme regle que build_buildings.py : boite de la tuile)
+    batiments = hc.batiments_osm(json.load(open(osm, encoding="utf-8")))
+    par_tuile = {}
+    for b in batiments:
         fx, fy = b["cx"] * 100, b["cy"] * 100
         if b["id"] in TRAVERSABLE_IDS:
             noms = ["Chelles_Tile_Traversable"]
         else:
             noms = [n for n, bx in boites.items() if n != "Chelles_Tile_Traversable"
                     and abs(fx - bx[0]) <= bx[3] + 1 and abs(fy - bx[1]) <= bx[4] + 1]
-        noms = [n for n in noms if n in decal]
-        if not noms:
-            continue
-        n = min(noms, key=lambda k: math.hypot(fx - boites[k][0], fy - boites[k][1]))
-        dx, dy, dz = decal[n]
-        cibles.append({
-            "source": "osm", "id": b["id"], "tuile": n,
-            "x": fx + dx, "y": -fy + dy, "sol": dz, "yaw": -math.degrees(b["angle"]),
-            "longueur": b["longueur"] * 100, "largeur": b["largeur"] * 100, "hauteur": b["hauteur"] * 100,
-            "remplissage": b["remplissage"], "infos": b["tags"],
-        })
+        if noms:
+            n = min(noms, key=lambda k: math.hypot(fx - boites[k][0], fy - boites[k][1]))
+            par_tuile.setdefault(n, []).append(b)
+
+    cibles = []
+    for nom, a, perm, signes in tuiles:
+        t = a.get_actor_transform()
+
+        def monde(fx, fy, fz):
+            f = (fx, fy, fz)
+            return t.transform_location(unreal.Vector(*[signes[i] * f[perm[i]] for i in range(3)]))
+
+        for b in par_tuile.get(nom, []):
+            cx, cy = b["cx"] * 100, b["cy"] * 100
+            ux, uy = math.cos(b["angle"]), math.sin(b["angle"])
+            p0 = monde(cx, cy, 0.0)
+            pu = monde(cx + ux * 100, cy + uy * 100, 0.0)
+            pv = monde(cx - uy * 100, cy + ux * 100, 0.0)
+            pz = monde(cx, cy, 100.0)
+            du = (pu.x - p0.x, pu.y - p0.y, pu.z - p0.z)
+            su = math.sqrt(sum(v * v for v in du)) / 100
+            sv = math.sqrt((pv.x - p0.x) ** 2 + (pv.y - p0.y) ** 2 + (pv.z - p0.z) ** 2) / 100
+            sz = math.sqrt((pz.x - p0.x) ** 2 + (pz.y - p0.y) ** 2 + (pz.z - p0.z) ** 2) / 100
+            if abs(du[2]) > 5 or abs(pz.z - p0.z) < 90 * sz:
+                continue  # tuile penchee : on ne sait pas poser droit
+            cibles.append({
+                "source": "osm", "id": b["id"], "tuile": nom,
+                "x": p0.x, "y": p0.y, "sol": p0.z, "yaw": math.degrees(math.atan2(du[1], du[0])),
+                "longueur": b["longueur"] * 100 * su, "largeur": b["largeur"] * 100 * sv,
+                "hauteur": b["hauteur"] * 100 * sz, "remplissage": b["remplissage"], "infos": b["tags"],
+            })
+    log("   %d tuile(s) de batiments trouvee(s) dans la carte" % len(tuiles))
     return cibles
 
 
@@ -235,7 +310,7 @@ def cibles_acteurs(acteurs):
 
 
 def vrais_batiments(acteurs, a_ignorer):
-    """Boites 2D des grands objets deja poses (vrais batiments des packs, Blueprints...)."""
+    """Boites 2D des grands modeles deja poses (vrais batiments des packs, Blueprints...)."""
     res = []
     for a in acteurs:
         lbl = a.get_actor_label()
@@ -244,15 +319,19 @@ def vrais_batiments(acteurs, a_ignorer):
         if isinstance(a, (unreal.Pawn, unreal.Volume, unreal.Light, unreal.LandscapeProxy, unreal.Brush)):
             continue
         t = (a.get_class().get_name() + " " + lbl).lower()
-        if any(k in t for k in ("sky", "cloud", "fog", "atmos", "snow", "neige", "post", "landscape", "navmesh", "water")):
+        if any(k in t for k in ("sky", "cloud", "fog", "atmos", "snow", "neige", "post", "landscape", "navmesh",
+                                "water", "spawner", "volume", "trigger", "zone", "foliage", "road", "route",
+                                "trottoir", "sidewalk")):
             continue
-        try:
-            o, e = a.get_actor_bounds(False)
-        except Exception:
+        bornes = bornes_visibles(a)
+        if bornes is None:
             continue
-        if e.x < 150 or e.y < 150 or e.z < 150 or e.x > 30000 or e.y > 30000:
+        mn, mx = bornes
+        if mx[0] - mn[0] < 300 or mx[1] - mn[1] < 300 or mx[2] - mn[2] < 300:
             continue
-        res.append((o.x - e.x, o.y - e.y, o.x + e.x, o.y + e.y, lbl))
+        if mx[0] - mn[0] > 60000 or mx[1] - mn[1] > 60000:
+            continue
+        res.append((mn[0], mn[1], mx[0], mx[1], lbl))
     return res
 
 
@@ -314,6 +393,7 @@ def main():
 
     log("3/4 calcul des correspondances de volume ...")
     boites = vrais_batiments(acteurs, {c["id"] for c in cibles if c["source"] == "acteur"} | {"Floor"})
+    boites_cubes = [boite_cible(c) + ("cube " + c["id"],) for c in cibles if c["source"] == "acteur"]
     rnd = random.Random(GRAINE)
     usages, poses = {}, []
     irreguliers, deja, sans = [], [], []
@@ -322,6 +402,8 @@ def main():
             irreguliers.append(c)
             continue
         d = deja_habille(c, boites)
+        if not d and c["source"] == "osm":
+            d = deja_habille(c, boites_cubes)
         if d:
             c["deja"] = d
             deja.append(c)
@@ -335,6 +417,7 @@ def main():
         loc, yaw, echelle = placement(c, m, s, rnd.random() < 0.5)
         poses.append({
             "source": c["source"], "id": c["id"], "modele": m["chemin"], "pack": m["pack"],
+            "blueprint": m.get("blueprint", False),
             "position": loc, "yaw": yaw, "echelle": echelle, "ecart_pourcent": round(ecart * 100, 1),
             "simple_m": [round(c["longueur"] / 100, 1), round(c["largeur"] / 100, 1), round(c["hauteur"] / 100, 1)],
             "modele_m": [round(m["lo"] / 100, 1), round(m["la"] / 100, 1), round(m["z"] / 100, 1)],
@@ -356,7 +439,7 @@ def main():
             for m in sorted(par_pack[pack], key=lambda m: m["nom"]):
                 f.write("   %-45s %6.1f x %5.1f x %5.1f  %s%s\n" % (
                     m["nom"], m["lo"] / 100, m["la"] / 100, m["z"] / 100,
-                    "" if m["nature"] == "batiment" else "(a verifier) ",
+                    "(Blueprint) " if m.get("blueprint") else ("" if m["nature"] == "autorise" else "(nouveau pack) "),
                     "utilise %d fois" % usages[m["chemin"]] if m["chemin"] in usages else ""))
             f.write("\n")
 
@@ -401,4 +484,8 @@ except Exception:
     log("ERREUR :\n" + traceback.format_exc())
 
 if os.environ.get("CHELLES_QUITTER") == "1":
+    if BP_MESURES:
+        # des Blueprints ont ete poses puis enleves pour les mesurer : on ferme SANS enregistrer
+        # (sinon Unreal demanderait d'enregistrer Rachid alors que rien n'a change)
+        os._exit(0)
     unreal.SystemLibrary.quit_editor()

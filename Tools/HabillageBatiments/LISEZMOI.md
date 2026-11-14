@@ -27,5 +27,10 @@ Rapports (dans `Rapport\`) :
 - `poser_habillage.py` : `DISTANCE_AFFICHAGE_M = 350` : au-delà, on revoit le bâtiment simple (jeu plus fluide).
   Mettre 0 pour toujours afficher les modèles.
 
-Les Blueprints de bâtiments (BP_Hotel, BP_building...) ne sont pas utilisés : seulement les modèles 3D (Static Mesh).
+## Packs utilisés
+Liste choisie à la main (en haut de `habillage_commun.py`, `MODELES_AUTORISES` / `BLUEPRINTS_AUTORISES`) :
+ac_building (maisons), ModularEuropeanTown (immeubles de ville), Russian_Building (barres 3/5/9 étages),
+JapaneseApartmentBuildings (Blueprints d'immeubles), Meshes SM_House02 / SM_CafeBuilding, MMSupermarket.
+Écartés exprès : Viking, EF_Lewis (fantastique), morceaux modulaires (murs, coins, façades), arbres,
+et tes bâtiments de Chelles faits à la main (Ecole, LaaPoste, Eglise, TourChelles, Mairie...).
 Journal : `habillage.log`.

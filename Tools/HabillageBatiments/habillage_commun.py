@@ -23,6 +23,31 @@ COTE_MAX_CM = 25000.0
 GROUND_H = 3.2
 FLOOR_H = 3.0
 
+# Modeles 3D (Static Mesh) de batiments ENTIERS, choisis a la main pack par pack apres la 1re analyse
+# (les autres packs ne contiennent que des morceaux : murs, fenetres, coins... ou un style trop different).
+# Un modele dont le chemin correspond a une de ces lignes peut etre pose.
+MODELES_AUTORISES = (
+    r"/ac_building/.*SM_ac_building_\d+$",                       # maisons et petits immeubles
+    r"/ModularEuropeanTown/.*sm_building_\d+(_corner\w*|_3s)?$",  # immeubles de ville europeens
+    r"/Russian_Building/.*/\dF_\dE_no_int(erior)?_SM$",            # barres d'immeubles 3, 5 et 9 etages
+    r"/Meshes/SM_House02_[123]$",                                  # maisons
+    r"/Meshes/SM_CafeBuilding0[123]$",                             # petits commerces
+    r"/MMSupermarket/.*SM_SMBuilding$",                            # supermarche
+)
+# Blueprints de batiments ENTIERS (ils sont mesures en les posant un instant pendant l'analyse).
+BLUEPRINTS_AUTORISES = (
+    r"/JapaneseApartmentBuildings/Assets/Buildings/BP_Building_\d+$",  # immeubles d'appartements
+)
+# Packs ecartes exprès (style trop different, morceaux, ou batiments de Chelles faits a la main).
+PACKS_ECARTES = (
+    "Low_Poly_Viking_World", "EF_Lewis", "ADWSystem", "DynamicCombatSystem", "Assets", "Props", "Miami_beach_modular",
+    "ModernCityEnvironment01", "OldTown", "OldBrickHouse", "Building", "Downtown_Alley", "LPApartments",
+    "WinterTown", "AssetsvilleTown", "ParisBuildings",
+)
+
+PACKS_LISTES = ("ac_building", "ModularEuropeanTown", "Russian_Building", "Meshes", "MMSupermarket",
+                "JapaneseApartmentBuildings")
+
 # dossiers du Content qui ne contiennent pas de batiments a poser
 DOSSIERS_EXCLUS = (
     "/Game/Chelles/", "/Game/Maps/", "/Game/Developers/", "/Game/Collections/", "/Game/FPS_Game/",
@@ -37,49 +62,49 @@ DOSSIERS_EXCLUS = (
     "/Game/HorseStarterKit/", "/Game/IMAGES/", "/Game/Christmas_pack/",
 )
 
-# mots qui disent "c'est un morceau, pas un batiment entier"
+# Pour les packs ajoutes plus tard (pas dans les listes ci-dessus) : un nom clairement "batiment entier".
 MOTS_MORCEAU = (
-    "wall", "mur_", "floor", "ground", "window", "fenetre", "door", "porte", "stair", "escalier", "corner",
-    "trim", "column", "pillar", "pilier", "fence", "rail", "beam", "plank", "plane", "landscape", "terrain",
-    "road", "street", "sidewalk", "trottoir", "rock", "cliff", "mountain", "tree", "bush", "grass", "cloud",
-    "sky", "sphere", "frame", "glass", "interior", "_int_", "balcon", "awning", "sign", "pipe", "lamp", "car_",
-    "vehicle", "bus", "bridge", "dock", "pier", "boat", "ship", "water", "decal", "ucx_", "proxy", "collision",
-    "chimney", "cheminee", "gutter", "molding", "cornice", "ledge", "panel", "pane_", "shutter", "volet",
-    "railing", "step", "curb", "pavement", "tile_", "brick_", "parapet", "antenna", "ac_unit", "vent", "duct",
-    "furniture", "table", "chair", "bed", "sofa", "shelf", "crate", "box_", "barrel", "pallet", "debris",
-    "garage_door", "gate", "portail", "arch", "roof_", "toit_", "_roof", "dome", "spire", "tent", "sky_",
+    "wall", "floor", "ground", "window", "door", "stair", "corner", "trim", "column", "pillar", "fence", "rail",
+    "beam", "plane", "facade", "balcon", "roof", "foundation", "ledge", "sill", "attic", "piece", "module",
+    "block", "inside", "interior", "with_int", "tower", "temple", "tree", "rock", "nature", "demo", "_lod",
 )
-# mots qui disent "c'est probablement un batiment entier"
-MOTS_BATIMENT = (
-    "house", "maison", "building", "bld", "bldg", "apartment", "appart", "immeuble", "home", "villa", "hotel",
-    "shop", "store", "magasin", "tower", "tour", "cottage", "church", "eglise", "poste", "mairie", "supermarket",
-    "market", "block", "residence", "office", "bureau", "cafe", "bar_", "restaurant", "school", "ecole",
-    "station", "hangar", "barn", "warehouse", "entrepot", "pavillon", "khrush", "panel_house", "bat_",
-    "batiment", "manor", "mansion", "cabin", "hut", "garage", "kiosk", "pharmacy", "bakery", "boulangerie",
-)
+MOTS_BATIMENT = ("house", "maison", "building", "apartment", "immeuble", "batiment", "villa", "cottage")
 
 
 def nettoyer(nom):
     return re.sub(r"[^a-z0-9_]", "_", nom.lower())
 
 
-def nature_modele(chemin, nom, x, y, z):
-    """'batiment', 'probable' ou None selon le nom et la taille du modele (cm)."""
-    if any(chemin.startswith(d) for d in DOSSIERS_EXCLUS):
+def pack_de(chemin):
+    p = chemin.split("/")
+    return p[2] if len(p) > 2 else "?"
+
+
+def nature_modele(chemin, nom, x, y, z, blueprint=False):
+    """'autorise' (liste ci-dessus), 'nouveau' (pack inconnu, nom de batiment) ou None. Tailles en cm."""
+    chemin = chemin.rstrip("/")
+    if any((chemin + "/").startswith(d) for d in DOSSIERS_EXCLUS):
         return None
     lo, la = max(x, y), min(x, y)
-    if la < COTE_MIN_CM or z < HAUT_MIN_CM or lo > COTE_MAX_CM or z > COTE_MAX_CM:
+    if la < COTE_MIN_CM or z < HAUT_MIN_CM or lo > COTE_MAX_CM or z > COTE_MAX_CM or la < 0.15 * lo:
         return None
+    for r in (BLUEPRINTS_AUTORISES if blueprint else MODELES_AUTORISES):
+        if re.search(r, chemin, re.I):
+            return "autorise"
+    if blueprint or pack_de(chemin) in PACKS_ECARTES:
+        return None
+    if pack_de(chemin) in PACKS_LISTES:
+        return None  # pack connu : seulement les modeles de la liste
     n = "_" + nettoyer(nom) + "_"
-    if any(m in n for m in MOTS_MORCEAU) and not any(m in n for m in ("house", "building", "maison", "immeuble")):
-        return None
-    if la < 0.08 * lo:  # tres plat : un mur, une facade
+    if any(m in n for m in MOTS_MORCEAU):
         return None
     if any(m in n for m in MOTS_BATIMENT):
-        return "batiment"
-    if la >= 600 and z >= 500:
-        return "probable"
+        return "nouveau"
     return None
+
+
+def blueprint_candidat(chemin):
+    return any(re.search(r, chemin, re.I) for r in BLUEPRINTS_AUTORISES)
 
 
 # ------------------------------------------------------------------ geometrie
