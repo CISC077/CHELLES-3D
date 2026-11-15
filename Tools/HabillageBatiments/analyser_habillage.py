@@ -342,6 +342,47 @@ def boite_cible(c):
     return c["x"] - hx, c["y"] - hy, c["x"] + hx, c["y"] + hy
 
 
+def boites_sprites(acteurs):
+    """Boites 3D (min, max, nom) des Sprites (images Paper2D) poses dans la carte."""
+    classes = [getattr(unreal, n) for n in ("PaperSpriteComponent", "PaperFlipbookComponent",
+                                             "PaperGroupedSpriteComponent", "PaperTileMapComponent") if hasattr(unreal, n)]
+    res = []
+    for a in acteurs:
+        comps = []
+        for k in classes:
+            try:
+                comps += list(a.get_components_by_class(k))
+            except Exception:
+                pass
+        if not comps and "sprite" not in a.get_class().get_name().lower():
+            continue
+        if not comps:
+            try:
+                o, e = a.get_actor_bounds(False)
+                res.append(((o.x - e.x, o.y - e.y, o.z - e.z), (o.x + e.x, o.y + e.y, o.z + e.z), a.get_actor_label()))
+            except Exception:
+                pass
+            continue
+        for c in comps:
+            try:
+                o, e, _r = unreal.SystemLibrary.get_component_bounds(c)
+            except Exception:
+                continue
+            res.append(((o.x - e.x, o.y - e.y, o.z - e.z), (o.x + e.x, o.y + e.y, o.z + e.z), a.get_actor_label()))
+    return res
+
+
+def touche_sprite(c, sprites, marge=150.0):
+    """Nom du Sprite colle sur (ou tout pres de) ce batiment, sinon None."""
+    x0, y0, x1, y1 = boite_cible(c)
+    z0, z1 = c["sol"] - marge, c["sol"] + c["hauteur"] + marge
+    for mn, mx, nom in sprites:
+        if (mn[0] <= x1 + marge and mx[0] >= x0 - marge and mn[1] <= y1 + marge and mx[1] >= y0 - marge
+                and mn[2] <= z1 and mx[2] >= z0):
+            return nom
+    return None
+
+
 def deja_habille(c, boites):
     x0, y0, x1, y1 = boite_cible(c)
     surf = max((x1 - x0) * (y1 - y0), 1.0)
@@ -422,6 +463,9 @@ def main():
     log("   %d batiments des tuiles OSM + %d cubes / batiments poses a la main" % (n_osm, len(cibles) - n_osm))
 
     log("3/4 calcul des correspondances de volume ...")
+    sprites = boites_sprites(acteurs)
+    log("   %d Sprites trouves : les batiments qui en portent ne seront PAS touches" % len(sprites))
+    avec_sprites = []
     boites = vrais_batiments(acteurs, {c["id"] for c in cibles if c["source"] == "acteur"} | {"Floor"})
     boites_cubes = [boite_cible(c) + ("cube " + c["id"],) for c in cibles if c["source"] == "acteur"]
     rnd = random.Random(GRAINE)
@@ -430,6 +474,11 @@ def main():
     for c in sorted(cibles, key=lambda c: -c["longueur"] * c["largeur"]):
         if c["remplissage"] < hc.REMPLISSAGE_MIN:
             irreguliers.append(c)
+            continue
+        sp = touche_sprite(c, sprites)
+        if sp:
+            c["sprite"] = sp
+            avec_sprites.append(c)
             continue
         d = deja_habille(c, boites)
         if not d and c["source"] == "osm":
@@ -483,11 +532,12 @@ def main():
         for pack in sorted(par_pack, key=lambda p: -len(par_pack[p])):
             w("   %-32s %4d modele(s)\n" % (pack, len(par_pack[pack])))
         w("\nBatiments simples dans Rachid : %d\n" % len(cibles))
-        w("   -> habilles par un modele de meme volume : %d (%d modeles poses)\n" % (len(cibles) - len(sans) - len(irreguliers) - len(deja), len(poses)))
+        w("   -> habilles par un modele de meme volume : %d (%d modeles poses)\n" % (len(cibles) - len(sans) - len(irreguliers) - len(deja) - len(avec_sprites), len(poses)))
         w("      (dont %d batiments longs habilles par plusieurs modeles cote a cote)\n" % len(en_rangee))
         w("   -> aucun modele assez proche (ecart > %d %%) : %d\n" % (round(hc.TOLERANCE * 100), len(sans)))
         w("   -> forme trop irreguliere (en L, en U...)  : %d\n" % len(irreguliers))
         w("   -> deja un vrai batiment pose dessus        : %d\n" % len(deja))
+        w("   -> porte des Sprites (on n'y touche pas)    : %d\n" % len(avec_sprites))
         w("\nModeles les plus utilises :\n")
         for ch, n in sorted(usages.items(), key=lambda kv: -kv[1])[:25]:
             w("   %4d x %s\n" % (n, ch))
@@ -499,6 +549,10 @@ def main():
                 p["id"], p["simple_m"][0], p["simple_m"][1], p["simple_m"][2],
                 p["modele_m"][0], p["modele_m"][1], p["modele_m"][2], p["ecart_pourcent"],
                 p["modele"].rsplit("/", 1)[-1], ("(" + adr + ")") if adr else ""))
+        if avec_sprites:
+            w("\nBATIMENTS AVEC SPRITES (on n'y touche pas)\n")
+            for c in avec_sprites:
+                w("   %-14s Sprite %s\n" % (c["id"], c["sprite"]))
         if deja:
             w("\nDEJA HABILLES (on n'y touche pas)\n")
             for c in deja:
@@ -508,7 +562,7 @@ def main():
             for c in sans[:40]:
                 w("   %-14s %5.1f x %4.1f x %4.1f m\n" % (c["id"], c["longueur"] / 100, c["largeur"] / 100, c["hauteur"] / 100))
     log("TERMINE : %d batiment(s) peuvent etre habilles sur %d (%d modeles a poser). Rapport : Tools\\HabillageBatiments\\Rapport\\rapport_habillage.txt"
-        % (len(cibles) - len(sans) - len(irreguliers) - len(deja), len(cibles), len(poses)))
+        % (len(cibles) - len(sans) - len(irreguliers) - len(deja) - len(avec_sprites), len(cibles), len(poses)))
 
 
 try:

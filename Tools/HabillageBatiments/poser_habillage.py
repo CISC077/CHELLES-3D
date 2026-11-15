@@ -53,6 +53,41 @@ def a_tag(a, tag):
         return False
 
 
+def boites_sprites():
+    """Boites 3D des Sprites (images Paper2D) de la carte : on ne pose RIEN qui les touche."""
+    classes = [getattr(unreal, n) for n in ("PaperSpriteComponent", "PaperFlipbookComponent",
+                                             "PaperGroupedSpriteComponent", "PaperTileMapComponent") if hasattr(unreal, n)]
+    res = []
+    for a in ell.get_all_level_actors():
+        if a_tag(a, TAG_AJOUTE):
+            continue
+        comps = []
+        for k in classes:
+            try:
+                comps += list(a.get_components_by_class(k))
+            except Exception:
+                pass
+        for c in comps:
+            try:
+                o, e, _r = unreal.SystemLibrary.get_component_bounds(c)
+            except Exception:
+                continue
+            res.append((o.x - e.x, o.y - e.y, o.z - e.z, o.x + e.x, o.y + e.y, o.z + e.z, a.get_actor_label()))
+        if not comps and "sprite" in a.get_class().get_name().lower():
+            o, e = a.get_actor_bounds(False)
+            res.append((o.x - e.x, o.y - e.y, o.z - e.z, o.x + e.x, o.y + e.y, o.z + e.z, a.get_actor_label()))
+    return res
+
+
+def sprite_touche(acteur, sprites, marge=150.0):
+    o, e = acteur.get_actor_bounds(False)
+    for x0, y0, z0, x1, y1, z1, nom in sprites:
+        if (x0 <= o.x + e.x + marge and x1 >= o.x - e.x - marge and y0 <= o.y + e.y + marge
+                and y1 >= o.y - e.y - marge and z0 <= o.z + e.z + marge and z1 >= o.z - e.z - marge):
+            return nom
+    return None
+
+
 def demander(texte):
     if os.environ.get("CHELLES_QUITTER") == "1":
         return True
@@ -96,7 +131,9 @@ def main():
     log("2/4 %d modeles d'un passage precedent enleves" % len(anciens))
 
     # 3. pose
-    modeles, manquants, n = {}, set(), 0
+    sprites = boites_sprites()
+    log("   %d Sprites dans la carte : aucun modele ne sera pose sur eux" % len(sprites))
+    modeles, manquants, n, evites = {}, set(), 0, 0
     for i, p in enumerate(poses):
         ch = p["modele"]
         bp = p.get("blueprint", False)
@@ -118,6 +155,12 @@ def main():
         if a is None:
             continue
         a.set_actor_scale3d(unreal.Vector(*p["echelle"]))
+        sp = sprite_touche(a, sprites)
+        if sp:
+            ell.destroy_actor(a)
+            evites += 1
+            log("   %s : pas pose (Sprite %s)" % (p["id"], sp))
+            continue
         a.set_actor_label("Habillage_%04d_%s" % (i, ch.rsplit("/", 1)[-1]))
         a.set_folder_path("%s/%s" % (DOSSIER_OUTLINER, p.get("pack", "Pack")))
         tags = list(a.get_editor_property("tags"))
@@ -142,7 +185,7 @@ def main():
         n += 1
     for ch in sorted(manquants):
         log("   modele introuvable (pack deplace ?) : %s" % ch)
-    log("3/4 %d modeles poses" % n)
+    log("3/4 %d modeles poses (%d evites a cause des Sprites)" % (n, evites))
 
     # 4. enregistrement
     if ell.save_current_level():
