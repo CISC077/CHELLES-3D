@@ -72,7 +72,7 @@ fi
 find "$BASE/serveur" -name '*.sh' -exec sed -i 's/\r$//' {} +
 chmod +x "$LANCEUR"
 find "$BASE/serveur" -path '*/Binaries/Linux/*' -type f -exec chmod +x {} +
-chown -R chelles:chelles "$BASE"
+chown chelles:chelles "$BASE/serveur" && chown -R chelles:chelles "$BASE/serveur"  # ne pas toucher /opt/chelles3d/chat (service du chat)
 vert "Serveur installe : $LANCEUR"
 
 # 4) Service systemd
