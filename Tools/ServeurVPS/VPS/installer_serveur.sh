@@ -87,7 +87,7 @@ Type=simple
 User=chelles
 Group=chelles
 WorkingDirectory=${BASE}/serveur
-ExecStart=${LANCEUR} ${CARTE} -port=${PORT} -log -unattended
+ExecStart=${LANCEUR} ${CARTE} -port=${PORT} -log -unattended -ini:Engine:[Core.Log]:LogScript=Error
 Restart=on-failure
 RestartSec=15
 LimitNOFILE=65536
@@ -103,7 +103,7 @@ vert "Service '${SERVICE}' cree (demarre tout seul au boot du VPS)."
 if ! command -v ufw >/dev/null 2>&1; then
   apt-get install -y ufw
 fi
-PORT_SSH=$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}')
+PORT_SSH=$( (sshd -T 2>/dev/null || true) | awk '/^port /{p=$2} END{print p}')
 PORT_SSH=${PORT_SSH:-22}
 ufw allow "${PORT_SSH}/tcp" comment 'SSH' >/dev/null
 ufw allow 80/tcp comment 'Site web' >/dev/null
