@@ -354,6 +354,36 @@ def deja_habille(c, boites):
 
 
 # ------------------------------------------------------------------ 3. correspondances
+def decouper(c, modeles, usages):
+    """Un modele pour tout le batiment ; sinon, pour un batiment long (barre, rangee de maisons),
+    plusieurs modeles cote a cote dans la longueur. Rend [(morceau, (modele, ecart, echelles))] ou None."""
+    r = hc.meilleur_modele(c, modeles, usages)
+    if r is not None:
+        return [(c, r)]
+    if c["longueur"] < 1.5 * c["largeur"]:
+        return None
+    a = math.radians(c["yaw"])
+    for k in range(2, hc.MORCEAUX_MAX + 1):
+        lg = c["longueur"] / k
+        if lg < 0.6 * c["largeur"]:
+            break
+        essai, u = [], dict(usages)
+        for i in range(k):
+            d = (i + 0.5) * lg - c["longueur"] / 2
+            m = dict(c, longueur=lg, x=c["x"] + d * math.cos(a), y=c["y"] + d * math.sin(a),
+                     id="%s/%d" % (c["id"], i + 1))
+            if lg < m["largeur"]:  # le morceau est plus large que long : on le tourne
+                m["longueur"], m["largeur"], m["yaw"] = m["largeur"], lg, c["yaw"] + 90.0
+            r = hc.meilleur_modele(m, modeles, u)
+            if r is None:
+                break
+            u[r[0]["chemin"]] = u.get(r[0]["chemin"], 0) + 1
+            essai.append((m, r))
+        if len(essai) == k:
+            return essai
+    return None
+
+
 def placement(c, m, s, retourne):
     sl, sw, sh = s
     if m["axe_long"] == "X":
@@ -396,7 +426,7 @@ def main():
     boites_cubes = [boite_cible(c) + ("cube " + c["id"],) for c in cibles if c["source"] == "acteur"]
     rnd = random.Random(GRAINE)
     usages, poses = {}, []
-    irreguliers, deja, sans = [], [], []
+    irreguliers, deja, sans, en_rangee = [], [], [], []
     for c in sorted(cibles, key=lambda c: -c["longueur"] * c["largeur"]):
         if c["remplissage"] < hc.REMPLISSAGE_MIN:
             irreguliers.append(c)
@@ -408,21 +438,23 @@ def main():
             c["deja"] = d
             deja.append(c)
             continue
-        r = hc.meilleur_modele(c, modeles, usages)
-        if r is None:
+        morceaux = decouper(c, modeles, usages)
+        if morceaux is None:
             sans.append(c)
             continue
-        m, ecart, s = r
-        usages[m["chemin"]] = usages.get(m["chemin"], 0) + 1
-        loc, yaw, echelle = placement(c, m, s, rnd.random() < 0.5)
-        poses.append({
-            "source": c["source"], "id": c["id"], "modele": m["chemin"], "pack": m["pack"],
-            "blueprint": m.get("blueprint", False),
-            "position": loc, "yaw": yaw, "echelle": echelle, "ecart_pourcent": round(ecart * 100, 1),
-            "simple_m": [round(c["longueur"] / 100, 1), round(c["largeur"] / 100, 1), round(c["hauteur"] / 100, 1)],
-            "modele_m": [round(m["lo"] / 100, 1), round(m["la"] / 100, 1), round(m["z"] / 100, 1)],
-            "infos": c.get("infos", {}),
-        })
+        if len(morceaux) > 1:
+            en_rangee.append((c, len(morceaux)))
+        for c, (m, ecart, s) in morceaux:
+          usages[m["chemin"]] = usages.get(m["chemin"], 0) + 1
+          loc, yaw, echelle = placement(c, m, s, rnd.random() < 0.5)
+          poses.append({
+              "source": c["source"], "id": c["id"], "modele": m["chemin"], "pack": m["pack"],
+              "blueprint": m.get("blueprint", False),
+              "position": loc, "yaw": yaw, "echelle": echelle, "ecart_pourcent": round(ecart * 100, 1),
+              "simple_m": [round(c["longueur"] / 100, 1), round(c["largeur"] / 100, 1), round(c["hauteur"] / 100, 1)],
+              "modele_m": [round(m["lo"] / 100, 1), round(m["la"] / 100, 1), round(m["z"] / 100, 1)],
+              "infos": c.get("infos", {}),
+          })
 
     log("4/4 ecriture du rapport ...")
     os.makedirs(RAPPORT, exist_ok=True)
@@ -451,8 +483,9 @@ def main():
         for pack in sorted(par_pack, key=lambda p: -len(par_pack[p])):
             w("   %-32s %4d modele(s)\n" % (pack, len(par_pack[pack])))
         w("\nBatiments simples dans Rachid : %d\n" % len(cibles))
-        w("   -> habilles par un modele de meme volume : %d\n" % len(poses))
+        w("   -> habilles par un modele de meme volume : %d (%d modeles poses)\n" % (len(cibles) - len(sans) - len(irreguliers) - len(deja), len(poses)))
         w("   -> aucun modele assez proche (ecart > %d %%) : %d\n" % (round(hc.TOLERANCE * 100), len(sans)))
+        w("      (dont %d batiments longs habilles par plusieurs modeles cote a cote)\n" % len(en_rangee))
         w("   -> forme trop irreguliere (en L, en U...)  : %d\n" % len(irreguliers))
         w("   -> deja un vrai batiment pose dessus        : %d\n" % len(deja))
         w("\nModeles les plus utilises :\n")
@@ -474,8 +507,8 @@ def main():
             w("\nSANS MODELE ASSEZ PROCHE (les 40 plus grands)\n")
             for c in sans[:40]:
                 w("   %-14s %5.1f x %4.1f x %4.1f m\n" % (c["id"], c["longueur"] / 100, c["largeur"] / 100, c["hauteur"] / 100))
-    log("TERMINE : %d batiment(s) peuvent etre habilles sur %d. Rapport : Tools\\HabillageBatiments\\Rapport\\rapport_habillage.txt"
-        % (len(poses), len(cibles)))
+    log("TERMINE : %d batiment(s) peuvent etre habilles sur %d (%d modeles a poser). Rapport : Tools\\HabillageBatiments\\Rapport\\rapport_habillage.txt"
+        % (len(cibles) - len(sans) - len(irreguliers) - len(deja), len(cibles), len(poses)))
 
 
 try:

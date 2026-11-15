@@ -15,6 +15,7 @@ TOLERANCE_HAUTEUR = 0.35  # 35 % sur la hauteur (la hauteur des batiments simple
 REMPLISSAGE_MIN = 0.78  # l'empreinte doit remplir au moins 78 % de son rectangle (sinon forme en L, en U...)
 MARGE_COUVRE = 1.03     # le modele pose est 3 % plus grand que le volume simple pour bien le cacher
 MARGE_HAUT = 1.02
+MORCEAUX_MAX = 10      # un batiment long peut etre habille par 10 modeles cote a cote au maximum
 PENALITE_REPETITION = 0.012  # pour varier : chaque reutilisation d'un meme modele le rend un peu moins prioritaire
 COTE_MIN_CM = 300.0     # un modele de batiment fait au moins 3 m de cote et de haut
 HAUT_MIN_CM = 300.0
