@@ -1,0 +1,27 @@
+# CHELLES 3D - Menu bibliotheque d'armes (FPS_Game) en style cyberpunk (plugin ChellesInventaire)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = le plugin travaille, Non = le menu redevient comme avant
+Actif=Oui
+
+# Oui = le bouton QUITTER (croix) ferme vraiment le menu et rend la main au jeu
+QuitterRepare=Oui
+
+# Couleurs en Rouge,Vert,Bleu de 0 a 255
+# Cadres (les bordures blanches du pack)
+CouleurCadres=0,240,255
+# Textes blancs du menu
+CouleurTexte=0,240,255
+# Ombre des textes (lueur neon)
+CouleurLueur=255,0,200
+# Fond des panneaux
+CouleurFond=12,0,30
+# Opacite du fond (0 a 100)
+OpaciteFond=85
+# Boutons : normal / souris dessus / clic
+CouleurBouton=40,0,70
+CouleurBoutonSurvol=255,0,200
+CouleurBoutonClic=0,240,255
+# Icones des armes
+CouleurIcones=200,255,255
