@@ -166,10 +166,14 @@ def main():
         tags = list(a.get_editor_property("tags"))
         tags.append(unreal.Name(TAG_AJOUTE))
         a.set_editor_property("tags", tags)
-        try:
-            a.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)  # comme les tuiles : pas de lightmap
-        except Exception:
-            pass
+        if not bp:
+            # modele simple : Movable comme les tuiles (pas de lightmap a calculer).
+            # Les Blueprints gardent la mobilite prevue par leur pack : la changer casse leurs
+            # "Child Actor" (erreur AttachTo ... is not static au lancement du jeu).
+            try:
+                a.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+            except Exception:
+                pass
         for c in a.get_components_by_class(unreal.PrimitiveComponent):
             try:
                 c.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
