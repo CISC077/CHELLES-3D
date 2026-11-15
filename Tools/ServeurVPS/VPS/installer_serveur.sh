@@ -87,7 +87,7 @@ Type=simple
 User=chelles
 Group=chelles
 WorkingDirectory=${BASE}/serveur
-ExecStart=${LANCEUR} ${CARTE} -port=${PORT} -log -unattended -ini:Engine:[Core.Log]:LogScript=Error
+ExecStart=${LANCEUR} ${CARTE} -port=${PORT} -log -unattended -ini:Engine:[Core.Log]:LogScript=Error -ini:Engine:[Core.Log]:LogSkinnedMeshComp=Error
 Restart=on-failure
 RestartSec=15
 LimitNOFILE=65536
