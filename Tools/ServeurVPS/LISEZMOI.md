@@ -126,3 +126,8 @@ Le serveur redémarre tout seul s'il plante et au redémarrage du VPS.
 ## Plus simple mais moins pratique
 
 Sans VPS : un joueur choisit **LAN LOCAL** sur son PC et ouvre le port **7777 UDP** de sa box vers son PC ; les autres tapent son IP publique. Son PC doit rester allumé pendant la partie.
+
+## Problèmes déjà rencontrés
+
+- **Erreurs C4756 / C4668 en compilant Unreal** : Windows SDK 10.0.26100 trop récent. `1_PREPARER_UNREAL_SOURCE.bat` impose maintenant le SDK 10.0.19041 (fichier `D:\UE_4.27_Source\Engine\Saved\UnrealBuildTool\BuildConfiguration.xml`).
+- **« restricted folder » / Windows au staging LinuxServer** : des packs ont des dossiers nommés `Windows`. Ils sont autorisés par la section `[Staging] +WhitelistDirectories=...` de `Config\DefaultGame.ini`. Si un nouveau pack ajoute un dossier `Windows`, ajouter une ligne de plus.

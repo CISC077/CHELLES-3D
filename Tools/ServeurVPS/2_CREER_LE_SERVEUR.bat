@@ -86,6 +86,17 @@ set /p "CLIENT=(O/N) : "
 set "OPTIONS_CLIENT=-platform=Win64 -clientconfig=Shipping"
 if /i "%CLIENT%"=="N" set "OPTIONS_CLIENT=-platform=Win64 -noclient"
 
+rem ---- Mode rapide : reutilise la cuisson precedente si seuls des reglages ont change
+set "CUISSON=-cook"
+set "RAPIDE="
+if exist "%PROJET%\Saved\Cooked\LinuxServer" (
+    echo.
+    echo Une cuisson precedente existe. Si rien n'a change dans Unreal depuis ^(cartes, blueprints, textures^),
+    echo on peut la reutiliser : beaucoup plus rapide.
+    set /p "RAPIDE=Mode rapide ? (O/N) : "
+)
+if /i "%RAPIDE%"=="O" set "CUISSON=-skipcook"
+
 set "JOURNAL=%ICI%Journal"
 if exist "%JOURNAL%" rmdir /s /q "%JOURNAL%"
 if exist "%ICI%Erreurs_serveur.txt" del "%ICI%Erreurs_serveur.txt"
@@ -105,7 +116,7 @@ echo.
 echo ===== Etape 1/3 : compilation + cuisson + paquet (1 a 4 heures, ne fermez pas cette fenetre)
 echo La premiere fois, Unreal recompile aussi les plugins Chelles pour cette version : c'est normal.
 echo Debut : %date% %time%
-call "%UE%\Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun -project="%UPROJECT%" -noP4 %OPTIONS_CLIENT% -server -serverplatform=Linux -serverconfig=Development -build -cook -map=/Game/Maps/Rachid -stage -pak -compressed -prereqs -nodebuginfo -archive -archivedirectory="%SORTIE%" -IgnoreCookErrors -unattended -utf8output
+call "%UE%\Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun -project="%UPROJECT%" -noP4 %OPTIONS_CLIENT% -server -serverplatform=Linux -serverconfig=Development -build %CUISSON% -map=/Game/Maps/Rachid -stage -pak -compressed -prereqs -nodebuginfo -archive -archivedirectory="%SORTIE%" -IgnoreCookErrors -unattended -utf8output
 set "RESULTAT=%errorlevel%"
 echo Fin : %date% %time%
 
