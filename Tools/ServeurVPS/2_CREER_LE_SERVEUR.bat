@@ -27,6 +27,11 @@ if not exist "%UE%\Engine\Binaries\Win64\UE4Editor.exe" (
     pause
     exit /b 1
 )
+if not exist "%UE%\Engine\Saved\UnrealBuildTool\BuildConfiguration.xml" (
+    echo Relancez d'abord la nouvelle version de 1_PREPARER_UNREAL_SOURCE.bat ^(reglage du Windows SDK^).
+    pause
+    exit /b 1
+)
 if "%LINUX_MULTIARCH_ROOT%"=="" (
     echo La toolchain Linux n'est pas installee. Voir LISEZMOI.md, etape 2.
     pause

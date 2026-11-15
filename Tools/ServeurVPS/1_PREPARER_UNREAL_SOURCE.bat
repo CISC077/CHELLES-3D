@@ -56,6 +56,30 @@ if not exist "%LINUX_MULTIARCH_ROOT%\x86_64-unknown-linux-gnu\bin" (
 )
 echo Toolchain Linux : %LINUX_MULTIARCH_ROOT%   OK
 
+rem ---- Windows SDK : le SDK 10.0.26100 (Windows 11 24H2) casse Unreal 4.27
+rem      (erreurs C4756 "depassement d'une operation arithmetique de constante" et C4668).
+rem      On oblige cette copie d'Unreal a utiliser le SDK 10.0.19041 (n'affecte pas le Unreal du Launcher).
+set "SDK_OK=10.0.19041.0"
+set "CONFIG_UBT=%SRC%\Engine\Saved\UnrealBuildTool"
+if not exist "C:\Program Files (x86)\Windows Kits\10\Include\%SDK_OK%" (
+    echo.
+    echo Le Windows 10 SDK %SDK_OK% est absent.
+    echo Visual Studio Installer ^> Modifier ^> Composants individuels ^> cochez
+    echo "SDK Windows 10 10.0.19041.0" ^> Modifier, puis relancez ce fichier.
+    pause
+    exit /b 1
+)
+if not exist "%CONFIG_UBT%" mkdir "%CONFIG_UBT%"
+> "%CONFIG_UBT%\BuildConfiguration.xml" (
+    echo ^<?xml version="1.0" encoding="utf-8" ?^>
+    echo ^<Configuration xmlns="https://www.unrealengine.com/BuildConfiguration"^>
+    echo   ^<WindowsPlatform^>
+    echo     ^<WindowsSdkVersion^>%SDK_OK%^</WindowsSdkVersion^>
+    echo   ^</WindowsPlatform^>
+    echo ^</Configuration^>
+)
+echo Windows SDK impose : %SDK_OK%   OK
+
 rem ---- Place libre
 set "DISQUE=%SRC:~0,1%"
 set "LIBRE=?"
