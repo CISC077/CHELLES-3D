@@ -1923,15 +1923,15 @@ void ATrainChelles::TickLocal(float DeltaSeconds)
 	const bool bPres = bDedans || FVector::Dist2D(Ici, MilieuTrain) < LongueurTrain * 0.5f + 1500.f;
 	if (Etat == 1 && bPres)
 	{
-		TexteAide = FString::Printf(TEXT("TRAIN  -  %s  -  portes ouvertes, d\u00E9part dans %d s"), *NomAffiche(ArretCible), FMath::CeilToInt(DepartDans));
+		TexteAide = FString::Printf(TEXT("TRAMWAY  -  %s  -  portes ouvertes, d\u00E9part dans %d s"), *NomAffiche(ArretCible), FMath::CeilToInt(DepartDans));
 	}
 	else if (Etat == 2 && bPres)
 	{
-		TexteAide = TEXT("TRAIN  -  Attention \u00E0 la fermeture des portes !");
+		TexteAide = TEXT("TRAMWAY  -  Attention \u00E0 la fermeture des portes !");
 	}
 	else if (Etat == 0 && bDedans)
 	{
-		TexteAide = FString::Printf(TEXT("TRAIN  -  Prochain arr\u00EAt : %s"), *NomAffiche(ArretCible));
+		TexteAide = FString::Printf(TEXT("TRAMWAY  -  Prochain arr\u00EAt : %s"), *NomAffiche(ArretCible));
 	}
 	else if (!bDedans)
 	{
@@ -1952,8 +1952,8 @@ void ATrainChelles::TickLocal(float DeltaSeconds)
 				+ ArretsAvant * (R.AttenteSecondes + 6.f) + (Etat == 1 ? DepartDans : 0.f);
 			const int32 Minutes = FMath::FloorToInt(Secondes / 60.f);
 			TexteAide = (Minutes > 0)
-				? FString::Printf(TEXT("TRAIN  -  Arr\u00EAt %s  -  prochain train dans %d min %02d s environ"), *NomAffiche(k), Minutes, FMath::FloorToInt(Secondes) % 60)
-				: FString::Printf(TEXT("TRAIN  -  Arr\u00EAt %s  -  prochain train dans %d s environ"), *NomAffiche(k), FMath::Max(1, FMath::CeilToInt(Secondes)));
+				? FString::Printf(TEXT("TRAMWAY  -  Arr\u00EAt %s  -  prochain tramway dans %d min %02d s environ"), *NomAffiche(k), Minutes, FMath::FloorToInt(Secondes) % 60)
+				: FString::Printf(TEXT("TRAMWAY  -  Arr\u00EAt %s  -  prochain tramway dans %d s environ"), *NomAffiche(k), FMath::Max(1, FMath::CeilToInt(Secondes)));
 			break;
 		}
 	}

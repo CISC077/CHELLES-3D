@@ -64,12 +64,12 @@ AArretTrainChelles::AArretTrainChelles()
 		Texte->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		return Texte;
 	};
-	TexteTrain = CreerTexte(TEXT("TexteTrain"), FVector(3.5f, 0.f, 287.f), FRotator::ZeroRotator, 26.f, FColor::White);
-	TexteTrainDos = CreerTexte(TEXT("TexteTrainDos"), FVector(-3.5f, 0.f, 287.f), FRotator(0.f, 180.f, 0.f), 26.f, FColor::White);
+	TexteTrain = CreerTexte(TEXT("TexteTrain"), FVector(3.5f, 0.f, 287.f), FRotator::ZeroRotator, 19.f, FColor::White);
+	TexteTrainDos = CreerTexte(TEXT("TexteTrainDos"), FVector(-3.5f, 0.f, 287.f), FRotator(0.f, 180.f, 0.f), 19.f, FColor::White);
 	TexteNom = CreerTexte(TEXT("TexteNom"), FVector(3.5f, 0.f, 262.f), FRotator::ZeroRotator, 10.f, FColor::Yellow);
 	TexteNomDos = CreerTexte(TEXT("TexteNomDos"), FVector(-3.5f, 0.f, 262.f), FRotator(0.f, 180.f, 0.f), 10.f, FColor::Yellow);
-	TexteTrain->SetText(FText::FromString(TEXT("TRAIN")));
-	TexteTrainDos->SetText(FText::FromString(TEXT("TRAIN")));
+	TexteTrain->SetText(FText::FromString(TEXT("TRAMWAY")));
+	TexteTrainDos->SetText(FText::FromString(TEXT("TRAMWAY")));
 
 	// Banc (pack Bus_Station), derriere le poteau
 	Banc = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Banc"));
