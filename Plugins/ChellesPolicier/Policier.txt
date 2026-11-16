@@ -1,0 +1,47 @@
+# ------------------------------------------------------------------
+#  Agents de police qui reglent la circulation (plugin ChellesPolicier)
+#  Modifiez une valeur, enregistrez, puis relancez Play
+#  (ou tapez  Chelles.Policier Relire  dans la console, touche ²).
+#  Les lignes qui commencent par # sont des commentaires.
+# ------------------------------------------------------------------
+
+# 1 = agents actifs, 0 = aucun agent
+Actif=1
+
+# Personnage utilise
+Modele=/Game/Personnages/Mondes/police_officer.police_officer
+
+# Taille de l'agent en cm (le modele est mis a cette taille)
+Taille=180
+
+# Ou poser des agents (1 = oui, 0 = non)
+RondsPoints=1
+GrandsCarrefours=1
+
+# Un "grand carrefour" = au moins BranchesMinimum rues qui se croisent,
+# dont au moins BranchesPrincipales rues a 50 km/h ou plus.
+BranchesMinimum=4
+BranchesPrincipales=1
+VitesseRuePrincipaleKmh=45
+
+# Distance (cm) entre le centre du carrefour et l'agent, qui se tient au coin du trottoir
+EcartCarrefour=750
+
+# Les agents n'apparaissent qu'a moins de cette distance du joueur (cm). 25000 = 250 m
+DistanceApparition=25000
+
+# Nombre maximum d'agents en meme temps (les plus proches du joueur)
+AgentsMaximum=12
+
+# Animations (facultatif). Laissez vide : le plugin cherche dans DossierAnimations
+# des animations du squelette police_officer_Skeleton dont le nom contient
+# Repos/Idle (attente), Passez/Wave/Direct/Signal/Point (faire passer), Stop/Halt (arreter).
+# Sans animation, l'agent fait les gestes tout seul (bras calcules par le plugin).
+DossierAnimations=/Game/Personnages/Mondes/Policier_Animations
+AnimRepos=
+AnimPassez=
+AnimStop=
+
+# Rotation du modele en degres (vide = automatique). A changer seulement si l'agent
+# regarde de cote : essayez -90, 90 ou 180.
+CorrectionRotation=

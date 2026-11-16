@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Policier",
+	"Description": "Agents de police qui reglent la circulation aux ronds-points et aux grands carrefours de la ville (modele police_officer). Ils se tournent vers les voitures du plugin Chelles Circulation et font les gestes passez / stop. Reglages dans Policier.txt.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesPolicier",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
