@@ -1,0 +1,26 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Police",
+	"Description": "Voitures de police du pack Sports and Police Cars - Drivable : conduite (camera, Z/Q/S/D, sirene L), pose sur les routes par l'administrateur (F8 poser, F9 retirer), monter avec E, et la circulation se range devant la police qui roule (meme sens seulement). Reglages dans Police.txt.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesPolice",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "PhysXVehicles",
+			"Enabled": true
+		}
+	]
+}

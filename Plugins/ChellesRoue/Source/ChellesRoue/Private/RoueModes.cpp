@@ -199,15 +199,17 @@ ARoueModes::ARoueModes()
 	Moto.ClasseVehicule = FSoftClassPath(FString(CHEMIN_MOTONEIGE));
 	Modes.Add(Moto);
 
-	// SUV du pack DriveableCar_basic (remis sur la roue le 2026-11-09, seule voiture)
-	FModeRoue Suv;
-	Suv.Nom = FText::FromString(TEXT("SUV"));
-	Suv.Type = ETypeModeRoue::Vehicule;
-	Suv.Icone = EIconeRoue::Voiture;
-	Suv.Couleur = FLinearColor(0.2f, 0.85f, 0.6f);
-	Suv.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/SUV_BP_child.SUV_BP_child_C")));
-	Suv.LimiteCirculation = 10; // peu de voitures, une par rue : on roule sans accident (demande 2026-11-10)
-	Modes.Add(Suv);
+	// POLICE (2026-11-16, demande MERIDJA) : remplace le SUV (pack DriveableCar_basic retire).
+	// BP_Police_Drivable = voiture de police du pack "Sports and Police Cars - Drivable" (SportVehiclesPack),
+	// cree par Tools\Police\INSTALLER_POLICE.bat. Camera, commandes, sirene et route degagee : plugin ChellesPolice.
+	// Circulation normale (pas de limite) : les voitures devant la police se rangent toutes seules.
+	FModeRoue Police;
+	Police.Nom = FText::FromString(TEXT("POLICE"));
+	Police.Type = ETypeModeRoue::Vehicule;
+	Police.Icone = EIconeRoue::Voiture;
+	Police.Couleur = FLinearColor(0.15f, 0.45f, 1.f);
+	Police.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/SportVehiclesPack/Blueprints/Vehicles/BP_Police_Drivable.BP_Police_Drivable_C")));
+	Modes.Add(Police);
 
 	// Deux personnages du pack SuperPowers (a la place des voitures, 2026-11-08)
 	FModeRoue Flash;
@@ -299,7 +301,7 @@ void ARoueModes::BeginPlay()
 
 	Controleurs.SetNum(Modes.Num());
 	ClassesVehicules.SetNum(Modes.Num());
-	// 2026-11-12 : les vehicules / personnages (SUV, super pouvoirs, combat, cheval...) sont de gros
+	// 2026-11-12 : les vehicules / personnages (POLICE, super pouvoirs, combat, cheval...) sont de gros
 	// Blueprints. Les charger ici d'un coup bloquait le jeu ~11 s avant que le menu puisse s'afficher.
 	// On les charge maintenant en arriere-plan ; FinirChargementVehicules() termine au besoin.
 	for (int32 i = 0; i < Modes.Num(); ++i)
@@ -2001,13 +2003,13 @@ void ARoueModes::SuivreJoueursReseau()
 }
 
 // ---------------------------------------------------------------------------
-// Circulation (plugin ChellesCirculation, par reflexion) : moins de voitures dans certains modes (SUV)
+// Circulation (plugin ChellesCirculation, par reflexion) : moins de voitures dans certains modes (LimiteCirculation)
 // ---------------------------------------------------------------------------
 
 void ARoueModes::ReglerCirculation()
 {
 	// La limite la plus basse parmi les modes joues. En multijoueur on regarde tous les joueurs :
-	// deux joueurs en SUV = la meme limite qu'un seul (elle ne s'additionne pas).
+	// deux joueurs dans le meme mode = la meme limite qu'un seul (elle ne s'additionne pas).
 	int32 Limite = 0;
 	auto Prendre = [this, &Limite](int32 Index)
 	{
@@ -2047,7 +2049,7 @@ void ARoueModes::ReglerCirculation()
 		if (!bDejaDit)
 		{
 			bDejaDit = true;
-			UE_LOG(LogTemp, Warning, TEXT("[Roue] Circulation : recompiler ChellesCirculation pour limiter les voitures en SUV."));
+			UE_LOG(LogTemp, Warning, TEXT("[Roue] Circulation : recompiler ChellesCirculation pour limiter les voitures."));
 		}
 		LimiteCirculationAppliquee = Limite;
 		return;

@@ -88,6 +88,12 @@ public:
 	float FinPassageForce = 0.f;
 	/** Orientation affichee (lissee). */
 	FRotator RotationAffichee = FRotator::ZeroRotator;
+	/** Voiture de police qui arrive derriere (plugin ChellesPolice) : on se range a droite et on s'arrete jusqu'a cet instant. */
+	float FinRangement = 0.f;
+	/** Debut du rangement (une rue trop etroite : la voiture est ecartee plus loin apres un moment). */
+	float DebutRangement = 0.f;
+	/** Ecart vers la droite (cm) applique en ce moment (lisse, revient a 0 quand la police est passee). */
+	float EcartRange = 0.f;
 	bool bPoseInitialisee = false;
 
 	/** Remet l'etat de conduite a zero (avant une nouvelle apparition). */

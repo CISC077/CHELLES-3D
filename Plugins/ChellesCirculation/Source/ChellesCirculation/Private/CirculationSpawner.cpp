@@ -1476,6 +1476,14 @@ void ACirculationSpawner::ConduireVehicule(int32 IndexVehicule, float DeltaSecon
 		}
 	}
 
+	// ---- 4b. Voiture de police derriere (plugin ChellesPolice) : on se range a droite puis on s'arrete
+	const bool bSeRange = Maintenant < Vehicule->FinRangement;
+	if (bSeRange)
+	{
+		// au pas pendant qu'on s'ecarte, puis a l'arret le long du trottoir
+		Cible = FMath::Min(Cible, Vehicule->EcartRange >= EcartRangement * 0.7f ? 0.f : 350.f);
+	}
+
 	// ---- 5. Acceleration / freinage progressifs
 	Vehicule->Vitesse = (Vehicule->Vitesse < Cible)
 		? FMath::Min(Cible, Vehicule->Vitesse + Acceleration * DeltaSeconds)
@@ -1500,6 +1508,12 @@ void ACirculationSpawner::ConduireVehicule(int32 IndexVehicule, float DeltaSecon
 	// ---- 7. Position et orientation (lissee) dans le niveau
 	FVector NouvellePosition, Tangente;
 	CalculerPose(Vehicule, NouvellePosition, Tangente);
+	// Rangee pour la police : decalee vers la droite (puis revient doucement sur sa voie)
+	Vehicule->EcartRange = FMath::FInterpConstantTo(Vehicule->EcartRange, bSeRange ? EcartRangement : 0.f, DeltaSeconds, 250.f);
+	if (Vehicule->EcartRange > 1.f)
+	{
+		NouvellePosition += Droite(Tangente.GetSafeNormal2D()) * Vehicule->EcartRange;
+	}
 	const FRotator RotationCible = Tangente.Rotation();
 	Vehicule->RotationAffichee = Vehicule->bPoseInitialisee
 		? FMath::RInterpTo(Vehicule->RotationAffichee, RotationCible, DeltaSeconds, 10.f)
@@ -1616,6 +1630,57 @@ void ACirculationSpawner::UneVoitureParRue(const FVector& PositionJoueur, const 
 			break;
 		}
 	}
+}
+
+int32 ACirculationSpawner::DegagerDevant(FVector Position, FVector Direction, float Longueur, float Largeur, float Duree)
+{
+	Direction.Z = 0.f;
+	if (!Direction.Normalize() || !GetWorld() || Troncons.Num() == 0)
+	{
+		return 0;
+	}
+	const FVector Cote = Droite(Direction);
+	const float Maintenant = GetWorld()->GetTimeSeconds();
+	int32 Nombre = 0;
+	for (int32 i = 0; i < Vehicules.Num(); ++i)
+	{
+		AVehiculeCirculation* Vehicule = Vehicules[i];
+		if (!IsValid(Vehicule) || EstGaree(i) || Vehicule->Itineraire.Num() == 0)
+		{
+			continue;
+		}
+		const FVector Ecart = Vehicule->GetActorLocation() - Position;
+		const float Devant = Ecart | Direction;
+		if (Devant < -150.f || Devant > Longueur)
+		{
+			continue; // derriere la police ou trop loin
+		}
+		// Position sur la voie, sans l'ecart deja pris pour se ranger
+		const float SurLaVoie = (Ecart | Cote) - Vehicule->EcartRange;
+		if (FMath::Abs(SurLaVoie) > Largeur)
+		{
+			continue; // pas sur le chemin de la police
+		}
+		FVector Sens = Vehicule->RotationAffichee.Vector();
+		Sens.Z = 0.f;
+		if (!Sens.Normalize() || (Sens | Direction) < 0.5f)
+		{
+			continue; // vient en face ou d'une rue en travers : ne gene pas, on la laisse rouler
+		}
+		if (Vehicule->FinRangement <= Maintenant)
+		{
+			Vehicule->DebutRangement = Maintenant;
+		}
+		Vehicule->FinRangement = Maintenant + Duree;
+		++Nombre;
+		// Rue trop etroite : malgre l'ecart, la voiture est toujours juste devant la police depuis un moment.
+		// On la fait repartir ailleurs (hors de la vue du joueur), la route est libre.
+		if (Devant < 1500.f && Maintenant - Vehicule->DebutRangement > 2.5f && FMath::Abs(Ecart | Cote) < 230.f)
+		{
+			PlacerVehicule(Vehicule, true);
+		}
+	}
+	return Nombre;
 }
 
 void ACirculationSpawner::Tick(float DeltaSeconds)

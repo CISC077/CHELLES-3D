@@ -34,7 +34,7 @@ CARTE = "/Game/Maps/Rachid"
 GARDER = {
     "Maps", "Chelles", "ChellesMenu", "FPS_Game", "UI", "Audio", "Sounds", "HumanVocalizations",
     "FPS_Assault_Pack", "FPS_Weapon_Bundle", "FPSAssets", "Weapon", "Personnages", "Voitures",
-    "Miami", "Miami_beach_modular", "DV_Car_Horo", "DV_Snowmobile", "DriveableCar_basic", "FuturisticGirl",
+    "Miami", "Miami_beach_modular", "DV_Car_Horo", "DV_Snowmobile", "SportVehiclesPack", "FuturisticGirl",
     "Hijacker", "DecayedZombieB", "Bus_sity", "Animalia", "ActorCore_Sample_Motions", "AnimStarterPack",
     "Animations", "Building_Props", "PN_Fern", "Vehicles", "VehicleAdv", "VehicleVarietyPack",
     "VehicleVarietyVol2", "Bandit_Sport", "Female_Mannequin", "Action_Male_and_Female", "Sport_Female",

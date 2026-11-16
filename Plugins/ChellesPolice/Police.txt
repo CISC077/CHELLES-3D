@@ -1,0 +1,69 @@
+﻿# ================================================================
+#  CHELLES 3D - Reglages des voitures de police
+#  Ouvrez ce fichier avec le Bloc-notes, changez un nombre, enregistrez.
+#  Pas besoin de recompiler : relancez la partie (ou tapez Chelles.Police Relire
+#  dans la console, touche ²).
+#  Une ligne qui commence par # est un commentaire.
+# ================================================================
+
+# --- Les voitures ---
+# Noms des Blueprints reconnus comme voitures de police (separes par des virgules)
+Classes = BP_Police_Drivable, BP_WheeledVehicle_Sportcar1_Police, BP_WheeledVehicle_Sportcar2_Police
+# Voiture posee avec la touche TouchePoser (et donnee par la case POLICE de la roue TAB)
+VoitureAPoser = /Game/SportVehiclesPack/Blueprints/Vehicles/BP_Police_Drivable.BP_Police_Drivable_C
+# Nombre maximum de voitures posees sur la carte
+MaxVoitures = 30
+
+# --- Touches ---
+# Poser une voiture la ou l'on vise (administrateur seulement)
+TouchePoser = F8
+# Retirer la voiture visee (administrateur seulement)
+ToucheRetirer = F9
+# Allumer / eteindre sirene et gyrophares
+ToucheSirene = L
+# Monter dans une voiture proche / descendre
+ToucheMonter = E
+# Distance pour pouvoir monter (metres)
+DistanceMonter = 4.5
+
+# --- Administrateur ---
+# En solo c'est toujours vous. En multijoueur c'est l'hote de la partie.
+# Sur le serveur du VPS (sans hote), mettez ici les pseudos des administrateurs
+# separes par des virgules. Vide = le premier joueur connecte.
+Administrateurs =
+
+# --- Sirene ---
+# La sirene et les gyrophares s'allument quand on monte (oui / non)
+SireneAuto = oui
+
+# --- Route degagee ---
+# Les voitures devant la police, dans le meme sens, se rangent sur le cote (oui / non)
+DegagerRoute = oui
+# Vitesse a partir de laquelle la route est degagee (km/h)
+VitesseDegager = 10
+# Jusqu'a quelle distance devant (metres)
+DistanceDegager = 70
+# Largeur de la zone devant la voiture (metres)
+LargeurDegager = 4.5
+# Combien de temps les voitures restent rangees apres le passage (secondes)
+DureeRangement = 3
+
+# --- Camera ---
+# Distance de la camera derriere la voiture (metres)
+DistanceCamera = 6.5
+# Hauteur de la camera (metres)
+HauteurCamera = 1.7
+
+# --- Aide a la conduite (la voiture ne glisse pas sur le cote) ---
+AideConduite = oui
+Adherence = 10
+VirageMax = 70
+RayonMini = 6
+ForceVirage = 9
+AntiRoulis = 6
+Appui = 0.4
+AbaisserCentre = -30
+Friction = 1.6
+Rigidite = 1.3
+Braquage = 40
+Amortissement = 0.6

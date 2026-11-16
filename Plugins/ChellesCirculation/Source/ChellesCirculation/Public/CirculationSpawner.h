@@ -112,7 +112,7 @@ public:
 	bool bAfficherLeReseau = false;
 
 	/**
-	 * Limite de voitures pendant la partie (0 = toutes). Reglee par la roue Tab (mode SUV) :
+	 * Limite de voitures pendant la partie (0 = toutes). Reglee par la roue Tab (LimiteCirculation des modes) :
 	 * les voitures en trop sont garees, cachees et sans collision, puis reviennent quand la limite saute.
 	 */
 	UPROPERTY(Transient, BlueprintReadWrite, Category = "Circulation")
@@ -121,6 +121,19 @@ public:
 	/** Avec une limite : une seule voiture par rue (ecart minimum entre deux voitures, voir EcartUneParRue). */
 	UPROPERTY(Transient, BlueprintReadWrite, Category = "Circulation")
 	bool bUneVoitureParRue = false;
+
+	/**
+	 * Voiture de police (plugin ChellesPolice, 2026-11-16) : les voitures qui roulent DANS LE MEME SENS devant elle
+	 * (couloir de Longueur x Largeur cm a partir de Position, dans Direction) se rangent a droite et s'arretent
+	 * pendant Duree secondes. Celles qui viennent en face ou d'une rue en travers ne bougent pas.
+	 * Renvoie le nombre de voitures rangees.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Circulation")
+	int32 DegagerDevant(FVector Position, FVector Direction, float Longueur, float Largeur, float Duree);
+
+	/** Ecart (cm) vers la droite quand une voiture se range pour laisser passer la police. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Circulation", meta = (ClampMin = "0", ClampMax = "800"))
+	float EcartRangement = 320.f;
 
 	/** Ecart minimum (cm) entre deux voitures quand "une voiture par rue" est actif. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Circulation", meta = (ClampMin = "2000"))

@@ -124,6 +124,9 @@ void AVehiculeCirculation::ReinitialiserConduite()
 	TempsALArret = 0.f;
 	TempsBloqueEnCroisement = 0.f;
 	FinPassageForce = 0.f;
+	FinRangement = 0.f;
+	DebutRangement = 0.f;
+	EcartRange = 0.f;
 	bPoseInitialisee = false;
 }
 
