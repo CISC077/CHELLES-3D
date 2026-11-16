@@ -1,0 +1,74 @@
+# CHELLES 3D - Ligne de train autour de la carte
+# Modifiez une valeur, enregistrez, relancez le jeu (pas besoin de recompiler).
+# Une ligne qui commence par # est ignoree.
+
+# Oui / Non : tout le plugin
+Actif=Oui
+
+# ---------------------------------------------------------------- LES ARRETS
+# Une ligne par arret :   Arret = Nom affiche sur le panneau | adresse a Chelles
+# Le jeu trouve tout seul l'adresse sur la carte (Base Adresse Nationale, il faut Internet
+# une seule fois : le resultat est garde dans ArretsTrouves.txt).
+# Pour placer un arret a la main : Arret = Nom | adresse | X | Y   (coordonnees Unreal en cm)
+# Pour enlever un arret : mettez un # au debut de sa ligne.
+Arret=Marechal Foch | 2 Avenue du Marechal Foch
+Arret=Resistance 46 | 46 Avenue de la Resistance
+Arret=Resistance 11 | 11 Avenue de la Resistance
+Arret=Freres Verdeaux | 4 Rue des Freres Verdeaux
+Arret=Adolphe Besson | 5 Rue Adolphe Besson
+Arret=Ilette 1 | 1 Rue de l'Ilette
+Arret=Ilette 22 | 22 Rue de l'Ilette
+Arret=Rene Salle 10 | 10 Rue Rene Salle
+Arret=Rene Salle 1 | 1 Rue Rene Salle
+
+# Deux arrets plus proches que cela (metres) deviennent UN seul arret (le nom perd son numero).
+# 150 = les adresses voisines d'une meme rue sont regroupees (environ 6 arrets).
+# 0 = garder tous les arrets separes.
+RegrouperArretsProchesMetres=150
+
+# Ordre de passage : Auto = le train fait le tour (sens des aiguilles d'une montre)
+#                    Liste = dans l'ordre des lignes ci-dessus
+OrdreDesArrets=Auto
+
+# Un arret plus loin que cela d'une route est ignore (adresse hors de la carte)
+DistanceMaxArretRouteMetres=70
+
+# ---------------------------------------------------------------- LE TRAIN
+# Nombre de voitures : 1 = une locomotive, 2 = deux locomotives dos a dos, 3 ou plus = avec voitures au milieu
+NombreDeVoitures=2
+
+# Taille du train (1 = taille reelle du pack Intercity_Train ; 0.8 = plus petit, passe mieux dans les virages)
+Echelle=1
+
+# Vitesse en ligne droite (il ralentit tout seul dans les virages et avant les arrets)
+VitesseKmh=35
+
+# Portes ouvertes a chaque arret (secondes). 30 = trente secondes ; 90 = une minute trente.
+AttentePortesOuvertesSecondes=30
+
+# Oui = le train roule au milieu de la rue (comme un tramway) ; Non = sur la voie de droite
+MilieuDeLaRoute=Oui
+
+# Rails dessines sur la route le long du trajet
+Rails=Oui
+Traverses=Oui
+
+# Passagers assis et conducteur du pack (Non = train vide, un peu plus leger)
+Passagers=Oui
+
+# Les voitures de la circulation sur le passage du train disparaissent (et reviennent apres)
+RetirerLesVoitures=Oui
+
+# Portes : Droite = seulement cote quai (trottoir), DeuxCotes = des deux cotes
+Portes=Droite
+
+# ---------------------------------------------------------------- REGLAGES FINS (si besoin)
+# Si le train roule a reculons : Oui
+InverserLeSens=Non
+# Si le train s'enfonce dans la route : monter (cm). S'il flotte : baisser.
+HauteurRails=0
+# Hauteur du plancher dans le train (cm) : -1 = automatique
+HauteurPlancher=-1
+
+# Messages a l'ecran (prochain arret, depart dans...)
+Messages=Oui
