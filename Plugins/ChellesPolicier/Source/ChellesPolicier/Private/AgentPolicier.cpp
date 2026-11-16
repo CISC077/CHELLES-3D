@@ -5,6 +5,8 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/PoseableMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/SkeletalMesh.h"
 
 namespace
@@ -66,7 +68,7 @@ bool AAgentPolicier::Configurer(USkeletalMesh* Modele, float Taille, bool bRotat
 	AnimStop = InAnimStop ? InAnimStop : InAnimRepos;
 
 	// ---- Poses de reference (espace du modele)
-	const FReferenceSkeleton& Ref = Modele->RefSkeleton;
+	const FReferenceSkeleton& Ref = Modele->GetRefSkeleton();
 	const TArray<FTransform>& Locales = Ref.GetRefBonePose();
 	TArray<FTransform> RefCS;
 	RefCS.SetNum(Ref.GetNum());
@@ -153,6 +155,40 @@ bool AAgentPolicier::Configurer(USkeletalMesh* Modele, float Taille, bool bRotat
 	{
 		AppliquerGestesCalcules();
 	}
+	return true;
+}
+
+bool AAgentPolicier::ConfigurerFixe(UStaticMesh* Modele, float Taille, float Lacet, const FRotator& Redressement)
+{
+	if (!Modele)
+	{
+		return false;
+	}
+	// Rotation du modele : d'abord redresse (s'il est couche), puis tourne pour regarder devant
+	const FRotator Rotation(Redressement.Pitch, Lacet, Redressement.Roll);
+	const FBox Boite = Modele->GetBoundingBox().TransformBy(FTransform(Rotation));
+	const float Hauteur = Boite.Max.Z - Boite.Min.Z;
+	const float Echelle = (Hauteur > 1.f) ? FMath::Clamp(Taille / Hauteur, 0.005f, 200.f) : 1.f;
+	const float DemiHauteur = FMath::Max(40.f, Taille * 0.5f);
+	Capsule->SetCapsuleSize(FMath::Max(20.f, Taille * 0.2f), DemiHauteur);
+	// Pieds au sol, centre sous la capsule
+	const FVector Centre = Boite.GetCenter();
+	const FVector Decalage(-Centre.X * Echelle, -Centre.Y * Echelle, -DemiHauteur - Boite.Min.Z * Echelle);
+
+	CorpsFixe = NewObject<UStaticMeshComponent>(this, TEXT("CorpsFixe"));
+	CorpsFixe->SetMobility(EComponentMobility::Movable);
+	CorpsFixe->SetStaticMesh(Modele);
+	CorpsFixe->SetupAttachment(Capsule);
+	// Jamais de physique : sinon le modele tombe et se couche par terre
+	CorpsFixe->SetSimulatePhysics(false);
+	CorpsFixe->SetEnableGravity(false);
+	CorpsFixe->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	CorpsFixe->SetCanEverAffectNavigation(false);
+	CorpsFixe->SetRelativeLocationAndRotation(Decalage, Rotation);
+	CorpsFixe->SetRelativeScale3D(FVector(Echelle));
+	CorpsFixe->SetCullDistance(30000.f);
+	CorpsFixe->RegisterComponent();
+	bPoseFaite = true;
 	return true;
 }
 

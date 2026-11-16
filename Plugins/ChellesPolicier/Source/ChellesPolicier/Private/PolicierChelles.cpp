@@ -7,6 +7,7 @@
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
@@ -165,7 +166,7 @@ void APolicierChelles::LireReglages()
 {
 	// Valeurs par defaut (si une ligne manque dans Policier.txt)
 	bActif = true;
-	CheminModele = TEXT("/Game/Personnages/Mondes/police_officer.police_officer");
+	CheminModele = TEXT("/Game/Personnages/POLICES");
 	Taille = 180.f;
 	bRondsPoints = true;
 	bGrandsCarrefours = true;
@@ -181,6 +182,7 @@ void APolicierChelles::LireReglages()
 	CheminAnimStop.Reset();
 	bRotationAuto = true;
 	CorrectionRotation = 0.f;
+	Redressement = FRotator::ZeroRotator;
 
 	FString Texte;
 	const FString Chemin = DossierPlugin() / TEXT("Policier.txt");
@@ -224,6 +226,8 @@ void APolicierChelles::LireReglages()
 		else if (Est(TEXT("AnimRepos"))) { CheminAnimRepos = Valeur; }
 		else if (Est(TEXT("AnimPassez"))) { CheminAnimPassez = Valeur; }
 		else if (Est(TEXT("AnimStop"))) { CheminAnimStop = Valeur; }
+		else if (Est(TEXT("RedresserTangage"))) { Redressement.Pitch = Nombre; }
+		else if (Est(TEXT("RedresserRoulis"))) { Redressement.Roll = Nombre; }
 		else if (Est(TEXT("CorrectionRotation")))
 		{
 			bRotationAuto = Valeur.IsEmpty();
@@ -235,13 +239,53 @@ void APolicierChelles::LireReglages()
 void APolicierChelles::ChargerModeleEtAnimations()
 {
 	AnimRepos = AnimPassez = AnimStop = nullptr;
-	Modele = LoadObject<USkeletalMesh>(nullptr, *CheminModele);
+	Modele = nullptr;
+	ModeleFixe = nullptr;
+	if (CheminModele.Contains(TEXT(".")))
+	{
+		// Chemin complet d'un asset : /Game/Dossier/Nom.Nom
+		UObject* Objet = LoadObject<UObject>(nullptr, *CheminModele);
+		Modele = Cast<USkeletalMesh>(Objet);
+		ModeleFixe = Cast<UStaticMesh>(Objet);
+	}
+	else
+	{
+		// Un dossier : on prend le personnage qu'il contient (Skeletal Mesh d'abord, sinon Static Mesh ;
+		// celui qui s'appelle "Agent" en priorite). Evite d'ecrire les lettres speciales des sous-dossiers.
+		IAssetRegistry& Registre = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+		TArray<FAssetData> Liste;
+		Registre.GetAssetsByPath(FName(*CheminModele), Liste, true);
+		Liste.Sort([](const FAssetData& A, const FAssetData& B)
+		{
+			const bool AAgent = A.AssetName.ToString().Contains(TEXT("agent"));
+			const bool BAgent = B.AssetName.ToString().Contains(TEXT("agent"));
+			if (AAgent != BAgent) { return AAgent; }
+			return A.ObjectPath.LexicalLess(B.ObjectPath);
+		});
+		for (const FAssetData& Donnee : Liste)
+		{
+			if (!Modele && Donnee.AssetClass == USkeletalMesh::StaticClass()->GetFName())
+			{
+				Modele = Cast<USkeletalMesh>(Donnee.GetAsset());
+			}
+		}
+		for (const FAssetData& Donnee : Liste)
+		{
+			if (!Modele && !ModeleFixe && Donnee.AssetClass == UStaticMesh::StaticClass()->GetFName())
+			{
+				ModeleFixe = Cast<UStaticMesh>(Donnee.GetAsset());
+			}
+		}
+	}
 	if (!Modele)
 	{
-		UE_LOG(LogChellesPolicier, Warning, TEXT("Modele introuvable : %s"), *CheminModele);
-		return;
+		if (!ModeleFixe)
+		{
+			UE_LOG(LogChellesPolicier, Warning, TEXT("Modele introuvable : %s"), *CheminModele);
+		}
+		return; // modele fige : pas d'animations
 	}
-	USkeleton* Squelette = Modele->Skeleton;
+	USkeleton* Squelette = Modele->GetSkeleton();
 	auto Charger = [Squelette](const FString& Chemin) -> UAnimSequenceBase*
 	{
 		if (Chemin.IsEmpty())
@@ -303,7 +347,7 @@ void APolicierChelles::ChargerModeleEtAnimations()
 void APolicierChelles::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	if (!bActif || !Modele)
+	if (!bActif || (!Modele && !ModeleFixe))
 	{
 		return;
 	}
@@ -350,7 +394,7 @@ void APolicierChelles::Tick(float DeltaSeconds)
 		CalculerPostes();
 		EcrireRapport();
 		Annoncer(FString::Printf(TEXT("Policiers : %d rond(s)-point(s) et %d grand(s) carrefour(s) surveilles (%s)."),
-			NombreRondsPoints, NombreCarrefours, AnimRepos ? TEXT("animations") : TEXT("gestes calcules")), FColor::Green);
+			NombreRondsPoints, NombreCarrefours, *DescriptionMode()), FColor::Green);
 		ProchaineApparition = 0.f;
 	}
 
@@ -730,7 +774,10 @@ void APolicierChelles::MettreAJourAgents(const FVector& Joueur)
 		{
 			continue;
 		}
-		if (!Agent->Configurer(Modele, Taille, bRotationAuto, CorrectionRotation, AnimRepos, AnimPassez, AnimStop))
+		const bool bConfigure = Modele
+			? Agent->Configurer(Modele, Taille, bRotationAuto, CorrectionRotation, AnimRepos, AnimPassez, AnimStop)
+			: Agent->ConfigurerFixe(ModeleFixe, Taille, bRotationAuto ? -90.f : CorrectionRotation, Redressement);
+		if (!bConfigure)
 		{
 			Agent->Destroy();
 			continue;
@@ -884,10 +931,13 @@ void APolicierChelles::EcrireRapport() const
 {
 	FString Texte;
 	Texte += FString::Printf(TEXT("Policiers - rapport du %s\r\n"), *FDateTime::Now().ToString(TEXT("%d/%m/%Y %H:%M")));
-	Texte += FString::Printf(TEXT("Modele : %s (%s)\r\n"), *CheminModele, Modele ? TEXT("trouve") : TEXT("INTROUVABLE"));
+	const UObject* Trouve = Modele ? static_cast<const UObject*>(Modele) : static_cast<const UObject*>(ModeleFixe);
+	Texte += FString::Printf(TEXT("Modele : %s -> %s\r\n"), *CheminModele, Trouve ? *Trouve->GetPathName() : TEXT("INTROUVABLE"));
+	Texte += FString::Printf(TEXT("Mode : %s   Rotation %.0f   Redressement tangage %.0f roulis %.0f\r\n"),
+		*DescriptionMode(), CorrectionRotation, Redressement.Pitch, Redressement.Roll);
 	Texte += FString::Printf(TEXT("Animations : repos=%s passez=%s stop=%s -> %s\r\n"),
 		AnimRepos ? *AnimRepos->GetName() : TEXT("-"), AnimPassez ? *AnimPassez->GetName() : TEXT("-"),
-		AnimStop ? *AnimStop->GetName() : TEXT("-"), AnimRepos ? TEXT("mode animations") : TEXT("gestes calcules"));
+		AnimStop ? *AnimStop->GetName() : TEXT("-"), *DescriptionMode());
 	Texte += FString::Printf(TEXT("Ronds-points : %d   Grands carrefours : %d   (agents max %d, a moins de %.0f m)\r\n\r\n"),
 		NombreRondsPoints, NombreCarrefours, AgentsMaximum, DistanceApparition / 100.f);
 	for (int32 i = 0; i < Postes.Num(); ++i)
@@ -936,5 +986,11 @@ void APolicierChelles::Commande(const TArray<FString>& Arguments)
 	}
 	Annoncer(FString::Printf(TEXT("Policiers : %s, %d ronds-points, %d carrefours, %d agent(s) en ce moment, %s."),
 		bActif ? TEXT("actifs") : TEXT("desactives"), NombreRondsPoints, NombreCarrefours, Agents,
-		AnimRepos ? TEXT("animations") : TEXT("gestes calcules")), FColor::Green);
+		*DescriptionMode()), FColor::Green);
+}
+
+FString APolicierChelles::DescriptionMode() const
+{
+	if (!Modele && ModeleFixe) { return TEXT("modele fige debout"); }
+	return AnimRepos ? TEXT("animations") : TEXT("gestes calcules");
 }

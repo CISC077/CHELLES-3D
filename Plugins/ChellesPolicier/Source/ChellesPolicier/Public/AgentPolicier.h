@@ -10,6 +10,8 @@ class UCapsuleComponent;
 class USkeletalMesh;
 class USkeletalMeshComponent;
 class UPoseableMeshComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
 class UAnimSequenceBase;
 
 UENUM()
@@ -35,6 +37,13 @@ public:
 	bool Configurer(USkeletalMesh* Modele, float Taille, bool bRotationAuto, float CorrectionLacet,
 		UAnimSequenceBase* AnimRepos, UAnimSequenceBase* AnimPassez, UAnimSequenceBase* AnimStop);
 
+	/**
+	 * Apparence avec un modele fige (Static Mesh, par exemple l'agente de Personnages/POLICES) :
+	 * pas de gestes, pas de physique, toujours debout. Redressement = rotation appliquee au modele
+	 * avant tout (tangage, roulis) s'il est couche ; Lacet = rotation pour qu'il regarde devant.
+	 */
+	bool ConfigurerFixe(UStaticMesh* Modele, float Taille, float Lacet, const FRotator& Redressement);
+
 	/** Ordre donne par le gestionnaire : geste, direction a regarder (lacet monde) et cote du passage (+1 droite, -1 gauche). */
 	void DonnerOrdre(EGestePolicier Geste, float LacetVise, float CotePassage);
 
@@ -49,6 +58,10 @@ protected:
 	/** Mode animations (Mixamo ou autre). */
 	UPROPERTY(Transient)
 	USkeletalMeshComponent* Corps = nullptr;
+
+	/** Mode modele fige (Static Mesh). */
+	UPROPERTY(Transient)
+	UStaticMeshComponent* CorpsFixe = nullptr;
 
 	/** Mode gestes calcules. */
 	UPROPERTY(Transient)

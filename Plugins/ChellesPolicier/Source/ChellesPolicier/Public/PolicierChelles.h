@@ -11,6 +11,7 @@
 #include "PolicierChelles.generated.h"
 
 class USkeletalMesh;
+class UStaticMesh;
 class UAnimSequenceBase;
 
 /** Endroit surveille par un agent : rond-point ou grand carrefour. */
@@ -50,7 +51,7 @@ public:
 protected:
 	// ---- Reglages (Policier.txt)
 	bool bActif = true;
-	FString CheminModele = TEXT("/Game/Personnages/Mondes/police_officer.police_officer");
+	FString CheminModele = TEXT("/Game/Personnages/POLICES");
 	float Taille = 180.f;
 	bool bRondsPoints = true;
 	bool bGrandsCarrefours = true;
@@ -66,8 +67,11 @@ protected:
 	FString CheminAnimStop;
 	bool bRotationAuto = true;
 	float CorrectionRotation = 0.f;
+	FRotator Redressement = FRotator::ZeroRotator;
 
 	UPROPERTY(Transient) USkeletalMesh* Modele = nullptr;
+	/** Modele fige (Static Mesh) si le modele n'a pas de squelette. */
+	UPROPERTY(Transient) UStaticMesh* ModeleFixe = nullptr;
 	UPROPERTY(Transient) UAnimSequenceBase* AnimRepos = nullptr;
 	UPROPERTY(Transient) UAnimSequenceBase* AnimPassez = nullptr;
 	UPROPERTY(Transient) UAnimSequenceBase* AnimStop = nullptr;
@@ -109,4 +113,5 @@ protected:
 	void EcrireRapport() const;
 	void Annoncer(const FString& Texte, const FColor& Couleur);
 	void RetirerAgents();
+	FString DescriptionMode() const;
 };

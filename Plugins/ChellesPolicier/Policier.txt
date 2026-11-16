@@ -8,8 +8,12 @@
 # 1 = agents actifs, 0 = aucun agent
 Actif=1
 
-# Personnage utilise
-Modele=/Game/Personnages/Mondes/police_officer.police_officer
+# Personnage utilise : un dossier (le plugin prend le personnage qu'il contient,
+# celui qui s'appelle "Agent" en priorite) ou le chemin complet d'un asset.
+# Agente de circulation (tenue de police + matraque) :
+Modele=/Game/Personnages/POLICES
+# Ancien policier (avec gestes des bras) :
+# Modele=/Game/Personnages/Mondes/police_officer.police_officer
 
 # Taille de l'agent en cm (le modele est mis a cette taille)
 Taille=180
@@ -43,5 +47,10 @@ AnimPassez=
 AnimStop=
 
 # Rotation du modele en degres (vide = automatique). A changer seulement si l'agent
-# regarde de cote : essayez -90, 90 ou 180.
+# regarde de cote ou de dos : essayez 0, 90 ou 180.
 CorrectionRotation=
+
+# Seulement si le modele est couche (modele fige) : rotation en degres pour le mettre debout.
+# Essayez RedresserTangage=90 ou -90, sinon RedresserRoulis=90 ou -90. 0 = ne rien changer.
+RedresserTangage=0
+RedresserRoulis=0

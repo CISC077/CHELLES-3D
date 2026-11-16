@@ -1,8 +1,12 @@
 # Agents de police aux ronds-points et grands carrefours (plugin ChellesPolicier)
 
-Un agent de police (le personnage `Content/Personnages/Mondes/police_officer`) se tient
+Un agent de police (par défaut l'**agente de circulation** de `Content/Personnages/POLICES`,
+tenue de police et matraque) se tient
 au **centre de chaque rond-point** et **au coin de chaque grand carrefour** de la carte.
-Il se tourne vers les voitures de la circulation :
+L'agente est un modèle figé (Static Mesh) : elle est toujours **debout** (aucune physique,
+elle ne peut pas tomber) et se tourne vers les voitures, mais ne bouge pas les bras.
+Avec l'ancien policier (`Modele=/Game/Personnages/Mondes/police_officer.police_officer` dans
+Policier.txt), il se tourne vers les voitures et fait aussi des gestes :
 
 - une voiture arrive : il la regarde et **balaie le bras** pour la faire passer ;
 - une voiture attend son tour : il **lève la main** vers elle (stop) ;
@@ -33,7 +37,9 @@ Le fichier `Plugins\ChellesPolicier\Policier_Rapport.txt` liste ensuite tous les
 | DistanceApparition | 25000 | les agents apparaissent à moins de 250 m du joueur |
 | AgentsMaximum | 12 | nombre d'agents en même temps |
 | Taille | 180 | taille de l'agent (cm) |
-| CorrectionRotation | (vide) | si l'agent regarde de côté : -90, 90 ou 180 |
+| Modele | /Game/Personnages/POLICES | dossier ou asset du personnage |
+| CorrectionRotation | (vide) | si l'agent regarde de côté ou de dos : 0, 90 ou 180 |
+| RedresserTangage / RedresserRoulis | 0 / 0 | seulement si le modèle est couché : 90 ou -90 |
 
 Après une modification : relancez **Play**, ou tapez `Chelles.Policier Relire` dans la console (touche ²).
 
