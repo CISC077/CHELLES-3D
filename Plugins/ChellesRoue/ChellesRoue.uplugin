@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0",
 	"FriendlyName": "Chelles Roue des modes",
-	"Description": "Maintenir Tab : une roue apparait pour choisir Soldat, Spider-Man (vol), Motoneige ou Automobile. Retirable sans toucher au reste du projet.",
+	"Description": "Maintenir Tab : une roue apparait pour choisir Soldat, Spider-Male (vol), Motoneige ou Automobile. Retirable sans toucher au reste du projet.",
 	"Category": "Chelles 3D",
 	"CreatedBy": "CHELLES 3D",
 	"EnabledByDefault": true,
