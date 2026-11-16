@@ -1068,7 +1068,8 @@ bool ATrainChelles::ConstruireTrajet()
 	}
 	if (Points.Num() > 1)
 	{
-		Points.Add(Points[0]); // boucle fermee
+		const FVector_NetQuantize Premier = Points[0]; // copie : Add() d'un element du meme tableau fait planter Unreal
+		Points.Add(Premier); // boucle fermee
 	}
 	Trajet = MoveTemp(Points);
 	OnRep_Trajet();
