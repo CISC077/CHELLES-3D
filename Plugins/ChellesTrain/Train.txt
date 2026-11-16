@@ -67,6 +67,8 @@ Portes=Droite
 InverserLeSens=Non
 # Si le train s'enfonce dans la route : monter (cm). S'il flotte : baisser.
 HauteurRails=0
+# Largeur de passage a chaque porte (cm). Si le joueur a du mal a entrer : augmenter.
+LargeurEntree=220
 # Hauteur du plancher dans le train (cm) : -1 = automatique
 HauteurPlancher=-1
 

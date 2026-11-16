@@ -54,6 +54,8 @@ struct FReglagesTrain
 	bool bInverserSens = false;
 	float HauteurRails = 0.f;
 	float HauteurPlancher = -1.f;
+	/** Largeur de passage a chaque porte (cm, taille reelle). */
+	float LargeurEntree = 220.f;
 	bool bMessages = true;
 	double LatitudeCentre = 48.8795;
 	double LongitudeCentre = 2.5912;

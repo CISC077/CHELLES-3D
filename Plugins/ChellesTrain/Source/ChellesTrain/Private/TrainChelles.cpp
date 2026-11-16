@@ -151,6 +151,7 @@ namespace
 			else if (Cle == TEXT("Portes")) R.bPortesDeuxCotes = Valeur.Equals(TEXT("DeuxCotes"), ESearchCase::IgnoreCase);
 			else if (Cle == TEXT("InverserLeSens")) R.bInverserSens = EstOui(Valeur);
 			else if (Cle == TEXT("HauteurRails")) R.HauteurRails = FMath::Clamp(Nombre(Valeur), -300.f, 300.f);
+			else if (Cle == TEXT("LargeurEntree")) R.LargeurEntree = FMath::Clamp(Nombre(Valeur), 80.f, 600.f);
 			else if (Cle == TEXT("HauteurPlancher")) R.HauteurPlancher = Nombre(Valeur);
 			else if (Cle == TEXT("Messages")) R.bMessages = EstOui(Valeur);
 		}
@@ -1539,7 +1540,9 @@ void ATrainChelles::CreerVoiture(int32 Index, UStaticMesh* Corps, bool bRetourne
 			const bool bDeCeCote = (B.Boite.GetCenter().Y - CY) * Cote > 0.f;
 			if (!bDeCeCote) { continue; }
 			const bool bQuai = Cote > 0.f || R.bPortesDeuxCotes;
-			const float Demi = FMath::Max(B.Boite.GetExtent().X, 45.f);
+			const float DemiPorte = FMath::Max(B.Boite.GetExtent().X, 45.f);
+			// entree large : un joueur doit pouvoir passer facilement (LargeurEntree dans Train.txt)
+			const float Demi = FMath::Max(DemiPorte, R.LargeurEntree * 0.5f / E);
 			FPorteTrain Porte;
 			Porte.bCoteQuai = bQuai;
 			if (MeshDePorte)
@@ -1549,7 +1552,7 @@ void ATrainChelles::CreerVoiture(int32 Index, UStaticMesh* Corps, bool bRetourne
 				Porte.PositionFermee = B.Relatif.GetLocation();
 				// la porte glisse le long de la caisse, vers le milieu de la voiture, et ressort un peu
 				const float VersMilieu = (B.Boite.GetCenter().X > CX) ? -1.f : 1.f;
-				Porte.Glissement = FVector(VersMilieu * Demi * 2.f * 0.95f, Cote * 7.f, 0.f);
+				Porte.Glissement = FVector(VersMilieu * DemiPorte * 2.f * 0.95f, Cote * 7.f, 0.f);
 			}
 			if (bQuai)
 			{
@@ -1558,13 +1561,13 @@ void ATrainChelles::CreerVoiture(int32 Index, UStaticMesh* Corps, bool bRetourne
 				// marchepied : une rampe de la porte jusqu'a la route (visible seulement porte ouverte)
 				if (Cube && Bas > 30.f)
 				{
-					const float Pente = FMath::DegreesToRadians(33.f);
+					const float Pente = FMath::DegreesToRadians(26.f);
 					const float Horizontal = Bas / FMath::Tan(Pente);
 					const float LongueurRampe = FMath::Sqrt(Horizontal * Horizontal + Bas * Bas);
 					const FVector Descente(0.f, Cote * FMath::Cos(Pente), -FMath::Sin(Pente));
 					const FRotator RotRampe = FRotationMatrix::MakeFromXY(FVector::ForwardVector, Descente).Rotator();
 					const FVector CentreRampe(B.Boite.GetCenter().X, Max.Y * (Cote > 0.f ? 1.f : 0.f) + Min.Y * (Cote > 0.f ? 0.f : 1.f) + Cote * Horizontal * 0.5f, Bas * 0.5f);
-					UStaticMeshComponent* Rampe = AjouterMesh(Cube, FTransform(RotRampe, CentreRampe, FVector(Demi * 1.6f / 100.f, LongueurRampe / 100.f, 0.06f)), TEXT("Rampe"), false);
+					UStaticMeshComponent* Rampe = AjouterMesh(Cube, FTransform(RotRampe, CentreRampe, FVector(Demi * 2.f / 100.f, LongueurRampe / 100.f, 0.06f)), TEXT("Rampe"), false);
 					if (Rampe)
 					{
 						if (MateriauRampe) { Rampe->SetMaterial(0, MateriauRampe); }
