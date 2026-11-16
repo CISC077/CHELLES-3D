@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Circulation",
+	"Description": "Ajoute des voitures qui circulent sur les routes de la ville (reseau OpenStreetMap ou splines). A poser dans le niveau avec l'acteur Circulation Spawner. Retirable sans toucher au reste du projet.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesCirculation",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
