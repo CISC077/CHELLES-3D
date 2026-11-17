@@ -1,0 +1,65 @@
+# CHELLES 3D - ARSENAL : blaster, bazooka, sabre lumineux, grenade a zombies (plugin ChellesArmes)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# En jeu, la console (touche ²) "Chelles.Arsenal Recharger" relit ce fichier sans quitter.
+# Les lignes qui commencent par # sont des commentaires.
+#
+# EN JEU : touche 3 = ARME NORMALE -> BLASTER -> BAZOOKA -> SABRE -> GRENADE -> ARME NORMALE
+#          clic gauche = tirer / frapper / lancer ; molette = retour aux armes normales.
+# Console : Chelles.Arsenal Blaster (ou Bazooka, Sabre, Grenade, Aucune)
+
+# Oui = arsenal disponible, Non = touche 3 sans effet
+Arsenal=Oui
+# Three = touche 3 (au-dessus de Z, le " en AZERTY). N est pris par les missions.
+ToucheChanger=Three
+# Volume des sons de l'arsenal (1 = normal, 0 = muet)
+Volume=1
+# Materiau qui brille (lames, traits laser). Cree une seule fois par Tools\Arsenal\creer_materiau_lueur.py.
+# S'il n'existe pas, les armes gardent des couleurs simples + une lumiere.
+MateriauLueur=/Game/ChellesArsenal/M_LueurChelles.M_LueurChelles
+
+# ---------------------------------------------------------------------------
+# BLASTER : rafale de traits lumineux, son "piou-piou" (maintenir le clic gauche)
+# Couleur = Rouge,Vert,Bleu (0 a 255). Exemple bleu : 40,120,255
+# ---------------------------------------------------------------------------
+Blaster.Degats=30
+Blaster.Cadence=0.16
+Blaster.Vitesse=9000
+Blaster.Couleur=255,20,15
+
+# ---------------------------------------------------------------------------
+# BAZOOKA : la fusee suit le viseur (ta souris) pendant son vol, puis explose.
+# Rayon = taille de l'explosion (cm). Poussee = force qui projette les ennemis.
+# Virage = degres par seconde (plus grand = fusee plus maniable). Duree = secondes avant d'exploser en l'air.
+# Guidee=Non : la fusee part tout droit.
+# ---------------------------------------------------------------------------
+Bazooka.Degats=150
+Bazooka.Rayon=650
+Bazooka.Poussee=1400
+Bazooka.Cadence=1.4
+Bazooka.Vitesse=2600
+Bazooka.Virage=150
+Bazooka.Duree=8
+Bazooka.Guidee=Oui
+
+# ---------------------------------------------------------------------------
+# SABRE LUMINEUX : corps-a-corps. Portee en cm.
+# TrancheZombies=Oui : un coup tue un zombie (Non = regle normale, corps = 33 %)
+# Couleur : vert 25,255,50 / bleu 40,120,255 / rouge 255,20,15 / violet 170,40,255
+# ---------------------------------------------------------------------------
+Sabre.Degats=90
+Sabre.Portee=240
+Sabre.Cadence=0.35
+Sabre.TrancheZombies=Oui
+Sabre.Couleur=25,255,50
+
+# ---------------------------------------------------------------------------
+# GRENADE A ZOMBIES : elle rebondit, se pose, bipe et attire les zombies proches
+# pendant Attente secondes (RayonAppat en cm), puis explose.
+# ---------------------------------------------------------------------------
+Grenade.Attente=5
+Grenade.RayonAppat=3000
+Grenade.Degats=150
+Grenade.Rayon=700
+Grenade.Poussee=1300
+Grenade.Cadence=2
+Grenade.Vitesse=1500
