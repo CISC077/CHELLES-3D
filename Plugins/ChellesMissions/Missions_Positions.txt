@@ -1,0 +1,3 @@
+# CHELLES 3D - Missions : places enregistrees EN JEU avec la console (touche ²).
+#   Chelles.MissionIci Mairie   = le centre de la Mairie a defendre = vos pieds
+# Sans ligne Mairie=, le centre du Dernier Refuge (plugin ChellesSurvie) est utilise.
