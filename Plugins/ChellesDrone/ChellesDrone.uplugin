@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Drone",
+	"Description": "Un drone vole a cote de chaque joueur et tire au laser sur les ennemis et les zombies proches. F10 = ranger / rappeler le drone. Solo et multijoueur.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesDrone",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
