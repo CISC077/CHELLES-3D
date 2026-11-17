@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0",
 	"FriendlyName": "Chelles Armes",
-	"Description": "Nouvelles apparences pour les armes du kit FPS_Game (packs FPS_Weapon_Bundle, FPS_Assault_Pack, FPSAssets) et tirs speciaux EN PLUS du tir normal : laser, boule de feu, glacial, foudre. O = changer le tir special. Arsenal (touche N) : blaster, bazooka guide, sabre lumineux, grenade a zombies. Solo et multijoueur. Ne modifie aucun Blueprint.",
+	"Description": "Nouvelles apparences pour les armes du kit FPS_Game (packs FPS_Weapon_Bundle, FPS_Assault_Pack, FPSAssets) et tirs speciaux EN PLUS du tir normal : laser, boule de feu, glacial, foudre. O = changer le tir special. Arsenal (touche 3) : blaster, bazooka guide, sabre lumineux, grenade a zombies. Solo et multijoueur. Ne modifie aucun Blueprint.",
 	"Category": "Chelles 3D",
 	"CreatedBy": "CHELLES 3D",
 	"EnabledByDefault": true,

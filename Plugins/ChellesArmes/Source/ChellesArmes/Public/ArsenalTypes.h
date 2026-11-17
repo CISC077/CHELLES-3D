@@ -42,7 +42,7 @@ namespace ChellesArsenal
 	struct FReglagesArsenal
 	{
 		bool bActif = true;
-		FString ToucheChanger = TEXT("N");
+		FString ToucheChanger = TEXT("Three"); // touche 3 (N = missions, F10 = drone)
 		/** Materiau lumineux (cree par Tools\Arsenal\creer_materiau_lueur.py). Absent = couleurs simples + lumiere. */
 		FString MateriauLueur = TEXT("/Game/ChellesArsenal/M_LueurChelles.M_LueurChelles");
 		float Volume = 1.f;

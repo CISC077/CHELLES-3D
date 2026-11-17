@@ -170,8 +170,10 @@ void AArsenalChelles::Tick(float DeltaSeconds)
 	else
 	{
 		const TCHAR* Geste = (Arme == Sabre) ? TEXT("frapper") : (Arme == Grenade) ? TEXT("lancer") : TEXT("tirer");
-		Etiquette = FString::Printf(TEXT("%s   -   clic gauche = %s   -   %s = arme suivante   -   molette = arme normale"),
-			NomArme(Arme), Geste, *Reglages.ToucheChanger);
+		const FKey Touche(*Reglages.ToucheChanger);
+		const FString NomTouche = Touche.IsValid() ? Touche.GetDisplayName().ToString() : Reglages.ToucheChanger;
+		Etiquette = FString::Printf(TEXT("%s   -   clic gauche = %s   -   touche %s = arme suivante   -   molette = arme normale"),
+			NomArme(Arme), Geste, *NomTouche);
 		MasquerArmeNormale(Pion);
 		PlacerVue(Pion);
 		if (bTenu && PC && !PC->IsInputKeyDown(EKeys::LeftMouseButton))
@@ -258,7 +260,7 @@ void AArsenalChelles::LierClavier()
 	FKey Touche(*Reglages.ToucheChanger);
 	if (!Touche.IsValid())
 	{
-		Touche = EKeys::N;
+		Touche = EKeys::Three;
 	}
 	FInputKeyBinding& B = InputComponent->BindKey(Touche, IE_Pressed, this, &AArsenalChelles::Changer);
 	B.bConsumeInput = false;

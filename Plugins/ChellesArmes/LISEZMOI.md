@@ -54,7 +54,7 @@ Multijoueur : c'est le serveur qui crée les tirs, tout le monde les voit ; le P
 
 ## 3. ARSENAL (2026-11-17) : blaster, bazooka, sabre lumineux, grenade à zombies
 
-Touche **N** (à pied) : ARME NORMALE → **BLASTER** → **BAZOOKA** → **SABRE LUMINEUX** → **GRENADE À ZOMBIES** → ARME NORMALE.
+Touche **3** (à pied, la touche " en AZERTY) : ARME NORMALE → **BLASTER** → **BAZOOKA** → **SABRE LUMINEUX** → **GRENADE À ZOMBIES** → ARME NORMALE.
 Pendant qu'une arme de l'arsenal est en main, l'arme du kit FPS_Game est cachée et son tir est bloqué.
 **Molette** = retour aux armes normales. Le nom de l'arme et les touches s'affichent en bas de l'écran.
 

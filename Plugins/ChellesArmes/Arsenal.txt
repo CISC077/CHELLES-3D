@@ -3,13 +3,14 @@
 # En jeu, la console (touche ²) "Chelles.Arsenal Recharger" relit ce fichier sans quitter.
 # Les lignes qui commencent par # sont des commentaires.
 #
-# EN JEU : touche N = ARME NORMALE -> BLASTER -> BAZOOKA -> SABRE -> GRENADE -> ARME NORMALE
+# EN JEU : touche 3 = ARME NORMALE -> BLASTER -> BAZOOKA -> SABRE -> GRENADE -> ARME NORMALE
 #          clic gauche = tirer / frapper / lancer ; molette = retour aux armes normales.
 # Console : Chelles.Arsenal Blaster (ou Bazooka, Sabre, Grenade, Aucune)
 
 # Oui = arsenal disponible, Non = touche N sans effet
 Arsenal=Oui
-ToucheChanger=N
+# Three = touche 3 (au-dessus de Z, le " en AZERTY). N est pris par les missions.
+ToucheChanger=Three
 # Volume des sons de l'arsenal (1 = normal, 0 = muet)
 Volume=1
 # Materiau qui brille (lames, traits laser). Cree une seule fois par Tools\Arsenal\creer_materiau_lueur.py.
