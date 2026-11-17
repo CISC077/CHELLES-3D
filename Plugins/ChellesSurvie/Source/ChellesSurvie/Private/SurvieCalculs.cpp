@@ -125,7 +125,13 @@ void FEconomieRefuge::Lire(const TArray<FString>& Lignes)
 		else if (Cle == TEXT("PerteATerrePourcent")) PerteATerre = FMath::Clamp(N, 0.f, 100.f) / 100.f;
 		else if (Cle == TEXT("XPParKill")) XPParKill = FMath::Clamp((int32)N, 0, 1000);
 		else if (Cle == TEXT("XPBonusTete")) XPBonusTete = FMath::Clamp((int32)N, 0, 1000);
+		else if (Cle == TEXT("ScoreBonusParVague")) ScoreBonusParVague = FMath::Clamp((int32)N, 0, 100000);
 	}
+}
+
+int32 FEconomieRefuge::ScorePourVague(int32 Vague) const
+{
+	return FMath::Max(0, Vague) * ScoreBonusParVague;
 }
 
 int32 FEconomieRefuge::PointsPourCoup(bool bMort, bool bTete) const
@@ -211,4 +217,92 @@ FString FCatalogueRefuge::CheminClasse(const FString& NomOuChemin)
 		return FString::Printf(TEXT("%s.%s_C"), *NomOuChemin, *Nom);
 	}
 	return FString::Printf(TEXT("/Game/FPS_Game/Blueprints/Weapons/%s.%s_C"), *NomOuChemin, *NomOuChemin);
+}
+
+// ---- Classement ---------------------------------------------------------------------
+
+FString FLigneClassement::VersTexte() const
+{
+	return FString::Printf(TEXT("%d|%d|%d|%d|%d|%s|%s"), Score, Vague, Kills, Tetes, Joueurs, *Date, *PseudoPropre(Pseudo));
+}
+
+bool FLigneClassement::DepuisTexte(const FString& Texte, FLigneClassement& Ligne)
+{
+	TArray<FString> Morceaux;
+	Texte.TrimStartAndEnd().ParseIntoArray(Morceaux, TEXT("|"), false);
+	if (Morceaux.Num() < 7 || !Morceaux[0].IsNumeric())
+	{
+		return false;
+	}
+	Ligne.Score = FMath::Max(0, FCString::Atoi(*Morceaux[0]));
+	Ligne.Vague = FMath::Max(0, FCString::Atoi(*Morceaux[1]));
+	Ligne.Kills = FMath::Max(0, FCString::Atoi(*Morceaux[2]));
+	Ligne.Tetes = FMath::Max(0, FCString::Atoi(*Morceaux[3]));
+	Ligne.Joueurs = FMath::Max(1, FCString::Atoi(*Morceaux[4]));
+	Ligne.Date = Morceaux[5];
+	Ligne.Pseudo = PseudoPropre(Morceaux[6]);
+	return true;
+}
+
+FString FLigneClassement::PseudoPropre(const FString& Brut)
+{
+	FString P;
+	for (const TCHAR C : Brut)
+	{
+		if (C >= 32 && C != TEXT('|') && C != 127)
+		{
+			P.AppendChar(C);
+		}
+	}
+	P = P.TrimStartAndEnd().Left(20);
+	return P.Len() >= 3 ? P : FString(TEXT("Joueur"));
+}
+
+int32 FClassementCalculs::Inserer(TArray<FLigneClassement>& Liste, const FLigneClassement& Ligne, int32 Max)
+{
+	int32 Place = 0;
+	while (Place < Liste.Num())
+	{
+		const FLigneClassement& Autre = Liste[Place];
+		if (Ligne.Score > Autre.Score || (Ligne.Score == Autre.Score && Ligne.Vague > Autre.Vague))
+		{
+			break;
+		}
+		++Place;
+	}
+	if (Max > 0 && Place >= Max)
+	{
+		return 0;
+	}
+	Liste.Insert(Ligne, Place);
+	if (Max > 0 && Liste.Num() > Max)
+	{
+		Liste.SetNum(Max);
+	}
+	return Place + 1;
+}
+
+int32 FClassementCalculs::Record(const TArray<FLigneClassement>& Liste)
+{
+	int32 Meilleur = 0;
+	for (const FLigneClassement& L : Liste)
+	{
+		Meilleur = FMath::Max(Meilleur, L.Score);
+	}
+	return Meilleur;
+}
+
+FString FClassementCalculs::Milliers(int32 N)
+{
+	const FString Brut = FString::FromInt(FMath::Abs(N));
+	FString R;
+	for (int32 i = 0; i < Brut.Len(); ++i)
+	{
+		if (i > 0 && (Brut.Len() - i) % 3 == 0)
+		{
+			R.AppendChar(TEXT(' '));
+		}
+		R.AppendChar(Brut[i]);
+	}
+	return N < 0 ? TEXT("-") + R : R;
 }

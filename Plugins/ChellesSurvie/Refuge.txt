@@ -49,3 +49,11 @@ Arme.Lanceur=BPC_WeaponLauncher|2500
 PrixMunitions=400
 # Prix d'une barriere si la commande Chelles.StandIci Barriere n'en donne pas
 PrixBarriere=750
+
+# ---- Score et classement ----
+# Le SCORE ne baisse jamais (les POINTS, eux, servent a acheter) : touches + kills + tetes + releves
+# + un bonus a chaque vague repoussee = numero de la vague x ce nombre (vague 10 = +1000).
+ScoreBonusParVague=100
+# Classement de tous les joueurs sur le serveur CHELLES 3D (Oui / Non). Non = classement de ce PC seulement.
+ClassementEnLigne=Oui
+AdresseClassement=http://51.178.54.208:8080

@@ -11,6 +11,8 @@ public class ChellesSurvie : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+			"HTTP",
+			"Json",
 			"InputCore",
 			"Slate",
 			"SlateCore"

@@ -15,6 +15,8 @@
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 
+#include "ClassementSurvie.h"
+
 namespace
 {
 	const FLinearColor Cyan(0.f, 0.85f, 1.f, 1.f);
@@ -108,6 +110,8 @@ int32 SSurvieEcran::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FS
 		// ---- En bas a droite : mes points ----
 		const FString TextePoints = Milliers(Etat.MesPoints) + TEXT(" PTS");
 		Ecrire(Sortie, Couche + 2, G, TextePoints, FVector2D(Ecran.X - 30.f * Echelle, Ecran.Y - 150.f * Echelle), Grand, Or, 1.f);
+		// ... et mon score (il ne baisse jamais, c'est lui qui compte au classement)
+		Ecrire(Sortie, Couche + 2, G, TEXT("SCORE ") + Milliers(Etat.MonScore), FVector2D(Ecran.X - 30.f * Echelle, Ecran.Y - 150.f * Echelle + Grand * 1.3f), Moyen, Cyan, 1.f);
 
 		// ---- Au centre : ce qu'on peut faire avec E ----
 		if (!Etat.Invite.IsEmpty() && Etat.MonEtat == 0)
@@ -164,8 +168,8 @@ void SSurvieEcran::PeindreScores(FSlateWindowElementList& Sortie, int32 Couche, 
 	const int32 Grand = FMath::RoundToInt(48 * Echelle);
 	const int32 Moyen = FMath::RoundToInt(22 * Echelle);
 
-	const FVector2D Taille(FMath::Min(Ecran.X - 40.f, 1000.f * Echelle), (180.f + 44.f * FMath::Max(1, Etat.Scores.Num())) * Echelle);
-	const FVector2D Coin((Ecran.X - Taille.X) * 0.5f, Ecran.Y * 0.18f);
+	const FVector2D Taille(FMath::Min(Ecran.X - 40.f, 1000.f * Echelle), (230.f + 44.f * FMath::Max(1, Etat.Scores.Num())) * Echelle);
+	const FVector2D Coin((Ecran.X - Taille.X) * 0.5f, Ecran.Y * 0.08f);
 	Boite(Sortie, Couche, G, FVector2D::ZeroVector, Ecran, FLinearColor(0.f, 0.f, 0.f, 0.45f));
 	Boite(Sortie, Couche + 1, G, Coin, Taille, FondNuit);
 	Boite(Sortie, Couche + 2, G, Coin, FVector2D(Taille.X, 4.f), Magenta);
@@ -174,10 +178,24 @@ void SSurvieEcran::PeindreScores(FSlateWindowElementList& Sortie, int32 Couche, 
 	Ecrire(Sortie, Couche + 3, G, Etat.TitreFin, FVector2D(Ecran.X * 0.5f, Coin.Y + 20.f * Echelle), Grand, Rouge, 0.5f);
 	Ecrire(Sortie, Couche + 3, G, FString::Printf(TEXT("Vague atteinte : %d"), Etat.Vague), FVector2D(Ecran.X * 0.5f, Coin.Y + 20.f * Echelle + Grand * 1.4f), Moyen, Or, 0.5f);
 
-	// Colonnes : nom, points, kills, tetes, a terre, releves
-	const float Y0 = Coin.Y + 150.f * Echelle;
+	// Record personnel / partie d'entrainement
+	if (!Etat.LigneRecord.IsEmpty())
+	{
+		FString Texte = Etat.LigneRecord;
+		if (Etat.RangEnLigne > 0)
+		{
+			Texte += Etat.RangEnLigne == 1
+				? FString(TEXT("   ·   1er au classement des joueurs !"))
+				: FString::Printf(TEXT("   ·   %de au classement des joueurs"), Etat.RangEnLigne);
+		}
+		Ecrire(Sortie, Couche + 3, G, Texte, FVector2D(Ecran.X * 0.5f, Coin.Y + 20.f * Echelle + Grand * 1.4f + Moyen * 1.5f),
+			Moyen, Etat.bRecordBattu ? Magenta : Blanc, 0.5f, Etat.bRecordBattu);
+	}
+
+	// Colonnes : nom, score, kills, tetes, a terre, releves
+	const float Y0 = Coin.Y + 200.f * Echelle;
 	const float Colonnes[6] = { 0.06f, 0.45f, 0.60f, 0.72f, 0.84f, 0.95f };
-	const TCHAR* Entetes[6] = { TEXT("JOUEUR"), TEXT("POINTS"), TEXT("KILLS"), TEXT("TÊTES"), TEXT("À TERRE"), TEXT("RELEVÉS") };
+	const TCHAR* Entetes[6] = { TEXT("JOUEUR"), TEXT("SCORE"), TEXT("KILLS"), TEXT("TÊTES"), TEXT("À TERRE"), TEXT("RELEVÉS") };
 	for (int32 c = 0; c < 6; ++c)
 	{
 		Ecrire(Sortie, Couche + 3, G, Entetes[c], FVector2D(Coin.X + Taille.X * Colonnes[c], Y0), FMath::RoundToInt(15 * Echelle), Cyan, c == 0 ? 0.f : 1.f);
@@ -188,7 +206,7 @@ void SSurvieEcran::PeindreScores(FSlateWindowElementList& Sortie, int32 Couche, 
 		const float Y = Y0 + (36.f + 40.f * i) * Echelle;
 		const FLinearColor Teinte = L.bMoi ? Or : Blanc;
 		Ecrire(Sortie, Couche + 3, G, L.Nom, FVector2D(Coin.X + Taille.X * Colonnes[0], Y), Moyen, Teinte, 0.f);
-		Ecrire(Sortie, Couche + 3, G, Milliers(L.Points), FVector2D(Coin.X + Taille.X * Colonnes[1], Y), Moyen, Teinte, 1.f);
+		Ecrire(Sortie, Couche + 3, G, Milliers(L.Score), FVector2D(Coin.X + Taille.X * Colonnes[1], Y), Moyen, Teinte, 1.f);
 		Ecrire(Sortie, Couche + 3, G, FString::FromInt(L.Kills), FVector2D(Coin.X + Taille.X * Colonnes[2], Y), Moyen, Teinte, 1.f);
 		Ecrire(Sortie, Couche + 3, G, FString::FromInt(L.Tetes), FVector2D(Coin.X + Taille.X * Colonnes[3], Y), Moyen, Teinte, 1.f);
 		Ecrire(Sortie, Couche + 3, G, FString::FromInt(L.FoisATerre), FVector2D(Coin.X + Taille.X * Colonnes[4], Y), Moyen, Teinte, 1.f);
@@ -196,6 +214,43 @@ void SSurvieEcran::PeindreScores(FSlateWindowElementList& Sortie, int32 Couche, 
 	}
 	Ecrire(Sortie, Couche + 3, G, FString::Printf(TEXT("Retour au jeu libre dans %d s"), FMath::CeilToInt(Etat.SecondesFin)),
 		FVector2D(Ecran.X * 0.5f, Coin.Y + Taille.Y - 40.f * Echelle), FMath::RoundToInt(15 * Echelle), Gris, 0.5f, false);
+
+	// Classement juste en dessous
+	PeindreClassement(Sortie, Couche, G, FVector2D(Coin.X, Coin.Y + Taille.Y + 14.f * Echelle), Taille.X);
+}
+
+float SSurvieEcran::PeindreClassement(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Coin, float Largeur) const
+{
+	const FVector2D Ecran = G.GetLocalSize();
+	const float Echelle = FMath::Clamp(Ecran.Y / 1080.f, 0.6f, 2.f);
+	const int32 Moyen = FMath::RoundToInt(20 * Echelle);
+	const int32 Petit = FMath::RoundToInt(15 * Echelle);
+	const int32 Lignes = FMath::Max(1, Etat.Classement.Num());
+	const FVector2D Taille(Largeur, (70.f + 34.f * Lignes) * Echelle);
+
+	Boite(Sortie, Couche + 1, G, Coin, Taille, FondNuit);
+	Boite(Sortie, Couche + 2, G, Coin, FVector2D(4.f, Taille.Y), Or);
+	Ecrire(Sortie, Couche + 3, G, Etat.TitreClassement, FVector2D(Coin.X + Largeur * 0.06f, Coin.Y + 14.f * Echelle), Petit, Or, 0.f);
+
+	const float Y0 = Coin.Y + 46.f * Echelle;
+	if (Etat.Classement.Num() == 0)
+	{
+		Ecrire(Sortie, Couche + 3, G, TEXT("Personne n'est encore classé : à toi de jouer !"), FVector2D(Coin.X + Largeur * 0.06f, Y0), Moyen, Gris, 0.f, false);
+		return Taille.Y;
+	}
+	for (int32 i = 0; i < Etat.Classement.Num(); ++i)
+	{
+		const FLigneClassement& L = Etat.Classement[i];
+		const float Y = Y0 + 34.f * i * Echelle;
+		const bool bMoi = !Etat.MonPseudo.IsEmpty() && L.Pseudo == Etat.MonPseudo;
+		const FLinearColor Teinte = i == 0 ? Or : (bMoi ? Cyan : Blanc);
+		Ecrire(Sortie, Couche + 3, G, FString::Printf(TEXT("%d."), i + 1), FVector2D(Coin.X + Largeur * 0.06f, Y), Moyen, Teinte, 0.f);
+		Ecrire(Sortie, Couche + 3, G, L.Pseudo, FVector2D(Coin.X + Largeur * 0.12f, Y), Moyen, Teinte, 0.f);
+		Ecrire(Sortie, Couche + 3, G, Milliers(L.Score), FVector2D(Coin.X + Largeur * 0.60f, Y), Moyen, Teinte, 1.f);
+		Ecrire(Sortie, Couche + 3, G, FString::Printf(TEXT("vague %d"), L.Vague), FVector2D(Coin.X + Largeur * 0.78f, Y), Moyen, Teinte, 1.f, false);
+		Ecrire(Sortie, Couche + 3, G, FString::Printf(TEXT("%d kills"), L.Kills), FVector2D(Coin.X + Largeur * 0.95f, Y), Moyen, Teinte, 1.f, false);
+	}
+	return Taille.Y;
 }
 
 // ===================================================================================
@@ -270,16 +325,24 @@ void SModesSurvie::Construct(const FArguments& InArgs)
 		.HAlign(HAlign_Center)
 		.VAlign(VAlign_Center)
 		[
-			SNew(SBox)
-			.WidthOverride(760.f)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()
 			[
-				SNew(SBorder)
-				.BorderImage(FCoreStyle::Get().GetBrush(TEXT("WhiteBrush")))
-				.BorderBackgroundColor(FondNuit)
-				.Padding(FMargin(36.f, 28.f))
+				SNew(SBox)
+				.WidthOverride(760.f)
 				[
-					Liste
+					SNew(SBorder)
+					.BorderImage(FCoreStyle::Get().GetBrush(TEXT("WhiteBrush")))
+					.BorderBackgroundColor(FondNuit)
+					.Padding(FMargin(36.f, 28.f))
+					[
+						Liste
+					]
 				]
+			]
+			+ SHorizontalBox::Slot().AutoWidth().Padding(16.f, 0.f, 0.f, 0.f).VAlign(VAlign_Top)
+			[
+				PanneauClassement()
 			]
 		]
 	];
@@ -322,4 +385,81 @@ FReply SModesSurvie::OnKeyDown(const FGeometry& Geometrie, const FKeyEvent& Touc
 		return FReply::Handled();
 	}
 	return SCompoundWidget::OnKeyDown(Geometrie, Touche);
+}
+
+TSharedRef<SWidget> SModesSurvie::PanneauClassement()
+{
+	const FSlateFontInfo Titre = FCoreStyle::GetDefaultFontStyle("Bold", 20);
+	const FSlateFontInfo Ligne = FCoreStyle::GetDefaultFontStyle("Regular", 14);
+
+	TSharedRef<SVerticalBox> Lignes = SNew(SVerticalBox);
+	Lignes->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 4.f)
+	[
+		SNew(STextBlock).Text(FText::FromString(TEXT("MEILLEURS SCORES"))).Font(Titre).ColorAndOpacity(Or)
+	];
+	Lignes->AddSlot().AutoHeight().Padding(0.f, 0.f, 0.f, 12.f)
+	[
+		SNew(STextBlock).Font(FCoreStyle::GetDefaultFontStyle("Regular", 12)).ColorAndOpacity(Gris).AutoWrapText(true)
+		.Text_Lambda([]()
+		{
+			FString TitreListe;
+			FClassementSurvie::Get().AMontrer(TitreListe);
+			return FText::FromString(TitreListe);
+		})
+	];
+	// 10 lignes, remplies a chaque image (le serveur peut repondre apres l'ouverture de l'ecran)
+	for (int32 i = 0; i < 10; ++i)
+	{
+		Lignes->AddSlot().AutoHeight().Padding(0.f, 2.f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().FillWidth(1.f)
+			[
+				SNew(STextBlock).Font(Ligne)
+				.ColorAndOpacity(i == 0 ? Or : Blanc)
+				.Text_Lambda([i]()
+				{
+					FString TitreListe;
+					const TArray<FLigneClassement>& Liste = FClassementSurvie::Get().AMontrer(TitreListe);
+					if (!Liste.IsValidIndex(i))
+					{
+						return FText::FromString(i == 0 ? FString(TEXT("Personne n'est encore classé.")) : FString());
+					}
+					return FText::FromString(FString::Printf(TEXT("%d.  %s"), i + 1, *Liste[i].Pseudo));
+				})
+			]
+			+ SHorizontalBox::Slot().AutoWidth().Padding(12.f, 0.f, 0.f, 0.f)
+			[
+				SNew(STextBlock).Font(Ligne)
+				.ColorAndOpacity(Cyan)
+				.Text_Lambda([i]()
+				{
+					FString TitreListe;
+					const TArray<FLigneClassement>& Liste = FClassementSurvie::Get().AMontrer(TitreListe);
+					if (!Liste.IsValidIndex(i))
+					{
+						return FText::GetEmpty();
+					}
+					return FText::FromString(FString::Printf(TEXT("%s  ·  v%d"), *Milliers(Liste[i].Score), Liste[i].Vague));
+				})
+			]
+		];
+	}
+	Lignes->AddSlot().AutoHeight().Padding(0.f, 14.f, 0.f, 0.f)
+	[
+		SNew(STextBlock).Font(FCoreStyle::GetDefaultFontStyle("Regular", 11)).ColorAndOpacity(Gris).AutoWrapText(true)
+		.Text(FText::FromString(TEXT("Comptent : les parties du DERNIER REFUGE commencées à la vague 1. Ton nom = ton pseudo du chat (touche B).")))
+	];
+
+	return SNew(SBox)
+		.WidthOverride(380.f)
+		[
+			SNew(SBorder)
+			.BorderImage(FCoreStyle::Get().GetBrush(TEXT("WhiteBrush")))
+			.BorderBackgroundColor(FondNuit)
+			.Padding(FMargin(24.f, 22.f))
+			[
+				Lignes
+			]
+		];
 }

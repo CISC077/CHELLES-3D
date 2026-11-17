@@ -44,6 +44,10 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServeurChoisirMode(uint8 Mode, int32 VagueDepart);
 
+	/** Le joueur donne son pseudo (celui du chat global) : il s'affiche au tableau des scores. */
+	UFUNCTION(Server, Reliable)
+	void ServeurDonnerPseudo(const FString& Pseudo);
+
 	// ---- Reponses du serveur ----
 	UFUNCTION(Client, Reliable)
 	void ClientAvis(const FString& Texte);
@@ -60,6 +64,10 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientCreerArme(const FString& Chemin, FVector Lieu);
 
+	/** Fin d'une partie du Dernier Refuge : la machine du joueur l'enregistre au classement (ce PC + serveur). */
+	UFUNCTION(Client, Reliable)
+	void ClientFinDePartie(int32 VagueAtteinte, int32 ScoreFinal, int32 KillsFinal, int32 TetesFinal, int32 NombreJoueurs, bool bClassable);
+
 	// ---- Etat connu de tous ----
 	UPROPERTY(Replicated)
 	FString Nom;
@@ -69,6 +77,10 @@ public:
 
 	UPROPERTY(Replicated)
 	int32 Points = 0;
+
+	/** Score de la partie : ne baisse jamais (les Points, eux, servent a acheter). */
+	UPROPERTY(Replicated)
+	int32 Score = 0;
 
 	UPROPERTY(Replicated)
 	int32 Kills = 0;
@@ -92,6 +104,9 @@ public:
 	/** 0 a 1 : avancement de la relance en cours (un coequipier tient E). */
 	UPROPERTY(Replicated)
 	float Relance = 0.f;
+
+	/** Serveur seulement : le joueur a donne son pseudo (on ne le remplace plus par le nom reseau). */
+	bool bPseudoChoisi = false;
 
 	/** Serveur seulement : qui est en train de me relever. */
 	TWeakObjectPtr<ASurvieRelais> Releveur;

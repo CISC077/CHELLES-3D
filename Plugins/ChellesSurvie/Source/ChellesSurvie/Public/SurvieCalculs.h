@@ -78,11 +78,15 @@ struct CHELLESSURVIE_API FEconomieRefuge
 	float PerteATerre = 0.1f;
 	int32 XPParKill = 2;
 	int32 XPBonusTete = 2;
+	/** Bonus de SCORE (pas de points) a chaque vague repoussee : numero de la vague x ce nombre. */
+	int32 ScoreBonusParVague = 100;
 
 	void Lire(const TArray<FString>& Lignes);
 	/** Points d'un coup sur un zombie : touche simple, mort, ou mort par la tete. */
 	int32 PointsPourCoup(bool bMort, bool bTete) const;
 	int32 XPPourKill(bool bTete) const;
+	/** Bonus de score pour avoir repousse la vague numero Vague (vague 5 = 5 x ScoreBonusParVague). */
+	int32 ScorePourVague(int32 Vague) const;
 	/** Points perdus en tombant a terre avec Points en poche. */
 	int32 PerteQuandATerre(int32 Points) const;
 	/** Vrai et Points diminue si on peut payer Prix, sinon faux et rien ne change. */
@@ -107,4 +111,37 @@ struct CHELLESSURVIE_API FCatalogueRefuge
 	const FArticleRefuge* Trouver(const FString& Nom) const;
 	/** "BPC_WeaponRifle" -> "/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponRifle.BPC_WeaponRifle_C" (un chemin complet reste tel quel). */
 	static FString CheminClasse(const FString& NomOuChemin);
+};
+
+/**
+ * Une ligne du classement du Dernier Refuge (une partie terminee).
+ * Le SCORE ne baisse jamais : touches + kills + tetes + releves + bonus de vague (les POINTS, eux, servent a acheter).
+ */
+struct CHELLESSURVIE_API FLigneClassement
+{
+	FString Pseudo;
+	int32 Score = 0;
+	int32 Vague = 0;
+	int32 Kills = 0;
+	int32 Tetes = 0;
+	int32 Joueurs = 1;
+	/** AAAA-MM-JJ */
+	FString Date;
+
+	/** "Score|Vague|Kills|Tetes|Joueurs|Date|Pseudo" (une ligne du fichier Saved/ChellesSurvie/Classement.txt). */
+	FString VersTexte() const;
+	static bool DepuisTexte(const FString& Texte, FLigneClassement& Ligne);
+	/** Pseudo propre : sans | ni caracteres de controle, 3 a 20 caracteres ("Joueur" sinon). */
+	static FString PseudoPropre(const FString& Brut);
+};
+
+struct CHELLESSURVIE_API FClassementCalculs
+{
+	/** Range Ligne dans Liste (du meilleur score au moins bon, a egalite la vague la plus haute) et garde Max lignes.
+	 *  Renvoie sa place (1 = premier) ou 0 si elle ne rentre pas. */
+	static int32 Inserer(TArray<FLigneClassement>& Liste, const FLigneClassement& Ligne, int32 Max);
+	/** Meilleur score de la liste (0 si vide). */
+	static int32 Record(const TArray<FLigneClassement>& Liste);
+	/** 12500 -> "12 500" */
+	static FString Milliers(int32 N);
 };

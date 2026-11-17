@@ -27,6 +27,8 @@
 #include "Misc/Paths.h"
 #include "Net/UnrealNetwork.h"
 
+#include "ClassementSurvie.h"
+#include "Misc/DateTime.h"
 #include "SSurvieEcran.h"
 #include "StandRefuge.h"
 #include "SurvieOutils.h"
@@ -350,7 +352,9 @@ void ASurvieChelles::QuandZombieTue(ACharacter* Zombie, AController* Tueur, bool
 	{
 		++R->Tetes;
 	}
-	R->Points += Economie.PointsPourCoup(true, bTete);
+	const int32 Gain = Economie.PointsPourCoup(true, bTete);
+	R->Points += Gain;
+	R->Score += Gain;
 }
 
 void ASurvieChelles::QuandZombieTouche(ACharacter* Zombie, AController* Auteur)
@@ -361,7 +365,9 @@ void ASurvieChelles::QuandZombieTouche(ACharacter* Zombie, AController* Auteur)
 	}
 	if (ASurvieRelais* R = RelaisDe(Auteur))
 	{
-		R->Points += Economie.PointsPourCoup(false, false);
+		const int32 Gain = Economie.PointsPourCoup(false, false);
+		R->Points += Gain;
+		R->Score += Gain;
 	}
 }
 
@@ -472,7 +478,7 @@ void ASurvieChelles::GererRelais()
 			ListeRelais.Add(R);
 		}
 		R->Pion = PC->GetPawn();
-		if (PC->PlayerState)
+		if (PC->PlayerState && !R->bPseudoChoisi)
 		{
 			R->Nom = PC->PlayerState->GetPlayerName();
 		}
@@ -544,10 +550,22 @@ void ASurvieChelles::TickServeur(float Heure)
 		}
 		if (bVagueDemarree && !bEnCours)
 		{
-			// Tous les zombies de la vague sont tombes
+			// Tous les zombies de la vague sont tombes : bonus de score pour ceux encore debout
 			Etat = EEtatPartie::Pause;
 			FinPause = Heure + Courbe.PauseEntreVaguesSecondes;
-			AvisATous(FString::Printf(TEXT("VAGUE %d REPOUSSÉE !"), Vague));
+			const int32 Bonus = Economie.ScorePourVague(Vague);
+			TArray<ASurvieRelais*> Survivants;
+			Relais(Survivants);
+			for (ASurvieRelais* R : Survivants)
+			{
+				if (R->Etat == EEtatJoueurSurvie::Debout)
+				{
+					R->Score += Bonus;
+				}
+			}
+			AvisATous(Bonus > 0
+				? FString::Printf(TEXT("VAGUE %d REPOUSSÉE !  +%s au score"), Vague, *FClassementCalculs::Milliers(Bonus))
+				: FString::Printf(TEXT("VAGUE %d REPOUSSÉE !"), Vague));
 			UE_LOG(LogTemp, Log, TEXT("[Survie] Vague %d repoussee."), Vague);
 		}
 		else if (!bVagueDemarree && Heure > VagueLanceeA + 5.f && Inv)
@@ -589,6 +607,7 @@ void ASurvieChelles::TickServeur(float Heure)
 				Remettre(R, false);
 				++Aide->Releves;
 				Aide->Points += Economie.PointsRelever;
+				Aide->Score += Economie.PointsRelever;
 				AvisATous(FString::Printf(TEXT("%s a relevé %s"), *Aide->Nom, *R->Nom));
 				continue;
 			}
@@ -655,12 +674,15 @@ void ASurvieChelles::Demarrer(EModeSurvie NouveauMode, int32 VagueDepart)
 	TitreFin.Reset();
 	bVagueDemarree = false;
 	bVagueCoureurs = false;
+	// Seule une partie commencee a la vague 1 compte au classement
+	bPartieClassable = VagueDepart <= 1;
 
 	TArray<ASurvieRelais*> Tous;
 	Relais(Tous);
 	for (ASurvieRelais* R : Tous)
 	{
 		R->Points = Economie.PointsDepart;
+		R->Score = 0;
 		R->Kills = 0;
 		R->Tetes = 0;
 		R->FoisATerre = 0;
@@ -668,7 +690,9 @@ void ASurvieChelles::Demarrer(EModeSurvie NouveauMode, int32 VagueDepart)
 		Remettre(R, true);
 	}
 	PoserStands();
-	AvisATous(TEXT("DERNIER REFUGE : première vague dans 10 secondes !"));
+	AvisATous(bPartieClassable
+		? FString(TEXT("DERNIER REFUGE : première vague dans 10 secondes !"))
+		: FString::Printf(TEXT("DERNIER REFUGE (entraînement dès la vague %d, hors classement) : 10 secondes !"), VagueDepart));
 	UE_LOG(LogTemp, Log, TEXT("[Survie] Dernier Refuge lance (vague de depart %d, %d joueur(s), centre %s)."), VagueDepart, Tous.Num(), *VecteurTexte(Centre));
 }
 
@@ -775,7 +799,7 @@ void ASurvieChelles::VerifierFin()
 	}
 	// Plus personne debout
 	Etat = EEtatPartie::Fin;
-	FinPause = Maintenant() + 15.f;
+	FinPause = Maintenant() + 20.f;
 	TitreFin = TEXT("LE REFUGE EST TOMBÉ");
 	if (AActor* Inv = Invasion())
 	{
@@ -784,7 +808,9 @@ void ASurvieChelles::VerifierFin()
 	UE_LOG(LogTemp, Log, TEXT("[Survie] Fin de partie a la vague %d."), Vague);
 	for (ASurvieRelais* R : Tous)
 	{
-		UE_LOG(LogTemp, Log, TEXT("[Survie]   %s : %d pts, %d kills, %d tetes, %d fois a terre, %d releves"), *R->Nom, R->Points, R->Kills, R->Tetes, R->FoisATerre, R->Releves);
+		UE_LOG(LogTemp, Log, TEXT("[Survie]   %s : score %d, %d pts, %d kills, %d tetes, %d fois a terre, %d releves"), *R->Nom, R->Score, R->Points, R->Kills, R->Tetes, R->FoisATerre, R->Releves);
+		// Chaque joueur enregistre sa partie au classement sur sa machine
+		R->ClientFinDePartie(Vague, R->Score, R->Kills, R->Tetes, Tous.Num(), bPartieClassable);
 	}
 }
 
@@ -1252,6 +1278,11 @@ void ASurvieChelles::CommandePoints(int32 Quantite)
 	{
 		R->Points = FMath::Max(0, R->Points + Quantite);
 	}
+	if (Mode == EModeSurvie::Refuge && bPartieClassable)
+	{
+		bPartieClassable = false;
+		AvisATous(TEXT("Points donnés par la console : cette partie ne compte plus au classement."));
+	}
 }
 
 void ASurvieChelles::CommandeVague(int32 Numero)
@@ -1268,6 +1299,11 @@ void ASurvieChelles::CommandeVague(int32 Numero)
 	Vague = FMath::Max(0, Numero - 1);
 	Etat = EEtatPartie::Pause;
 	FinPause = Maintenant() + 3.f;
+	if (bPartieClassable)
+	{
+		bPartieClassable = false;
+		AvisATous(TEXT("Vague choisie par la console : cette partie ne compte plus au classement."));
+	}
 }
 
 // ===================================================================================
@@ -1313,6 +1349,8 @@ void ASurvieChelles::OuvrirModes()
 	}
 	GModesDejaProposes = true;
 	bModesProposes = true;
+	FClassementSurvie::Get().ChargerReglages();
+	FClassementSurvie::Get().Rafraichir();
 	TWeakObjectPtr<ASurvieChelles> Moi(this);
 	EcranModes = SNew(SModesSurvie)
 		.bPeutChoisir(GetNetMode() != NM_Client)
@@ -1458,6 +1496,24 @@ void ASurvieChelles::TickLocal(float DeltaSeconds)
 		OuvrirModes();
 	}
 
+	// Nouvelle partie en cours : on oublie le resultat de la precedente
+	if (Etat == EEtatPartie::Vague && !LigneRecord.IsEmpty())
+	{
+		LigneRecord.Reset();
+		bRecordBattu = false;
+	}
+
+	// ---- Mon pseudo (celui du chat global) pour le tableau des scores ----
+	if (R && !bPseudoEnvoye && R->GetPC() && R->GetPC()->IsLocalController())
+	{
+		bPseudoEnvoye = true;
+		const FString Pseudo = FClassementSurvie::PseudoLocal(TEXT(""));
+		if (Pseudo != TEXT("Joueur"))
+		{
+			R->ServeurDonnerPseudo(Pseudo);
+		}
+	}
+
 	// ---- Etat du joueur de cette machine ----
 	FString Invite;
 	float RelanceDonnee = -1.f;
@@ -1520,6 +1576,7 @@ void ASurvieChelles::TickLocal(float DeltaSeconds)
 	E.bCoureurs = bVagueCoureurs && Etat == EEtatPartie::Vague;
 	E.SecondesPause = Etat == EEtatPartie::Pause ? FMath::Max(0.f, FinPause - Heure) : 0.f;
 	E.MesPoints = R ? R->Points : 0;
+	E.MonScore = R ? R->Score : 0;
 	E.MonEtat = R ? (uint8)R->Etat : 0;
 	E.SecondesATerre = R ? FMath::Max(0.f, R->FinATerre - Heure) : 0.f;
 	E.MaRelance = R ? R->Relance : 0.f;
@@ -1541,6 +1598,7 @@ void ASurvieChelles::TickLocal(float DeltaSeconds)
 			FLigneScore L;
 			L.Nom = Joueur->Nom;
 			L.Points = Joueur->Points;
+			L.Score = Joueur->Score;
 			L.Kills = Joueur->Kills;
 			L.Tetes = Joueur->Tetes;
 			L.FoisATerre = Joueur->FoisATerre;
@@ -1549,6 +1607,58 @@ void ASurvieChelles::TickLocal(float DeltaSeconds)
 			L.bMoi = Joueur == R;
 			E.Scores.Add(L);
 		}
-		E.Scores.Sort([](const FLigneScore& A, const FLigneScore& B) { return A.Kills > B.Kills; });
+		E.Scores.Sort([](const FLigneScore& A, const FLigneScore& B) { return A.Score > B.Score; });
+
+		// Classement (serveur du VPS, sinon ce PC)
+		FClassementSurvie& C = FClassementSurvie::Get();
+		E.Classement = C.AMontrer(E.TitreClassement);
+		if (E.Classement.Num() > 5)
+		{
+			E.Classement.SetNum(5);
+		}
+		E.LigneRecord = LigneRecord;
+		E.bRecordBattu = bRecordBattu;
+		E.RangEnLigne = C.DernierRang();
+		E.MonPseudo = R ? R->Nom : FString();
 	}
+}
+
+// ===================================================================================
+//  Chaque machine : classement
+// ===================================================================================
+
+void ASurvieChelles::EnregistrerMaPartie(ASurvieRelais* R, int32 VagueAtteinte, int32 ScoreFinal, int32 KillsFinal, int32 TetesFinal, int32 NombreJoueurs, bool bClassable)
+{
+	FClassementSurvie& C = FClassementSurvie::Get();
+	C.ChargerReglages();
+	C.OublierRang();
+	bRecordBattu = false;
+	if (!bClassable)
+	{
+		LigneRecord = TEXT("Partie d'entraînement : elle ne compte pas au classement.");
+		C.Rafraichir(true);
+		return;
+	}
+	if (ScoreFinal <= 0)
+	{
+		LigneRecord = TEXT("Aucun point marqué : rien à enregistrer.");
+		C.Rafraichir(true);
+		return;
+	}
+	FLigneClassement Ligne;
+	Ligne.Pseudo = FClassementSurvie::PseudoLocal(R ? R->Nom : FString(TEXT("Joueur")));
+	Ligne.Score = ScoreFinal;
+	Ligne.Vague = VagueAtteinte;
+	Ligne.Kills = KillsFinal;
+	Ligne.Tetes = TetesFinal;
+	Ligne.Joueurs = FMath::Max(1, NombreJoueurs);
+	Ligne.Date = FDateTime::Now().ToString(TEXT("%Y-%m-%d"));
+
+	int32 AncienRecord = 0;
+	C.AjouterLocal(Ligne, AncienRecord);
+	bRecordBattu = ScoreFinal > AncienRecord;
+	LigneRecord = bRecordBattu
+		? FString::Printf(TEXT("NOUVEAU RECORD !  %s"), *FClassementCalculs::Milliers(ScoreFinal))
+		: FString::Printf(TEXT("Ton score : %s   ·   ton record : %s"), *FClassementCalculs::Milliers(ScoreFinal), *FClassementCalculs::Milliers(AncienRecord));
+	C.Envoyer(Ligne);
 }

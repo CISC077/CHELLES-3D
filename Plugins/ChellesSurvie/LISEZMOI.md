@@ -20,6 +20,23 @@ multijoueur (1 à 8 joueurs, c'est l'hôte qui décide).
 Les autres modes (Rivalité de quartier, Traversée de Chelles, Contagion)
 sont affichés "Bientôt" dans l'écran MODES.
 
+## Score et classement des joueurs
+
+- Les **POINTS** (en bas à droite, doré) servent à acheter. Le **SCORE** (juste en
+  dessous, cyan) ne baisse jamais : touches, kills, têtes, coéquipiers relevés, et
+  un **bonus à chaque vague repoussée** (vague 10 = +1 000).
+- À la fin de la partie, le tableau montre le score de chacun, **NOUVEAU RECORD !**
+  si tu as battu ton record, ta place chez tous les joueurs et le **top 5**.
+- L'écran **MODES** (F7) montre les **10 meilleurs scores** à droite.
+- Le classement de tous les joueurs est sur le serveur CHELLES 3D (VPS). Si le
+  serveur ne répond pas, c'est le classement de ce PC qui s'affiche
+  (`Saved\ChellesSurvie\Classement.txt`, 20 meilleures parties).
+- Ton nom au classement = ton **pseudo du chat global** (touche **B**).
+- Ne comptent que les parties **commencées à la vague 1**, sans `Chelles.Points`
+  ni `Chelles.Vague`. Une partie arrêtée avant la fin (JEU LIBRE, `Chelles.RefugeFin`)
+  ne compte pas non plus.
+- Réglages dans `Refuge.txt` : `ScoreBonusParVague`, `ClassementEnLigne`, `AdresseClassement`.
+
 ## Installation (une seule fois)
 
 Ce plugin pilote les zombies du plugin **ChellesZombies**, qui a reçu un

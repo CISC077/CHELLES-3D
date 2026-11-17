@@ -28,6 +28,7 @@ void ASurvieRelais::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(ASurvieRelais, Nom);
 	DOREPLIFETIME(ASurvieRelais, Pion);
 	DOREPLIFETIME(ASurvieRelais, Points);
+	DOREPLIFETIME(ASurvieRelais, Score);
 	DOREPLIFETIME(ASurvieRelais, Kills);
 	DOREPLIFETIME(ASurvieRelais, Tetes);
 	DOREPLIFETIME(ASurvieRelais, FoisATerre);
@@ -103,6 +104,16 @@ void ASurvieRelais::ServeurChoisirMode_Implementation(uint8 NouveauMode, int32 V
 	}
 }
 
+void ASurvieRelais::ServeurDonnerPseudo_Implementation(const FString& Pseudo)
+{
+	const FString Propre = FLigneClassement::PseudoPropre(Pseudo);
+	if (Propre != TEXT("Joueur"))
+	{
+		Nom = Propre;
+		bPseudoChoisi = true;
+	}
+}
+
 // ---- Reponses du serveur (executees sur la machine du joueur) ----
 
 void ASurvieRelais::ClientAvis_Implementation(const FString& Texte)
@@ -144,4 +155,12 @@ void ASurvieRelais::ClientCreerArme_Implementation(const FString& Chemin, FVecto
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 	GetWorld()->SpawnActor<AActor>(Classe, FTransform(Lieu), Params);
+}
+
+void ASurvieRelais::ClientFinDePartie_Implementation(int32 VagueAtteinte, int32 ScoreFinal, int32 KillsFinal, int32 TetesFinal, int32 NombreJoueurs, bool bClassable)
+{
+	if (ASurvieChelles* G = Gestionnaire())
+	{
+		G->EnregistrerMaPartie(this, VagueAtteinte, ScoreFinal, KillsFinal, TetesFinal, NombreJoueurs, bClassable);
+	}
 }

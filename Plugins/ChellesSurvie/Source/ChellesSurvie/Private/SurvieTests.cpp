@@ -161,4 +161,55 @@ bool FTestSurvieCatalogue::RunTest(const FString& Parameters)
 	return true;
 }
 
+// ---- Score et classement -------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTestSurvieScoreVague, "Chelles.Survie.Classement.BonusDeVague", OptionsTest)
+bool FTestSurvieScoreVague::RunTest(const FString& Parameters)
+{
+	FEconomieRefuge E;
+	TestEqual(TEXT("Vague 5 repoussee : 5 x 100"), E.ScorePourVague(5), 500);
+	TArray<FString> Lignes;
+	Lignes.Add(TEXT("ScoreBonusParVague=250"));
+	E.Lire(Lignes);
+	TestEqual(TEXT("Reglage lu dans Refuge.txt"), E.ScorePourVague(2), 500);
+	TestEqual(TEXT("Vague 0 : rien"), E.ScorePourVague(0), 0);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTestSurvieClassementOrdre, "Chelles.Survie.Classement.Ordre", OptionsTest)
+bool FTestSurvieClassementOrdre::RunTest(const FString& Parameters)
+{
+	TArray<FLigneClassement> Liste;
+	FLigneClassement A; A.Pseudo = TEXT("Alice"); A.Score = 1000; A.Vague = 3;
+	FLigneClassement B; B.Pseudo = TEXT("Bob"); B.Score = 5000; B.Vague = 8;
+	FLigneClassement C; C.Pseudo = TEXT("Chloe"); C.Score = 1000; C.Vague = 4;
+	TestEqual(TEXT("Premier resultat : 1er"), FClassementCalculs::Inserer(Liste, A, 3), 1);
+	TestEqual(TEXT("Meilleur score : 1er"), FClassementCalculs::Inserer(Liste, B, 3), 1);
+	TestEqual(TEXT("Meme score, vague plus haute : devant Alice"), FClassementCalculs::Inserer(Liste, C, 3), 2);
+	TestEqual(TEXT("Ordre : Bob"), Liste[0].Pseudo, FString(TEXT("Bob")));
+	TestEqual(TEXT("Ordre : Chloe"), Liste[1].Pseudo, FString(TEXT("Chloe")));
+	TestEqual(TEXT("Ordre : Alice"), Liste[2].Pseudo, FString(TEXT("Alice")));
+	FLigneClassement D; D.Pseudo = TEXT("Dan"); D.Score = 10;
+	TestEqual(TEXT("Trop faible pour un top 3 : pas classe"), FClassementCalculs::Inserer(Liste, D, 3), 0);
+	TestEqual(TEXT("Toujours 3 lignes"), Liste.Num(), 3);
+	TestEqual(TEXT("Record"), FClassementCalculs::Record(Liste), 5000);
+	TestEqual(TEXT("Milliers"), FClassementCalculs::Milliers(1234567), FString(TEXT("1 234 567")));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTestSurvieClassementFichier, "Chelles.Survie.Classement.Fichier", OptionsTest)
+bool FTestSurvieClassementFichier::RunTest(const FString& Parameters)
+{
+	FLigneClassement L; L.Pseudo = TEXT("Ra|chid"); L.Score = 12340; L.Vague = 14; L.Kills = 180; L.Tetes = 60; L.Joueurs = 2; L.Date = TEXT("2026-11-17");
+	FLigneClassement Relue;
+	TestTrue(TEXT("Relecture"), FLigneClassement::DepuisTexte(L.VersTexte(), Relue));
+	TestEqual(TEXT("Score"), Relue.Score, 12340);
+	TestEqual(TEXT("Vague"), Relue.Vague, 14);
+	TestEqual(TEXT("Joueurs"), Relue.Joueurs, 2);
+	TestEqual(TEXT("Le | est retire du pseudo"), Relue.Pseudo, FString(TEXT("Rachid")));
+	TestFalse(TEXT("Ligne de commentaire ignoree"), FLigneClassement::DepuisTexte(TEXT("# Score|Vague"), Relue));
+	TestEqual(TEXT("Pseudo trop court"), FLigneClassement::PseudoPropre(TEXT("a")), FString(TEXT("Joueur")));
+	return true;
+}
+
 #endif // WITH_DEV_AUTOMATION_TESTS

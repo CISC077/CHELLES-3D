@@ -118,6 +118,9 @@ public:
 	/** Message court affiche sur l'ecran de cette machine. */
 	void MessageLocal(const FString& Texte);
 
+	/** Machine du joueur : fin de SA partie, on l'enregistre au classement (ce PC + serveur du VPS). */
+	void EnregistrerMaPartie(ASurvieRelais* R, int32 VagueAtteinte, int32 ScoreFinal, int32 KillsFinal, int32 TetesFinal, int32 NombreJoueurs, bool bClassable);
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type Raison) override;
@@ -181,6 +184,8 @@ private:
 	float DerniereHeureServeur = -1.f;
 	float VagueLanceeA = -1.f;
 	bool bVagueDemarree = false;
+	/** Partie comptee au classement : commencee a la vague 1, sans Chelles.Points ni Chelles.Vague. */
+	bool bPartieClassable = false;
 
 	// Chaque machine
 	TSharedPtr<SSurvieEcran> Ecran;
@@ -194,4 +199,8 @@ private:
 	TWeakObjectPtr<ASurvieRelais> CibleReleveeLocale;
 	EEtatJoueurSurvie DernierEtatLocal = EEtatJoueurSurvie::Debout;
 	float ProchaineDemandeAchat = 0.f;
+	bool bPseudoEnvoye = false;
+	/** Ecran de fin : "NOUVEAU RECORD !", "Ton record : ..." ou "Partie d'entrainement". */
+	FString LigneRecord;
+	bool bRecordBattu = false;
 };

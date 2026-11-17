@@ -5,12 +5,14 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SLeafWidget.h"
 #include "Widgets/SCompoundWidget.h"
+#include "SurvieCalculs.h"
 
 /** Une ligne du tableau des scores. */
 struct FLigneScore
 {
 	FString Nom;
 	int32 Points = 0;
+	int32 Score = 0;
 	int32 Kills = 0;
 	int32 Tetes = 0;
 	int32 FoisATerre = 0;
@@ -30,6 +32,7 @@ struct FEtatEcranSurvie
 	bool bCoureurs = false;
 	float SecondesPause = 0.f;     // > 0 : prochaine vague dans...
 	int32 MesPoints = 0;
+	int32 MonScore = 0;
 
 	uint8 MonEtat = 0;            // 0 debout, 1 a terre, 2 mort
 	float SecondesATerre = 0.f;
@@ -42,6 +45,14 @@ struct FEtatEcranSurvie
 	FString TitreFin;
 	float SecondesFin = 0.f;
 	TArray<FLigneScore> Scores;
+
+	// Classement (ecran de fin)
+	FString LigneRecord;           // "NOUVEAU RECORD !" / "Ton score ... ton record ..." / "Partie d'entrainement"
+	bool bRecordBattu = false;
+	int32 RangEnLigne = 0;         // ma place chez tous les joueurs (0 = inconnue)
+	FString MonPseudo;
+	FString TitreClassement;
+	TArray<FLigneClassement> Classement; // 5 premiers
 
 	FString Message;
 	float AgeMessage = 100.f;
@@ -69,6 +80,8 @@ private:
 	void Barre(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Pos, const FVector2D& Taille,
 		float Part, const FLinearColor& Couleur) const;
 	void PeindreScores(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G) const;
+	/** Panneau du classement sous le tableau des scores ; renvoie sa hauteur. */
+	float PeindreClassement(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Coin, float Largeur) const;
 };
 
 DECLARE_DELEGATE_TwoParams(FChoixModeSurvie, uint8 /*Mode*/, int32 /*VagueDepart*/);
@@ -89,6 +102,8 @@ public:
 
 private:
 	TSharedRef<class SWidget> Bouton(const FString& Titre, const FString& Detail, uint8 Mode, bool bDisponible);
+	/** Panneau MEILLEURS SCORES (a droite), mis a jour tout seul quand le serveur repond. */
+	TSharedRef<class SWidget> PanneauClassement();
 	FReply Choisir(uint8 Mode);
 
 	FChoixModeSurvie QuandChoisi;
