@@ -34,6 +34,7 @@
 #include "Modules/ModuleManager.h"
 #include "NavigationSystem.h"
 #include "NavMesh/NavMeshBoundsVolume.h"
+#include "Net/UnrealNetwork.h"
 #include "Particles/ParticleSystem.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "Animation/Skeleton.h"
@@ -202,6 +203,12 @@ AEnnemisChelles::AEnnemisChelles()
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Racine"));
 }
 
+void AEnnemisChelles::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AEnnemisChelles, TenuesChoisies);
+}
+
 bool AEnnemisChelles::EstServeur() const
 {
 	return GetNetMode() != NM_Client;
@@ -226,6 +233,15 @@ void AEnnemisChelles::BeginPlay()
 	if (GetNetMode() != NM_DedicatedServer && Reglages.bHabiller)
 	{
 		MeshBandit = LoadObject<USkeletalMesh>(nullptr, *CheminComplet(Reglages.MeshBandit), nullptr, LOAD_NoWarn | LOAD_Quiet);
+		for (const FString& Chemin : Reglages.Personnes)
+		{
+			USkeletalMesh* Personne = LoadObject<USkeletalMesh>(nullptr, *CheminComplet(Chemin), nullptr, LOAD_NoWarn | LOAD_Quiet);
+			MeshesPersonnes.Add(Personne); // nul si introuvable : on garde la place pour que les numeros restent les memes
+			if (!Personne)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[Ennemis] Personne introuvable : %s"), *Chemin);
+			}
+		}
 		PeauZombie = LoadObject<USkeletalMesh>(nullptr, *CheminComplet(Reglages.PeauZombie), nullptr, LOAD_NoWarn | LOAD_Quiet);
 		if (!MeshBandit)
 		{
@@ -253,15 +269,8 @@ void AEnnemisChelles::ChargerReglages()
 		UE_LOG(LogTemp, Log, TEXT("[Ennemis] %s absent : reglages par defaut."), *Chemin);
 	}
 
-	// Tenues par defaut (memes couleurs que Tools\Ennemis\disperser_ennemis.py)
-	Reglages.Tenues.Add(TEXT("AI_Soldier"), TEXT("/Game/Bandit_Sport/Material/M_Bandit_Clothes_Red"));
-	Reglages.Tenues.Add(TEXT("AI_Soldier_Bandit"), TEXT("/Game/Bandit_Sport/Material/M_Bandit_clothes_Blue"));
-	Reglages.Tenues.Add(TEXT("AI_Soldier_Boss"), TEXT("/Game/Bandit_Sport/Material/Chelles/MI_Bandit_clothes_Boss_RougeNoir"));
-	Reglages.Tenues.Add(TEXT("AI_Charger"), TEXT("/Game/Bandit_Sport/Material/M_Bandit_clothes_Green"));
-	Reglages.Tenues.Add(TEXT("AI_Genesis"), TEXT("/Game/Bandit_Sport/Material/Chelles/MI_Bandit_clothes_Orange"));
-	Reglages.Tenues.Add(TEXT("AI_Patrol"), TEXT("/Game/Bandit_Sport/Material/Chelles/MI_Bandit_clothes_Violet"));
-	Reglages.Tenues.Add(TEXT("AI_Patrol1"), TEXT("/Game/Bandit_Sport/Material/Chelles/MI_Bandit_clothes_Jaune"));
 
+	bool bPersonnesLues = false;
 	for (FString Ligne : Lignes)
 	{
 		Ligne.TrimStartAndEndInline();
@@ -321,6 +330,16 @@ void AEnnemisChelles::ChargerReglages()
 		else if (Cle == TEXT("Promenade")) Reglages.bPromenade = EstOui(Valeur);
 		else if (Cle == TEXT("ZombiesTuables")) Reglages.bZombiesTuables = EstOui(Valeur);
 		else if (Cle == TEXT("Habiller")) Reglages.bHabiller = EstOui(Valeur);
+		else if (Cle == TEXT("RemplacerBandits")) Reglages.bRemplacerBandits = EstOui(Valeur);
+		else if (Cle == TEXT("Personne"))
+		{
+			if (!bPersonnesLues)
+			{
+				Reglages.Personnes.Reset(); // la liste du fichier remplace celle par defaut
+				bPersonnesLues = true;
+			}
+			Reglages.Personnes.Add(Valeur);
+		}
 		else if (Cle == TEXT("MeshBandit")) Reglages.MeshBandit = Valeur;
 		else if (Cle == TEXT("PeauZombie")) Reglages.PeauZombie = Valeur;
 		else if (Cle == TEXT("TenueParDefaut")) Reglages.TenueParDefaut = Valeur;
@@ -1557,125 +1576,140 @@ void AEnnemisChelles::ScannerLesPersonnages(float Maintenant)
 			SuivreZombie(E);
 		}
 
-		if (bAffiche && Reglages.bHabiller)
+		if (Reglages.bHabiller)
 		{
-			Habiller(E, Dossier);
+			// Le serveur choisit la tenue (meme sur un serveur sans ecran : les joueurs la recoivent)
+			bool bConnu = false;
+			const int32 Choix = ChoixDeTenue(E, bConnu);
+			if (bAffiche)
+			{
+				if (bConnu || Dossier == DossierZombie)
+				{
+					Habiller(E, Dossier, Choix);
+				}
+				else
+				{
+					EnAttenteDeTenue.Add(E);
+				}
+			}
 		}
 	}
+
+	// Ennemis qui attendaient le choix du serveur (multijoueur)
+	for (int32 i = EnAttenteDeTenue.Num() - 1; i >= 0; --i)
+	{
+		ACharacter* E = EnAttenteDeTenue[i].Get();
+		if (!IsValid(E))
+		{
+			EnAttenteDeTenue.RemoveAt(i);
+			continue;
+		}
+		bool bConnu = false;
+		const int32 Choix = ChoixDeTenue(E, bConnu);
+		if (bConnu || E->GetGameTimeSinceCreation() > 8.f)
+		{
+			Habiller(E, DossierDe(E->GetClass()), Choix);
+			EnAttenteDeTenue.RemoveAt(i);
+		}
+	}
+	if (EstServeur())
+	{
+		TenuesChoisies.RemoveAll([](const FTenueChoisie& T) { return !IsValid(T.Pion); });
+	}
+}
+
+int32 AEnnemisChelles::ChoixDeTenue(ACharacter* E, bool& bConnu)
+{
+	const int32 Nombre = FMath::Max(1, Reglages.Personnes.Num());
+	for (const FTenueChoisie& T : TenuesChoisies)
+	{
+		if (T.Pion == E)
+		{
+			bConnu = true;
+			return T.Choix % Nombre;
+		}
+	}
+	// Un ennemi pose dans la carte a le meme nom chez tous les joueurs : son nom suffit
+	const int32 ParLeNom = (int32)(GetTypeHash(E->GetFName().ToString()) % (uint32)Nombre);
+	if (E->IsNetStartupActor())
+	{
+		bConnu = true;
+		return ParLeNom;
+	}
+	if (EstServeur())
+	{
+		FTenueChoisie T;
+		T.Pion = E;
+		T.Choix = (uint8)FMath::RandRange(0, Nombre - 1);
+		TenuesChoisies.Add(T);
+		ForceNetUpdate();
+		bConnu = true;
+		return T.Choix;
+	}
+	bConnu = false;
+	return ParLeNom;
 }
 
 // ===================================================================================
 //  Tenues : les ennemis encore en mannequin gris recoivent de vrais vetements
 // ===================================================================================
 
-void AEnnemisChelles::Habiller(ACharacter* E, FName Dossier)
+void AEnnemisChelles::Habiller(ACharacter* E, FName Dossier, int32 Choix)
 {
 	USkeletalMeshComponent* Corps = E->GetMesh();
-	if (!EstUnMannequin(Corps) || AUneTenue(E))
+	if (!Corps || !Corps->SkeletalMesh || AUneTenue(E))
 	{
-		return; // deja habille (par Tools\Ennemis, son Blueprint ou le plugin ChellesZombies)
+		return; // deja habille (par son Blueprint ou le plugin ChellesZombies)
 	}
 	if (E->Tags.Contains(MarqueZombieInvasion) || E->Tags.Contains(MarqueZombieInvasionHabille)
 		|| E->GetClass()->GetName() == TEXT("BP_AI_CharZombie_C"))
 	{
 		return; // zombie de l'invasion : le plugin ChellesZombies l'habille lui-meme
 	}
-	Corps->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 
+	USkeletalMesh* Tenue = nullptr;
 	if (Dossier == DossierZombie)
 	{
-		if (!PeauZombie)
+		// Zombie : vrai zombie DecayedZombieB (seulement s'il a encore le mannequin gris)
+		if (!EstUnMannequin(Corps))
 		{
 			return;
 		}
-		// Le zombie DecayedZombieB a les memes os que le mannequin : il suit ses animations de zombie
-		USkeletalMeshComponent* Peau = NewObject<USkeletalMeshComponent>(E, NomTenue);
-		Peau->SetSkeletalMesh(PeauZombie);
-		Peau->SetupAttachment(Corps);
-		Peau->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		Peau->SetGenerateOverlapEvents(false);
-		Peau->RegisterComponent();
-		Peau->AttachToComponent(Corps, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-		Peau->SetMasterPoseComponent(Corps);
-		E->AddInstanceComponent(Peau);
-		// Le mannequin devient invisible mais garde ses collisions : les balles touchent ses os (tete...)
-		Corps->SetHiddenInGame(true, false);
-		Corps->SetCastShadow(false);
-		return;
-	}
-
-	if (!MeshBandit)
-	{
-		return;
-	}
-	// Couleur des vetements : le nom du Blueprint (ou d'un de ses parents) dans Ennemis.txt
-	FString CheminTenue = Reglages.TenueParDefaut;
-	for (const UClass* K = E->GetClass(); K; K = K->GetSuperClass())
-	{
-		if (const FString* T = Reglages.Tenues.Find(NomBlueprint(K)))
-		{
-			CheminTenue = *T;
-			break;
-		}
-	}
-	UMaterialInterface* Tenue = nullptr;
-	if (UMaterialInterface** Connue = MateriauxTenues.Find(CheminTenue))
-	{
-		Tenue = *Connue;
+		Tenue = PeauZombie;
 	}
 	else
 	{
-		Tenue = LoadObject<UMaterialInterface>(nullptr, *CheminComplet(CheminTenue), nullptr, LOAD_NoWarn | LOAD_Quiet);
-		MateriauxTenues.Add(CheminTenue, Tenue);
-		if (!Tenue)
+		// Les autres : un vrai humain habille (Scanned3DPeoplePack), a la place du mannequin gris
+		// ou du bandit de couleur pose par Tools\Ennemis
+		const bool bBandit = Reglages.bRemplacerBandits && Corps->SkeletalMesh->GetName().StartsWith(TEXT("SK_Bandit"), ESearchCase::IgnoreCase);
+		if (!EstUnMannequin(Corps) && !bBandit)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[Ennemis] Tenue introuvable : %s (couleur du pack gardee)"), *CheminTenue);
+			return; // il a deja sa propre apparence (pack d'un autre auteur, squelette...)
+		}
+		for (int32 Essai = 0; Essai < MeshesPersonnes.Num() && !Tenue; ++Essai)
+		{
+			Tenue = MeshesPersonnes[(Choix + Essai) % MeshesPersonnes.Num()];
 		}
 	}
-	TArray<int32> Vetements;
-	const TArray<FSkeletalMaterial>& Emplacements = MeshBandit->Materials;
-	for (int32 i = 0; i < Emplacements.Num(); ++i)
+	if (!Tenue)
 	{
-		const FString Texte = (Emplacements[i].MaterialSlotName.ToString() + TEXT(" ")
-			+ (Emplacements[i].MaterialInterface ? Emplacements[i].MaterialInterface->GetPathName() : FString())).ToLower();
-		if (Texte.Contains(TEXT("clothes")))
-		{
-			Vetements.Add(i);
-		}
+		return;
 	}
 
-	USkeletalMeshComponent* Habit = Corps;
-	if (MeshBandit->Skeleton == Corps->SkeletalMesh->Skeleton)
-	{
-		// Meme squelette (SK_Bandit_FPS) : on change simplement le corps, comme Tools\Ennemis
-		Corps->SetSkeletalMesh(MeshBandit, true);
-		for (int32 i = 0; i < Corps->GetNumMaterials(); ++i)
-		{
-			Corps->SetMaterial(i, nullptr); // enleve la couleur posee sur le mannequin par le Blueprint
-		}
-	}
-	else
-	{
-		// Autre squelette : le bandit suit le mannequin, qui devient invisible
-		Habit = NewObject<USkeletalMeshComponent>(E, NomTenue);
-		Habit->SetSkeletalMesh(MeshBandit);
-		Habit->SetupAttachment(Corps);
-		Habit->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		Habit->SetGenerateOverlapEvents(false);
-		Habit->RegisterComponent();
-		Habit->AttachToComponent(Corps, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-		Habit->SetMasterPoseComponent(Corps);
-		E->AddInstanceComponent(Habit);
-		Corps->SetHiddenInGame(true, false);
-		Corps->SetCastShadow(false);
-	}
-	if (Tenue)
-	{
-		for (int32 i : Vetements)
-		{
-			Habit->SetMaterial(i, Tenue);
-		}
-	}
+	// La tenue a les memes os que le mannequin : elle suit exactement ses animations
+	Corps->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+	USkeletalMeshComponent* Habit = NewObject<USkeletalMeshComponent>(E, NomTenue);
+	Habit->SetSkeletalMesh(Tenue);
+	Habit->SetupAttachment(Corps);
+	Habit->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Habit->SetGenerateOverlapEvents(false);
+	Habit->RegisterComponent();
+	Habit->AttachToComponent(Corps, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	Habit->SetMasterPoseComponent(Corps);
+	E->AddInstanceComponent(Habit);
+	// Le corps d'origine devient invisible mais garde ses collisions : les balles touchent ses os (tete...)
+	Corps->SetHiddenInGame(true, false);
+	Corps->SetCastShadow(false);
 }
 
 // ===================================================================================

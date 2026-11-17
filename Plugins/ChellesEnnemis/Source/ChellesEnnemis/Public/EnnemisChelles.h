@@ -59,6 +59,18 @@ struct FReglagesEnnemis
 	TMap<FString, FString> Tenues;
 	FString TenueParDefaut = TEXT("/Game/Bandit_Sport/Material/M_Bandit_clothes_Blue");
 
+	/** Vrais humains habilles (pack Scanned3DPeoplePack, memes os que le mannequin) : un au hasard par ennemi. */
+	TArray<FString> Personnes = {
+		TEXT("/Game/Scanned3DPeoplePack/RP_Character/rp_eric_rigged_001_ue4/rp_eric_rigged_001_ue4"),
+		TEXT("/Game/Scanned3DPeoplePack/RP_Character/rp_manuel_rigged_001_ue4/rp_manuel_rigged_001_ue4"),
+		TEXT("/Game/Scanned3DPeoplePack/RP_Character/rp_nathan_rigged_003_ue4/rp_nathan_rigged_003_ue4"),
+		TEXT("/Game/Scanned3DPeoplePack/RP_Character/rp_carla_rigged_001_ue4/rp_carla_rigged_001_ue4"),
+		TEXT("/Game/Scanned3DPeoplePack/RP_Character/rp_claudia_rigged_002_ue4/rp_claudia_rigged_002_ue4"),
+		TEXT("/Game/Scanned3DPeoplePack/RP_Character/rp_sophia_rigged_003_ue4/rp_sophia_rigged_003_ue4")
+	};
+	/** Oui = les bandits de couleur deja poses dans la carte (Tools\Ennemis) deviennent aussi de vrais humains. */
+	bool bRemplacerBandits = true;
+
 	int32 NombrePour(FName Dossier) const
 	{
 		const int32* N = NombreDuDossier.Find(Dossier);
@@ -102,6 +114,19 @@ struct FEnnemiPose
 	float MortDepuis = -1.f;
 };
 
+/** Tenue (vrai humain) choisie par le serveur pour un ennemi : tous les joueurs voient la meme. */
+USTRUCT()
+struct FTenueChoisie
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	ACharacter* Pion = nullptr;
+
+	UPROPERTY()
+	uint8 Choix = 0;
+};
+
 UCLASS(NotPlaceable, Transient)
 class CHELLESENNEMIS_API AEnnemisChelles : public AActor
 {
@@ -112,6 +137,7 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	/** Le serveur (ou le jeu solo) decide de tout. */
 	bool EstServeur() const;
@@ -169,7 +195,19 @@ private:
 
 	// Tenues (sur chaque PC qui affiche le jeu)
 	void ScannerLesPersonnages(float Maintenant);
-	void Habiller(ACharacter* Ennemi, FName Dossier);
+	void Habiller(ACharacter* Ennemi, FName Dossier, int32 Choix);
+	/** Numero de la tenue (vrai humain) de cet ennemi ; bConnu = faux tant que le serveur ne l'a pas envoye. */
+	int32 ChoixDeTenue(ACharacter* Ennemi, bool& bConnu);
+
+	/** Choix des tenues, envoyes par le serveur a tous les joueurs. */
+	UPROPERTY(Replicated)
+	TArray<FTenueChoisie> TenuesChoisies;
+
+	/** Ennemis qui attendent leur tenue (le choix du serveur n'est pas encore arrive). */
+	TArray<TWeakObjectPtr<ACharacter>> EnAttenteDeTenue;
+
+	UPROPERTY(Transient)
+	TArray<USkeletalMesh*> MeshesPersonnes;
 
 	void JoueursVivants(TArray<APawn*>& Resultat) const;
 	static bool EstVivant(APawn* Joueur);

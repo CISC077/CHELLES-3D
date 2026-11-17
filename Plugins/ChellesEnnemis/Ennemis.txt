@@ -59,23 +59,20 @@ Promenade=Oui
 ZombiesTuables=Oui
 
 # ---------------------------------------------------------------
-# 3) Tenues : les ennemis qui ont encore le mannequin gris (SK_Mannequin) sont habilles
+# 3) Tenues : de VRAIS HUMAINS habilles (pas de couleurs unies)
 # ---------------------------------------------------------------
+# Les ennemis Soldier, Charger, Patrol (et Other s'il a le mannequin gris) prennent l'apparence
+# d'une vraie personne scannee (pack Scanned3DPeoplePack) : jean, blouson, chemise, robe...
+# Chaque ennemi en recoit une au hasard ; en multijoueur tout le monde voit la meme.
 Habiller=Oui
-# Soldier, Charger, Patrol : bandit du pack Bandit_Sport
-MeshBandit=/Game/Bandit_Sport/Mesh/SK_Bandit_FPS
+# Oui = les bandits de couleur deja poses dans la carte deviennent aussi de vrais humains
+RemplacerBandits=Oui
+# Liste des personnes utilisees (une ligne par personne). Enlevez une ligne pour ne plus l'utiliser.
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_eric_rigged_001_ue4/rp_eric_rigged_001_ue4
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_manuel_rigged_001_ue4/rp_manuel_rigged_001_ue4
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_nathan_rigged_003_ue4/rp_nathan_rigged_003_ue4
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_carla_rigged_001_ue4/rp_carla_rigged_001_ue4
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_claudia_rigged_002_ue4/rp_claudia_rigged_002_ue4
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_sophia_rigged_003_ue4/rp_sophia_rigged_003_ue4
 # Zombie : vrai zombie avec pantalon (pack DecayedZombieB)
 PeauZombie=/Game/DecayedZombieB/Mesh/SK_DecayedZombie_B_wPants
-# Couleur des vetements de chaque ennemi (nom du Blueprint = materiau). Memes couleurs que dans la carte.
-Tenue.AI_Soldier=/Game/Bandit_Sport/Material/M_Bandit_Clothes_Red
-Tenue.AI_Soldier_Bandit=/Game/Bandit_Sport/Material/M_Bandit_clothes_Blue
-Tenue.AI_Soldier_Boss=/Game/Bandit_Sport/Material/Chelles/MI_Bandit_clothes_Boss_RougeNoir
-Tenue.AI_Charger=/Game/Bandit_Sport/Material/M_Bandit_clothes_Green
-Tenue.AI_Genesis=/Game/Bandit_Sport/Material/Chelles/MI_Bandit_clothes_Orange
-Tenue.AI_Patrol=/Game/Bandit_Sport/Material/Chelles/MI_Bandit_clothes_Violet
-Tenue.AI_Patrol1=/Game/Bandit_Sport/Material/Chelles/MI_Bandit_clothes_Jaune
-Tenue.BP_AI_CharSoldier=/Game/Bandit_Sport/Material/M_Bandit_Clothes_Red
-Tenue.BP_AI_Charger=/Game/Bandit_Sport/Material/M_Bandit_clothes_Green
-Tenue.BP_AI_CharPatrol=/Game/Bandit_Sport/Material/Chelles/MI_Bandit_clothes_Violet
-# Pour un ennemi qui n'est pas dans la liste
-TenueParDefaut=/Game/Bandit_Sport/Material/M_Bandit_clothes_Blue
