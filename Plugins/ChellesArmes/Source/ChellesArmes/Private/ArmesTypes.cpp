@@ -47,6 +47,37 @@ namespace ChellesArmes
 			if (Cle.Equals(TEXT("TirsSpeciaux"), ESearchCase::IgnoreCase)) { R.bTirsSpeciaux = EstOui(Valeur); continue; }
 			if (Cle.Equals(TEXT("GarderAccessoires"), ESearchCase::IgnoreCase)) { R.bGarderAccessoires = EstOui(Valeur); continue; }
 			if (Cle.Equals(TEXT("ToucheChanger"), ESearchCase::IgnoreCase)) { R.ToucheChanger = Valeur; continue; }
+			if (Cle.Equals(TEXT("Heros"), ESearchCase::IgnoreCase))
+			{
+				// Heros=SK_Pantera | SK_AutreHeros  (vide = aucun heros ne tire sans arme)
+				R.Heros.Reset();
+				Valeur.ParseIntoArray(R.Heros, TEXT("|"), true);
+				for (FString& H : R.Heros)
+				{
+					H.TrimStartAndEndInline();
+				}
+				R.Heros.RemoveAll([](const FString& H) { return H.IsEmpty(); });
+				continue;
+			}
+			if (Cle.Equals(TEXT("ToucheFlash"), ESearchCase::IgnoreCase)) { R.ToucheFlash = Valeur; continue; }
+			if (Cle.Equals(TEXT("HerosFlash"), ESearchCase::IgnoreCase))
+			{
+				// HerosFlash=SK_SpiderMan_Vol | SK_Pantera ...  (vide = personne n'a le flash electrique)
+				R.HerosFlash.Reset();
+				Valeur.ParseIntoArray(R.HerosFlash, TEXT("|"), true);
+				for (FString& H : R.HerosFlash)
+				{
+					H.TrimStartAndEndInline();
+				}
+				R.HerosFlash.RemoveAll([](const FString& H) { return H.IsEmpty(); });
+				continue;
+			}
+			if (Cle.Equals(TEXT("TirHeros"), ESearchCase::IgnoreCase))
+			{
+				const uint8 T = TirDepuisTexte(Valeur);
+				R.TirHeros = (T == Aucun) ? Laser : T;
+				continue;
+			}
 
 			FString Avant, Apres;
 			if (!Cle.Split(TEXT("."), &Avant, &Apres))
