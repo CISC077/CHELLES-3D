@@ -29,7 +29,7 @@ using namespace ChellesArsenal;
 
 namespace
 {
-	UObject* LireObjet(UObject* Objet, FName Nom, bool* bExiste = nullptr)
+	UObject* ArsenalLireObjet(UObject* Objet, FName Nom, bool* bExiste = nullptr)
 	{
 		FObjectPropertyBase* P = Objet ? FindFProperty<FObjectPropertyBase>(Objet->GetClass(), Nom) : nullptr;
 		if (bExiste)
@@ -39,21 +39,21 @@ namespace
 		return P ? P->GetObjectPropertyValue_InContainer(Objet) : nullptr;
 	}
 
-	FBoolProperty* ProprieteProfondeur()
+	FBoolProperty* ArsenalProprieteProfondeur()
 	{
 		static FBoolProperty* P = FindFProperty<FBoolProperty>(UPrimitiveComponent::StaticClass(), TEXT("bRenderInDepthPass"));
 		return P;
 	}
 
-	bool LireProfondeur(UPrimitiveComponent* C)
+	bool ArsenalLireProfondeur(UPrimitiveComponent* C)
 	{
-		FBoolProperty* P = ProprieteProfondeur();
+		FBoolProperty* P = ArsenalProprieteProfondeur();
 		return P ? P->GetPropertyValue_InContainer(C) : true;
 	}
 
-	void EcrireProfondeur(UPrimitiveComponent* C, bool bOui)
+	void ArsenalEcrireProfondeur(UPrimitiveComponent* C, bool bOui)
 	{
-		FBoolProperty* P = ProprieteProfondeur();
+		FBoolProperty* P = ArsenalProprieteProfondeur();
 		if (P && P->GetPropertyValue_InContainer(C) != bOui)
 		{
 			P->SetPropertyValue_InContainer(C, bOui);
@@ -320,7 +320,7 @@ void AArsenalChelles::Choisir(uint8 NouvelleArme, bool bMessage)
 	}
 
 	// On retient l'arme normale en main : si le joueur en change (molette), on lui rend ses armes normales
-	ArmeNormale = Cast<AActor>(LireObjet(Pion, TEXT("EquippedWeapon"), &bArmeNormaleConnue));
+	ArmeNormale = Cast<AActor>(ArsenalLireObjet(Pion, TEXT("EquippedWeapon"), &bArmeNormaleConnue));
 	PionSuivi = Pion;
 	BloquerTirNormal(PC, true);
 	if (!Vue)
@@ -370,7 +370,7 @@ void AArsenalChelles::SuivreJoueur(APlayerController* PC, APawn* Pion)
 	// Le joueur a pris une autre arme normale (molette, menu des armes...) : on lui laisse
 	if (bArmeNormaleConnue)
 	{
-		AActor* Actuelle = Cast<AActor>(LireObjet(Pion, TEXT("EquippedWeapon")));
+		AActor* Actuelle = Cast<AActor>(ArsenalLireObjet(Pion, TEXT("EquippedWeapon")));
 		if (Actuelle != ArmeNormale.Get())
 		{
 			Choisir(Aucune, true);
@@ -414,7 +414,7 @@ void AArsenalChelles::BloquerTirNormal(APlayerController* PC, bool bOui)
 
 void AArsenalChelles::MasquerArmeNormale(APawn* Pion)
 {
-	AActor* Normale = Cast<AActor>(LireObjet(Pion, TEXT("EquippedWeapon")));
+	AActor* Normale = Cast<AActor>(ArsenalLireObjet(Pion, TEXT("EquippedWeapon")));
 	if (!Normale)
 	{
 		return;
@@ -433,7 +433,7 @@ void AArsenalChelles::MasquerArmeNormale(APawn* Pion)
 			FArsenalMasque M;
 			M.Composant = C;
 			M.bRenduPrincipal = C->bRenderInMainPass;
-			M.bProfondeur = LireProfondeur(C);
+			M.bProfondeur = ArsenalLireProfondeur(C);
 			M.bOmbre = C->CastShadow;
 			Masques.Add(M);
 		}
@@ -441,7 +441,7 @@ void AArsenalChelles::MasquerArmeNormale(APawn* Pion)
 		{
 			C->SetRenderInMainPass(false);
 		}
-		EcrireProfondeur(C, false);
+		ArsenalEcrireProfondeur(C, false);
 		if (C->CastShadow)
 		{
 			C->SetCastShadow(false);
@@ -456,7 +456,7 @@ void AArsenalChelles::RemontrerArmeNormale()
 		if (UPrimitiveComponent* C = M.Composant.Get())
 		{
 			C->SetRenderInMainPass(M.bRenduPrincipal);
-			EcrireProfondeur(C, M.bProfondeur);
+			ArsenalEcrireProfondeur(C, M.bProfondeur);
 			C->SetCastShadow(M.bOmbre);
 		}
 	}
