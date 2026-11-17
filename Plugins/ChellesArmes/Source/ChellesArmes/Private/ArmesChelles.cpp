@@ -981,7 +981,7 @@ void AArmesChelles::SuivreTirs()
 	if (AArsenalChelles::ArmeLocale(GetWorld()) != ChellesArsenal::Aucune)
 	{
 		MunitionsVues = -1;
-		return; // une arme de l'arsenal (touche N) est en main : pas de tir special ni de tir des mains
+		return; // une arme de l'arsenal (touche 3) est en main : pas de tir special ni de tir des mains
 	}
 	if (!Arme && Reglages.bTirsSpeciaux && EstHeros(Pion))
 	{

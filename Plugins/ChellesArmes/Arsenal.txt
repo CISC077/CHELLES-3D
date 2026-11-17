@@ -7,7 +7,7 @@
 #          clic gauche = tirer / frapper / lancer ; molette = retour aux armes normales.
 # Console : Chelles.Arsenal Blaster (ou Bazooka, Sabre, Grenade, Aucune)
 
-# Oui = arsenal disponible, Non = touche N sans effet
+# Oui = arsenal disponible, Non = touche 3 sans effet
 Arsenal=Oui
 # Three = touche 3 (au-dessus de Z, le " en AZERTY). N est pris par les missions.
 ToucheChanger=Three

@@ -26,7 +26,7 @@ struct FArsenalMasque
 /**
  * Pose au lancement du jeu sur chaque machine (comme AArmesChelles).
  *
- * Touche N : ARME NORMALE -> BLASTER -> BAZOOKA -> SABRE LUMINEUX -> GRENADE A ZOMBIES -> ARME NORMALE.
+ * Touche 3 : ARME NORMALE -> BLASTER -> BAZOOKA -> SABRE LUMINEUX -> GRENADE A ZOMBIES -> ARME NORMALE.
  * Pendant qu'une arme de l'arsenal est en main, l'arme du kit FPS_Game est cachee et son tir (clic gauche)
  * est bloque ; la molette rend l'arme normale. Rien n'est modifie dans les Blueprints.
  *

@@ -98,7 +98,7 @@ private:
 		{
 			MondeDuJeu->SpawnActor<AArmesChelles>(AArmesChelles::StaticClass(), FTransform::Identity, Params);
 		}
-		// Arsenal (2026-11-17) : blaster, bazooka, sabre lumineux, grenade a zombies (touche N)
+		// Arsenal (2026-11-17) : blaster, bazooka, sabre lumineux, grenade a zombies (touche 3)
 		if (!TActorIterator<AArsenalChelles>(MondeDuJeu))
 		{
 			MondeDuJeu->SpawnActor<AArsenalChelles>(AArsenalChelles::StaticClass(), FTransform::Identity, Params);
