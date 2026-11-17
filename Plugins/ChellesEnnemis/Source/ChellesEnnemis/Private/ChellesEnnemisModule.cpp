@@ -79,6 +79,26 @@ private:
 		{
 			return;
 		}
+		// Patrouilleurs poses dans la carte sans points de patrouille : on leur en donne avant leur BeginPlay
+		{
+			TArray<AActor*> Acteurs;
+			for (TActorIterator<AActor> It(MondeDuJeu); It; ++It)
+			{
+				Acteurs.Add(*It); // copie : RemplirPatrouille pose de nouveaux acteurs (TargetPoint)
+			}
+			int32 Remplis = 0;
+			for (AActor* Acteur : Acteurs)
+			{
+				if (AEnnemisChelles::RemplirPatrouille(Acteur))
+				{
+					++Remplis;
+				}
+			}
+			if (Remplis > 0)
+			{
+				UE_LOG(LogTemp, Log, TEXT("[Ennemis] %d patrouilleurs sans points : points de patrouille ajoutes"), Remplis);
+			}
+		}
 		if (TrouverEnnemis(MondeDuJeu))
 		{
 			return;

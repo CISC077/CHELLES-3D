@@ -48,6 +48,10 @@ struct FReglagesEnnemis
 	float VitesseCourse = 450.f;
 	bool bPromenade = true;
 
+	// Zombies du dossier Zombie (poses par ce plugin) : le plugin decide aussi de leur mort
+	// (tete = mort, corps = DegatsCorpsPourcent), meme si leur Blueprint ne les fait pas mourir.
+	bool bZombiesTuables = true;
+
 	// Tenues
 	bool bHabiller = true;
 	FString MeshBandit = TEXT("/Game/Bandit_Sport/Mesh/SK_Bandit_FPS");
@@ -120,6 +124,13 @@ public:
 	/** Tag pose sur chaque ennemi du dossier Other (dirige par ce plugin). */
 	static const FName MarqueEnnemiAuto;
 
+	/**
+	 * Patrouilleurs (BP_AI_CharPatrol et ses enfants) : si la variable TargetPointArray de l'acteur
+	 * est vide, pose 3 TargetPoint autour de lui et les met dans le tableau (avant son BeginPlay).
+	 * Rend true si des points ont ete ajoutes. Rien n'est ecrit dans les fichiers du projet.
+	 */
+	static bool RemplirPatrouille(AActor* Acteur);
+
 protected:
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastAttaque(ACharacter* Ennemi);
@@ -150,6 +161,10 @@ private:
 	void PrendreEnMain(ACharacter* Ennemi);
 	void Piloter(ACharacter* Ennemi, FEnnemiAuto& Etat, float Maintenant, float DeltaSeconds);
 	void Tuer(ACharacter* Ennemi, const FVector& Direction);
+
+	// Zombies du dossier Zombie : leur Blueprint garde son cerveau, le plugin compte seulement les balles (serveur)
+	void SuivreZombie(ACharacter* Ennemi);
+	FEnnemiAuto* EtatDe(ACharacter* Ennemi);
 	UAnimMontage* MontageAttaquePour(ACharacter* Ennemi);
 
 	// Tenues (sur chaque PC qui affiche le jeu)
@@ -176,6 +191,11 @@ private:
 
 	TArray<FEnnemiPose> Poses;
 	TMap<TWeakObjectPtr<ACharacter>, FEnnemiAuto> Autos;
+	/** Zombies du dossier Zombie dont le plugin compte les balles (ils ne sont pas diriges par lui). */
+	TMap<TWeakObjectPtr<ACharacter>, FEnnemiAuto> ZombiesSuivis;
+
+	/** Patrouilleurs poses par le plugin qui ont recu des points de patrouille (pour le bilan). */
+	int32 PatrouillesRemplies = 0;
 
 	bool bPoseFaite = false;
 	float PoseA = 3.f;

@@ -54,6 +54,10 @@ VitesseCourse=450
 # Oui = il se promene doucement quand il n'a repere personne
 Promenade=Oui
 
+# Zombies du dossier Zombie : Oui = le plugin les fait mourir lui-meme (balle dans la tete = mort,
+# balle dans le corps = DegatsCorpsPourcent), meme si leur Blueprint ne les tue pas. Non = comme avant.
+ZombiesTuables=Oui
+
 # ---------------------------------------------------------------
 # 3) Tenues : les ennemis qui ont encore le mannequin gris (SK_Mannequin) sont habilles
 # ---------------------------------------------------------------

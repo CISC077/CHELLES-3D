@@ -19,6 +19,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/TargetPoint.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
@@ -318,6 +319,7 @@ void AEnnemisChelles::ChargerReglages()
 		else if (Cle == TEXT("TeteTue")) Reglages.bTeteTue = EstOui(Valeur);
 		else if (Cle == TEXT("VitesseCourse")) Reglages.VitesseCourse = FMath::Max(0.f, Nombre);
 		else if (Cle == TEXT("Promenade")) Reglages.bPromenade = EstOui(Valeur);
+		else if (Cle == TEXT("ZombiesTuables")) Reglages.bZombiesTuables = EstOui(Valeur);
 		else if (Cle == TEXT("Habiller")) Reglages.bHabiller = EstOui(Valeur);
 		else if (Cle == TEXT("MeshBandit")) Reglages.MeshBandit = Valeur;
 		else if (Cle == TEXT("PeauZombie")) Reglages.PeauZombie = Valeur;
@@ -677,6 +679,11 @@ ACharacter* AEnnemisChelles::PoserEnnemi(FName Dossier, bool bLoinDesJoueurs)
 	}
 	E->AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 	E->Tags.AddUnique(MarquePose);
+	// Patrouilleur : des points de patrouille avant son BeginPlay (sinon TargetPointArray[0] est vide)
+	if (RemplirPatrouille(E))
+	{
+		++PatrouillesRemplies;
+	}
 	UGameplayStatics::FinishSpawningActor(E, Ou);
 	if (!IsValid(E))
 	{
@@ -706,6 +713,7 @@ void AEnnemisChelles::PoserTout()
 	}
 	FString Bilan;
 	int32 Total = 0;
+	PatrouillesRemplies = 0;
 	for (const FName& D : LesDossiers())
 	{
 		const int32 Voulus = Reglages.NombrePour(D);
@@ -724,6 +732,90 @@ void AEnnemisChelles::PoserTout()
 		Bilan += FString::Printf(TEXT("%s%s %d/%d"), Bilan.IsEmpty() ? TEXT("") : TEXT(", "), *D.ToString(), Poses_, Voulus);
 	}
 	UE_LOG(LogTemp, Log, TEXT("[Ennemis] %d ennemis eparpilles dans la carte (%s). Console : Chelles.Ennemis"), Total, *Bilan);
+	if (PatrouillesRemplies > 0)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Ennemis] %d patrouilleurs sans points : points de patrouille ajoutes"), PatrouillesRemplies);
+	}
+}
+
+bool AEnnemisChelles::RemplirPatrouille(AActor* Acteur)
+{
+	if (!IsValid(Acteur))
+	{
+		return false;
+	}
+	UWorld* W = Acteur->GetWorld();
+	if (!W)
+	{
+		return false;
+	}
+	static const FName NomTableau(TEXT("TargetPointArray"));
+	FArrayProperty* Tableau = FindFProperty<FArrayProperty>(Acteur->GetClass(), NomTableau);
+	if (!Tableau)
+	{
+		return false; // pas un patrouilleur
+	}
+	FObjectProperty* Interieur = CastField<FObjectProperty>(Tableau->Inner);
+	if (!Interieur || !Interieur->PropertyClass)
+	{
+		return false;
+	}
+	if (!ATargetPoint::StaticClass()->IsChildOf(Interieur->PropertyClass))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Ennemis] %s : TargetPointArray attend des %s, pas des TargetPoint : rien ajoute."),
+			*Acteur->GetName(), *Interieur->PropertyClass->GetName());
+		return false;
+	}
+
+	FScriptArrayHelper Aide(Tableau, Tableau->ContainerPtrToValuePtr<void>(Acteur));
+	for (int32 i = 0; i < Aide.Num(); ++i)
+	{
+		if (IsValid(Interieur->GetObjectPropertyValue(Aide.GetRawPtr(i))))
+		{
+			return false; // deja au moins un point : on ne touche a rien
+		}
+	}
+
+	// 3 points autour du patrouilleur : sur le NavMesh si possible, sinon a 6-10 m dans 3 directions
+	const FVector Origine = Acteur->GetActorLocation();
+	UNavigationSystemV1* Nav = UNavigationSystemV1::GetCurrent(W);
+	const float AngleDepart = FMath::FRandRange(0.f, 360.f);
+	TArray<FVector> Points;
+	for (int32 i = 0; i < 3; ++i)
+	{
+		FNavLocation SurNav;
+		if (Nav && Nav->GetRandomReachablePointInRadius(Origine, 1200.f, SurNav)
+			&& FVector::Dist2D(SurNav.Location, Origine) > 200.f)
+		{
+			Points.Add(SurNav.Location + FVector(0.f, 0.f, 50.f));
+			continue;
+		}
+		const float Angle = FMath::DegreesToRadians(AngleDepart + 120.f * i);
+		const float Distance = FMath::FRandRange(600.f, 1000.f);
+		Points.Add(Origine + FVector(FMath::Cos(Angle) * Distance, FMath::Sin(Angle) * Distance, 0.f));
+	}
+
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	TArray<ATargetPoint*> Nouveaux;
+	for (const FVector& P : Points)
+	{
+		if (ATargetPoint* Point = W->SpawnActor<ATargetPoint>(ATargetPoint::StaticClass(), FTransform(P), Params))
+		{
+			Nouveaux.Add(Point);
+		}
+	}
+	if (Nouveaux.Num() == 0)
+	{
+		return false;
+	}
+	Aide.EmptyValues();
+	const int32 Premier = Aide.AddValues(Nouveaux.Num());
+	for (int32 i = 0; i < Nouveaux.Num(); ++i)
+	{
+		Interieur->SetObjectPropertyValue(Aide.GetRawPtr(Premier + i), Nouveaux[i]);
+	}
+	return true;
 }
 
 void AEnnemisChelles::AjouterUneVague()
@@ -797,6 +889,15 @@ void AEnnemisChelles::Tick(float DeltaSeconds)
 	{
 		ProchaineSurveillance = Maintenant + 2.f;
 		SurveillerLesPoses(Maintenant);
+	}
+
+	// Zombies suivis disparus : on les oublie
+	for (auto It = ZombiesSuivis.CreateIterator(); It; ++It)
+	{
+		if (!It.Key().IsValid())
+		{
+			It.RemoveCurrent();
+		}
 	}
 
 	// Ennemis du dossier Other : le plugin les dirige
@@ -873,6 +974,13 @@ bool AEnnemisChelles::EstMort(ACharacter* Ennemi) const
 	if (const FEnnemiAuto* Etat = Autos.Find(Ennemi))
 	{
 		return Etat->bMort;
+	}
+	if (const FEnnemiAuto* Etat = ZombiesSuivis.Find(Ennemi))
+	{
+		if (Etat->bMort)
+		{
+			return true;
+		}
 	}
 	if (Ennemi->GetGameTimeSinceCreation() < 5.f)
 	{
@@ -1187,7 +1295,7 @@ void AEnnemisChelles::TouchePrecis(AActor* Touche, float Degats, AController* Au
 	FName Os, FVector Direction, const UDamageType* TypeDegats, AActor* Causeur)
 {
 	ACharacter* E = Cast<ACharacter>(Touche);
-	FEnnemiAuto* Etat = E ? Autos.Find(E) : nullptr;
+	FEnnemiAuto* Etat = E ? EtatDe(E) : nullptr;
 	if (!Etat || Etat->bMort)
 	{
 		return;
@@ -1209,10 +1317,20 @@ void AEnnemisChelles::TouchePrecis(AActor* Touche, float Degats, AController* Au
 void AEnnemisChelles::ToucheQuelconque(AActor* Touche, float Degats, const UDamageType* TypeDegats, AController* Auteur, AActor* Causeur)
 {
 	ACharacter* E = Cast<ACharacter>(Touche);
-	FEnnemiAuto* Etat = E ? Autos.Find(E) : nullptr;
+	FEnnemiAuto* Etat = E ? EtatDe(E) : nullptr;
 	if (!Etat || Etat->bMort || Degats <= 0.f)
 	{
 		return;
+	}
+	if (ZombiesSuivis.Contains(E))
+	{
+		// Son Blueprint l'a peut-etre deja fait mourir : on ne le tue pas deux fois
+		bool bDejaMort = false;
+		if (LireBooleen(E, { TEXT("isDead"), TEXT("IsDead"), TEXT("bIsDead"), TEXT("Dead") }, bDejaMort) && bDejaMort)
+		{
+			Etat->bMort = true;
+			return;
+		}
 	}
 	// Qui a tire ?
 	AController* Tireur = Auteur;
@@ -1253,9 +1371,45 @@ void AEnnemisChelles::ToucheQuelconque(AActor* Touche, float Degats, const UDama
 	}
 }
 
+FEnnemiAuto* AEnnemisChelles::EtatDe(ACharacter* E)
+{
+	if (FEnnemiAuto* Etat = Autos.Find(E))
+	{
+		return Etat;
+	}
+	return ZombiesSuivis.Find(E);
+}
+
+void AEnnemisChelles::SuivreZombie(ACharacter* E)
+{
+	if (!Reglages.bZombiesTuables || !IsValid(E) || Autos.Contains(E) || ZombiesSuivis.Contains(E))
+	{
+		return;
+	}
+	// Les zombies de l'invasion sont deja geres par le plugin ChellesZombies
+	if (E->Tags.Contains(MarqueZombieInvasion) || E->Tags.Contains(MarqueZombieInvasionHabille)
+		|| E->GetClass()->GetName() == TEXT("BP_AI_CharZombie_C"))
+	{
+		return;
+	}
+	AController* Controleur = E->GetController();
+	if (Controleur && Controleur->IsA(APlayerController::StaticClass()))
+	{
+		return; // c'est un joueur
+	}
+	E->SetCanBeDamaged(true);
+	E->OnTakeAnyDamage.AddUniqueDynamic(this, &AEnnemisChelles::ToucheQuelconque);
+	E->OnTakePointDamage.AddUniqueDynamic(this, &AEnnemisChelles::TouchePrecis);
+	FEnnemiAuto Etat;
+	Etat.Vie = 100.f;
+	ZombiesSuivis.Add(E, Etat);
+	UE_LOG(LogTemp, Log, TEXT("[Ennemis] Zombie %s : le plugin compte ses balles (tete = mort, corps = %.0f %%)."),
+		*NomBlueprint(E->GetClass()), Reglages.DegatsCorpsPourcent);
+}
+
 void AEnnemisChelles::Tuer(ACharacter* E, const FVector& Direction)
 {
-	FEnnemiAuto* Etat = Autos.Find(E);
+	FEnnemiAuto* Etat = EtatDe(E);
 	if (!Etat || Etat->bMort)
 	{
 		return;
@@ -1396,6 +1550,11 @@ void AEnnemisChelles::ScannerLesPersonnages(float Maintenant)
 			{
 				PrendreEnMain(E);
 			}
+		}
+
+		if (Dossier == DossierZombie && EstServeur())
+		{
+			SuivreZombie(E);
 		}
 
 		if (bAffiche && Reglages.bHabiller)
