@@ -1,0 +1,51 @@
+# CHELLES 3D - DERNIER REFUGE : points, achats, joueur a terre
+# Modifiez avec le Bloc-notes, enregistrez, puis relancez le mode (F7). Pas besoin de recompiler.
+# Les lignes qui commencent par # sont des commentaires.
+# Les positions (zone, points d'achat) sont dans Refuge_Positions.txt, cree par les commandes de la console.
+
+# ---- Points ----
+# Points de chaque joueur au debut de la partie
+PointsDepart=500
+# Chaque balle qui touche un zombie
+PointsParTouche=10
+# Zombie tue
+PointsParKill=60
+# En plus si le zombie est tue d'une balle dans la tete
+PointsBonusTete=40
+# Relever un coequipier a terre
+PointsRelever=50
+# Points perdus quand on tombe a terre (10 = 10 % de ses points)
+PerteATerrePourcent=10
+
+# ---- XP des pouvoirs (gagnee dans tous les modes, meme en jeu libre) ----
+XPParKill=2
+XPBonusTete=2
+
+# ---- Joueur a terre ----
+# Un coup qui devrait vous tuer vous met a terre. Un coequipier vous releve en restant appuye sur E.
+# Sinon vous etes mort jusqu'a la vague suivante.
+DureeATerreSecondes=30
+DureeRelanceSecondes=3
+
+# ---- Ou arrivent les zombies (autour du centre de la zone) ----
+ApparitionMinMetres=15
+ApparitionMaxMetres=35
+# Volume de la sirene au debut de chaque vague (0 = muette, 1 = normal)
+VolumeSireneVague=0,6
+
+# ---- Achats (touche E devant un point d'achat) ----
+# Arme.Nom affiche=Blueprint FPS_Game|Prix
+# (nom court = /Game/FPS_Game/Blueprints/Weapons/<nom>, ou chemin complet /Game/...)
+Arme.Pistolet=BPC_WeaponPistol|500
+Arme.Mitraillette=BPC_WeaponPistolAuto|800
+Arme.Pompe=BPC_WeaponShotgun|900
+Arme.Fusil=BPC_WeaponRifle|1200
+Arme.Kalach=BPC_WeaponRecoil|1400
+Arme.Sniper=BPC_WeaponSniper|1500
+Arme.Machette=BPC_WeaponSword|600
+Arme.Lanceur=BPC_WeaponLauncher|2500
+
+# Recharger toutes ses armes au maximum
+PrixMunitions=400
+# Prix d'une barriere si la commande Chelles.StandIci Barriere n'en donne pas
+PrixBarriere=750

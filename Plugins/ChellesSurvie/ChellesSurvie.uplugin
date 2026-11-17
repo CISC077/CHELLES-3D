@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Modes de survie",
+	"Description": "Modes de jeu de survie zombie de CHELLES 3D. Premier mode : DERNIER REFUGE (vagues sans fin, points, achats, joueur a terre). Choix du mode dans l'ecran MODES (F7). Solo et multijoueur (le serveur decide).",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesSurvie",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

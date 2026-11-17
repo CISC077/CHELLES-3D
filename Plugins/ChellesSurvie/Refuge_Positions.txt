@@ -1,0 +1,8 @@
+# CHELLES 3D - Dernier Refuge : positions enregistrees EN JEU avec la console (touche ²).
+#   Chelles.RefugeIci              = le centre de la zone (les zombies arrivent autour)
+#   Chelles.StandIci Arme Fusil    = un point d'achat d'arme (noms dans Refuge.txt)
+#   Chelles.StandIci Munitions     = un point de munitions
+#   Chelles.StandIci Barriere 750  = une barriere payante en travers de la rue, devant vous
+#   Chelles.StandRetirer           = retire le point le plus proche
+# Vous pouvez aussi effacer une ligne ici avec le Bloc-notes.
+Centre=9401,6973,1610
