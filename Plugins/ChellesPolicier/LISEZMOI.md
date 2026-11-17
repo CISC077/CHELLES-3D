@@ -38,8 +38,8 @@ Le fichier `Plugins\ChellesPolicier\Policier_Rapport.txt` liste ensuite tous les
 | AgentsMaximum | 12 | nombre d'agents en même temps |
 | Taille | 180 | taille de l'agent (cm) |
 | Modele | /Game/Personnages/POLICES | dossier ou asset du personnage |
-| CorrectionRotation | (vide) | si l'agent regarde de côté ou de dos : 0, 90 ou 180 |
-| RedresserTangage / RedresserRoulis | 0 / 0 | seulement si le modèle est couché : 90 ou -90 |
+| CorrectionRotation | (vide) | si l'agent regarde de côté ou de dos : 90, -90 ou 180 |
+| AxeHaut / AxeDevant | -Y / +Z | modèle figé : côté de la tête et du visage dans le modèle (+X, -X, +Y, -Y, +Z, -Z) |
 
 Après une modification : relancez **Play**, ou tapez `Chelles.Policier Relire` dans la console (touche ²).
 

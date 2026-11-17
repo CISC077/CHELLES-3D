@@ -47,10 +47,12 @@ AnimPassez=
 AnimStop=
 
 # Rotation du modele en degres (vide = automatique). A changer seulement si l'agent
-# regarde de cote ou de dos : essayez 0, 90 ou 180.
+# regarde de cote ou de dos : essayez 90, -90 ou 180.
 CorrectionRotation=
 
-# Seulement si le modele est couche (modele fige) : rotation en degres pour le mettre debout.
-# Essayez RedresserTangage=90 ou -90, sinon RedresserRoulis=90 ou -90. 0 = ne rien changer.
-RedresserTangage=0
-RedresserRoulis=0
+# Modele fige (Static Mesh) : de quel cote est sa tete (AxeHaut) et vers ou regarde
+# son visage (AxeDevant), dans le modele. Valeurs : +X, -X, +Y, -Y, +Z, -Z.
+# Agente de Personnages/POLICES : tete en -Y, visage en +Z (mesure sur le modele).
+# Si elle est encore couchee ou la tete en bas, essayez AxeHaut=+Y.
+AxeHaut=-Y
+AxeDevant=+Z

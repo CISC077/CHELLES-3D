@@ -67,7 +67,10 @@ protected:
 	FString CheminAnimStop;
 	bool bRotationAuto = true;
 	float CorrectionRotation = 0.f;
-	FRotator Redressement = FRotator::ZeroRotator;
+	/** Axes du modele fige : ou est sa tete et ou regarde son visage (+X, -Y, +Z...). */
+	FString AxeHaut = TEXT("-Y");
+	FString AxeDevant = TEXT("+Z");
+	FQuat Redressement = FQuat::Identity;
 
 	UPROPERTY(Transient) USkeletalMesh* Modele = nullptr;
 	/** Modele fige (Static Mesh) si le modele n'a pas de squelette. */
@@ -114,4 +117,5 @@ protected:
 	void Annoncer(const FString& Texte, const FColor& Couleur);
 	void RetirerAgents();
 	FString DescriptionMode() const;
+	void CalculerRedressement();
 };

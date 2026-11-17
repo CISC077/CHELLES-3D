@@ -158,14 +158,14 @@ bool AAgentPolicier::Configurer(USkeletalMesh* Modele, float Taille, bool bRotat
 	return true;
 }
 
-bool AAgentPolicier::ConfigurerFixe(UStaticMesh* Modele, float Taille, float Lacet, const FRotator& Redressement)
+bool AAgentPolicier::ConfigurerFixe(UStaticMesh* Modele, float Taille, float Lacet, const FQuat& Redressement)
 {
 	if (!Modele)
 	{
 		return false;
 	}
 	// Rotation du modele : d'abord redresse (s'il est couche), puis tourne pour regarder devant
-	const FRotator Rotation(Redressement.Pitch, Lacet, Redressement.Roll);
+	const FRotator Rotation = (FQuat(FRotator(0.f, Lacet, 0.f)) * Redressement).Rotator();
 	const FBox Boite = Modele->GetBoundingBox().TransformBy(FTransform(Rotation));
 	const float Hauteur = Boite.Max.Z - Boite.Min.Z;
 	const float Echelle = (Hauteur > 1.f) ? FMath::Clamp(Taille / Hauteur, 0.005f, 200.f) : 1.f;

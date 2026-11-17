@@ -182,7 +182,8 @@ void APolicierChelles::LireReglages()
 	CheminAnimStop.Reset();
 	bRotationAuto = true;
 	CorrectionRotation = 0.f;
-	Redressement = FRotator::ZeroRotator;
+	AxeHaut = TEXT("-Y");
+	AxeDevant = TEXT("+Z");
 
 	FString Texte;
 	const FString Chemin = DossierPlugin() / TEXT("Policier.txt");
@@ -226,8 +227,8 @@ void APolicierChelles::LireReglages()
 		else if (Est(TEXT("AnimRepos"))) { CheminAnimRepos = Valeur; }
 		else if (Est(TEXT("AnimPassez"))) { CheminAnimPassez = Valeur; }
 		else if (Est(TEXT("AnimStop"))) { CheminAnimStop = Valeur; }
-		else if (Est(TEXT("RedresserTangage"))) { Redressement.Pitch = Nombre; }
-		else if (Est(TEXT("RedresserRoulis"))) { Redressement.Roll = Nombre; }
+		else if (Est(TEXT("AxeHaut"))) { if (!Valeur.IsEmpty()) { AxeHaut = Valeur; } }
+		else if (Est(TEXT("AxeDevant"))) { if (!Valeur.IsEmpty()) { AxeDevant = Valeur; } }
 		else if (Est(TEXT("CorrectionRotation")))
 		{
 			bRotationAuto = Valeur.IsEmpty();
@@ -236,8 +237,42 @@ void APolicierChelles::LireReglages()
 	}
 }
 
+namespace
+{
+	/** "+X", "-y", "Z"... -> vecteur unitaire (Zero si illisible). */
+	FVector LireAxe(FString Texte)
+	{
+		Texte.TrimStartAndEndInline();
+		Texte = Texte.ToUpper();
+		float Signe = 1.f;
+		if (Texte.StartsWith(TEXT("-"))) { Signe = -1.f; Texte.RightChopInline(1); }
+		else if (Texte.StartsWith(TEXT("+"))) { Texte.RightChopInline(1); }
+		if (Texte == TEXT("X")) { return FVector(Signe, 0.f, 0.f); }
+		if (Texte == TEXT("Y")) { return FVector(0.f, Signe, 0.f); }
+		if (Texte == TEXT("Z")) { return FVector(0.f, 0.f, Signe); }
+		return FVector::ZeroVector;
+	}
+}
+
+void APolicierChelles::CalculerRedressement()
+{
+	// Le haut du modele doit aller vers le ciel (+Z) et son devant vers l'avant de l'agent (+X).
+	const FVector Haut = LireAxe(AxeHaut);
+	const FVector Devant = LireAxe(AxeDevant);
+	if (Haut.IsZero() || Devant.IsZero() || FMath::Abs(Haut | Devant) > 0.01f)
+	{
+		UE_LOG(LogChellesPolicier, Warning, TEXT("AxeHaut=%s / AxeDevant=%s illisibles : modele laisse tel quel."), *AxeHaut, *AxeDevant);
+		Redressement = FQuat::Identity;
+		return;
+	}
+	const FVector Droite = FVector::CrossProduct(Haut, Devant);
+	// Cette matrice envoie X, Y, Z du monde sur devant, droite, haut du modele : on prend l'inverse.
+	Redressement = FMatrix(Devant, Droite, Haut, FVector::ZeroVector).ToQuat().Inverse();
+}
+
 void APolicierChelles::ChargerModeleEtAnimations()
 {
+	CalculerRedressement();
 	AnimRepos = AnimPassez = AnimStop = nullptr;
 	Modele = nullptr;
 	ModeleFixe = nullptr;
@@ -776,7 +811,7 @@ void APolicierChelles::MettreAJourAgents(const FVector& Joueur)
 		}
 		const bool bConfigure = Modele
 			? Agent->Configurer(Modele, Taille, bRotationAuto, CorrectionRotation, AnimRepos, AnimPassez, AnimStop)
-			: Agent->ConfigurerFixe(ModeleFixe, Taille, bRotationAuto ? -90.f : CorrectionRotation, Redressement);
+			: Agent->ConfigurerFixe(ModeleFixe, Taille, bRotationAuto ? 0.f : CorrectionRotation, Redressement);
 		if (!bConfigure)
 		{
 			Agent->Destroy();
@@ -933,8 +968,8 @@ void APolicierChelles::EcrireRapport() const
 	Texte += FString::Printf(TEXT("Policiers - rapport du %s\r\n"), *FDateTime::Now().ToString(TEXT("%d/%m/%Y %H:%M")));
 	const UObject* Trouve = Modele ? static_cast<const UObject*>(Modele) : static_cast<const UObject*>(ModeleFixe);
 	Texte += FString::Printf(TEXT("Modele : %s -> %s\r\n"), *CheminModele, Trouve ? *Trouve->GetPathName() : TEXT("INTROUVABLE"));
-	Texte += FString::Printf(TEXT("Mode : %s   Rotation %.0f   Redressement tangage %.0f roulis %.0f\r\n"),
-		*DescriptionMode(), CorrectionRotation, Redressement.Pitch, Redressement.Roll);
+	Texte += FString::Printf(TEXT("Mode : %s   Rotation %.0f   AxeHaut %s   AxeDevant %s\r\n"),
+		*DescriptionMode(), CorrectionRotation, *AxeHaut, *AxeDevant);
 	Texte += FString::Printf(TEXT("Animations : repos=%s passez=%s stop=%s -> %s\r\n"),
 		AnimRepos ? *AnimRepos->GetName() : TEXT("-"), AnimPassez ? *AnimPassez->GetName() : TEXT("-"),
 		AnimStop ? *AnimStop->GetName() : TEXT("-"), *DescriptionMode());
