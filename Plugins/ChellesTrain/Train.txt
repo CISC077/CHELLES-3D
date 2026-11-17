@@ -35,7 +35,7 @@ DistanceMaxArretRouteMetres=70
 
 # ---------------------------------------------------------------- LE TRAIN
 # Nombre de voitures : 1 = une locomotive, 2 = deux locomotives dos a dos, 3 ou plus = avec voitures au milieu
-NombreDeVoitures=2
+NombreDeVoitures=1
 
 # Taille du train (1 = taille reelle du pack Intercity_Train ; 0.8 = plus petit, passe mieux dans les virages)
 Echelle=1
