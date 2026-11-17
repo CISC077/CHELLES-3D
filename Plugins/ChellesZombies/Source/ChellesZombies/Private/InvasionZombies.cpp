@@ -63,6 +63,8 @@ static const float TailleFlammes[] = { 0.55f, 0.32f, 0.3f, 0.3f, 0.3f, 0.3f };
 static const FName NomPeau(TEXT("PeauZombieChelles"));
 static const FName MarqueZombie(TEXT("ChellesZombie"));
 static const FName MarqueHabille(TEXT("ChellesZombieHabille"));
+/** Appat de la grenade a zombies (plugin ChellesArmes) : les zombies proches le poursuivent sans lui faire de degats. */
+static const FName MarqueAppat(TEXT("ChellesAppat"));
 
 namespace
 {
@@ -1003,6 +1005,34 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 			}
 		}
 		Etat.Cible = Meilleur;
+
+		// Grenade a zombies (plugin ChellesArmes, 2026-11-17) : un appat qui bipe tout pres attire le zombie
+		// a la place du joueur. On le reconnait a son tag ChellesAppat ; sa portee est sa variable RayonAppat.
+		APawn* MeilleurAppat = nullptr;
+		float DistAppat = TNumericLimits<float>::Max();
+		for (TActorIterator<APawn> It(GetWorld()); It; ++It)
+		{
+			APawn* A = *It;
+			if (!IsValid(A) || !A->Tags.Contains(MarqueAppat))
+			{
+				continue;
+			}
+			float Rayon = 3000.f;
+			if (FFloatProperty* P = FindFProperty<FFloatProperty>(A->GetClass(), TEXT("RayonAppat")))
+			{
+				Rayon = P->GetPropertyValue_InContainer(A);
+			}
+			const float D = FVector::DistSquared(A->GetActorLocation(), Zombie->GetActorLocation());
+			if (D <= FMath::Square(Rayon) && D < DistAppat)
+			{
+				DistAppat = D;
+				MeilleurAppat = A;
+			}
+		}
+		if (MeilleurAppat)
+		{
+			Etat.Cible = MeilleurAppat;
+		}
 	}
 
 	// 1 bis) Il sort encore de terre : il ne bouge pas et n'attaque pas
@@ -1016,7 +1046,7 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 	{
 		Etat.CoupPrevuA = -1.f;
 		APawn* Victime = Etat.CibleDuCoup.Get();
-		if (EstVivant(Victime))
+		if (EstVivant(Victime) && !Victime->Tags.Contains(MarqueAppat))
 		{
 			const FVector Ecart = Victime->GetActorLocation() - Zombie->GetActorLocation();
 			if (Ecart.Size2D() < 240.f && FMath::Abs(Ecart.Z) < 200.f)

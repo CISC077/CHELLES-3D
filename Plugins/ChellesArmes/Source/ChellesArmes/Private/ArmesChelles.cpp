@@ -1,6 +1,7 @@
 // CHELLES 3D - Armes : nouvelles apparences des armes FPS_Game + tirs speciaux en plus du tir normal
 #include "ArmesChelles.h"
 #include "ArmesRelais.h"
+#include "ArsenalChelles.h"
 #include "TirSpecialChelles.h"
 
 #include "AnimationRuntime.h"
@@ -977,6 +978,11 @@ void AArmesChelles::SuivreTirs()
 		MunitionsVues = -1;
 	}
 	Etiquette.Reset();
+	if (AArsenalChelles::ArmeLocale(GetWorld()) != ChellesArsenal::Aucune)
+	{
+		MunitionsVues = -1;
+		return; // une arme de l'arsenal (touche N) est en main : pas de tir special ni de tir des mains
+	}
 	if (!Arme && Reglages.bTirsSpeciaux && EstHeros(Pion))
 	{
 		// Heros sans arme (PANTERA) : clic gauche = tir special depuis les mains

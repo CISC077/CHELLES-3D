@@ -52,6 +52,32 @@ les autres armes = aucun (O pour en choisir un). Tout se règle dans `Armes.txt`
 Zombies : la règle du plugin Zombies reste valable (tête = mort, corps = 33 %).
 Multijoueur : c'est le serveur qui crée les tirs, tout le monde les voit ; le PVP du menu est respecté.
 
+## 3. ARSENAL (2026-11-17) : blaster, bazooka, sabre lumineux, grenade à zombies
+
+Touche **N** (à pied) : ARME NORMALE → **BLASTER** → **BAZOOKA** → **SABRE LUMINEUX** → **GRENADE À ZOMBIES** → ARME NORMALE.
+Pendant qu'une arme de l'arsenal est en main, l'arme du kit FPS_Game est cachée et son tir est bloqué.
+**Molette** = retour aux armes normales. Le nom de l'arme et les touches s'affichent en bas de l'écran.
+
+- **BLASTER** : maintenir le clic gauche = rafale de traits lumineux, son « piou-piou » de science-fiction.
+- **BAZOOKA** : clic gauche = fusée avec traînée de fumée. **Pendant son vol elle suit ton viseur** :
+  bouge la souris, la fusée tourne. Elle explose au contact (ou au bout de 8 s) : dégâts autour,
+  les ennemis et zombies sont **projetés en l'air**, les objets physiques poussés.
+- **SABRE LUMINEUX** : clic gauche = coup au corps-à-corps (la lame s'allume et bourdonne).
+  Un coup **tranche un zombie** ; les autres ennemis prennent des dégâts et reculent.
+- **GRENADE À ZOMBIES** : clic gauche = lancer. Elle se pose, **bipe et attire les zombies** à 30 m
+  pendant 5 s (ils foncent dessus au lieu de toi), puis explose.
+
+Tous les sons sont fabriqués par le code (aucun fichier à importer). Les armes en main sont dessinées
+avec des formes simples ; pour des lames et traits **qui brillent**, lancer une fois
+`Tools\Arsenal\creer_materiau_lueur.py` (Fichier > Exécuter un script Python).
+
+Réglages (dégâts, couleurs du sabre et du blaster, taille d'explosion, durée d'appât...) :
+`Plugins\ChellesArmes\Arsenal.txt`. Console : `Chelles.Arsenal Sabre` (ou Blaster, Bazooka, Grenade, Aucune, Recharger).
+
+Multijoueur : c'est le serveur qui crée les tirs et les explosions, tout le monde les voit ; le PVP du menu est respecté.
+L'arme tenue en main n'est dessinée que chez son joueur.
+La grenade a besoin du plugin **ChellesZombies** recompilé (les zombies y suivent l'appât).
+
 ## Installer
 
 1. Fermer Unreal.
