@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Missions",
+	"Description": "Missions dans le quartier (touche N) : escorter le TRAMWAY attaque par les zombies, defendre la Mairie, chasse aux zombies. Pilote les plugins ChellesZombies et ChellesTrain par leur nom, sans les modifier.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesMissions",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

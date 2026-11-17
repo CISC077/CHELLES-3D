@@ -1,0 +1,67 @@
+# CHELLES 3D - Reglages des MISSIONS DANS LE QUARTIER
+# Modifiez avec le Bloc-notes, enregistrez, puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = missions disponibles, Non = plugin eteint
+Actif=Oui
+# Touche qui ouvre l'ecran MISSIONS (N par defaut : libre dans le projet)
+Touche=N
+
+# Temps pour rejoindre le lieu de la mission (tramway, Mairie) avant qu'elle soit ratee
+TempsPourRejoindreSecondes=180
+# Duree d'affichage de MISSION REUSSIE / MISSION RATEE
+AffichageFinSecondes=8
+# Vie et vitesse des zombies des missions (100 = 3 balles dans le corps, comme l'invasion)
+VieZombie=100
+VitesseZombie=420
+# Tous les joueurs a terre pendant X secondes = mission ratee
+TousATerreSecondes=10
+
+# ---------------- 1. ESCORTE DU TRAMWAY ----------------
+# Le TRAMWAY est attaque a chaque arret : gardez-le en vie jusqu'au bout.
+# Nombre d'arrets a atteindre
+TramArrets=3
+# Vie du tramway (100 = pleine)
+TramVie=100
+# Un zombie a moins de X metres du tramway lui retire Y points de vie par seconde
+TramRayonDegatsMetres=7
+TramDegatsParZombieSeconde=2
+# Longueur du tramway (pour savoir ou il est) en metres
+TramLongueurMetres=26
+# Zombies a chaque arret (+ X de plus a chaque nouvel arret)
+TramZombiesParArret=8
+TramZombiesEnPlusParArret=3
+# Ils sortent de terre autour du tramway, entre X et Y metres
+TramApparitionMinMetres=15
+TramApparitionMaxMetres=35
+# Distance pour "rejoindre" le tramway au debut
+TramRejoindreMetres=30
+# Si plus aucun joueur n'est a moins de X metres du tramway pendant Y secondes : mission ratee
+TramDistanceMaxMetres=70
+TramAbandonSecondes=25
+TramXP=150
+
+# ---------------- 2. DEFENDRE LA MAIRIE ----------------
+# Tenez la Mairie pendant X secondes contre des vagues de zombies.
+# La place de la Mairie : Missions_Positions.txt (console : Chelles.MissionIci Mairie),
+# sinon le centre du Dernier Refuge (Plugins\ChellesSurvie\Refuge_Positions.txt).
+MairieDureeSecondes=180
+MairieVie=100
+# Un zombie a moins de X metres du centre retire Y points de vie par seconde a la Mairie
+MairieRayonDegatsMetres=12
+MairieDegatsParZombieSeconde=1,5
+MairieZombiesPremiereVague=8
+MairieZombiesEnPlusParVague=3
+MairieApparitionMinMetres=25
+MairieApparitionMaxMetres=45
+MairieRejoindreMetres=40
+MairieXP=150
+
+# ---------------- 3. CHASSE AUX ZOMBIES ----------------
+# Tuez X zombies en Y secondes, la ou vous etes.
+ChasseObjectif=25
+ChasseDureeSecondes=240
+ChasseZombiesParVague=10
+ChasseApparitionMinMetres=15
+ChasseApparitionMaxMetres=40
+ChasseXP=100
