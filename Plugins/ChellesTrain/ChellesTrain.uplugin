@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Train",
+	"Description": "Une ligne de train (pack Intercity_Train) fait le tour de la carte en suivant les routes et s'arrete aux arrets ecrits dans Train.txt (adresses de Chelles). Portes ouvertes 30 s a chaque arret, voitures retirees sur son passage.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesTrain",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
