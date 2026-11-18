@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Inventaire Cyberpunk",
+	"Description": "Menu bibliotheque d'armes de FPS_Game (W_WeaponInventory_UI) : cadres, textes et boutons en style cyberpunk (cyan/magenta) et bouton QUITTER qui ferme vraiment le menu. Ne modifie aucun fichier du pack (tout est fait pendant le jeu). Reglages dans Inventaire.txt.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesInventaire",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
