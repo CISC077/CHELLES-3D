@@ -36,7 +36,7 @@ struct FReglagesEnnemis
 	float EcartNiveauRueMetres = 12.f;
 	FString DossierIA = TEXT("/Game/FPS_Game/Blueprints/Bonus/AI");
 	FString DossierAuto = TEXT("/Game/FPS_Game/Blueprints/Bonus/AI/Other");
-	TArray<FString> Exclus = { TEXT("BP_SimplePrototypingZombie"), TEXT("BP_EnemySpawner") };
+	TArray<FString> Exclus = { TEXT("BP_SimplePrototypingZombie"), TEXT("BP_EnemySpawner"), TEXT("AI_Super_Heros") };
 
 	// Ennemis du dossier Other (diriges par le plugin)
 	float DistanceDetectionMetres = 40.f;

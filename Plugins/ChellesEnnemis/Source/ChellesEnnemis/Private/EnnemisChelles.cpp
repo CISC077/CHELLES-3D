@@ -12,6 +12,7 @@
 
 #include "AIController.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
 #include "Animation/AnimMontage.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "CollisionQueryParams.h"
@@ -445,6 +446,20 @@ void AEnnemisChelles::TrouverLesClasses()
 		if (Dossier == NAME_None)
 		{
 			continue;
+		}
+		// Un ennemi dont l'animation ne va pas avec son corps (ex. AI_Super_Heros : squelette UndeadPack
+		// avec l'animation du mannequin) n'a pas d'animation en jeu : son Blueprint plante a chaque
+		// rechargement ("Accessed None ... GetAnimInstance"). On ne le pose pas.
+		if (const ACharacter* Modele = Cast<ACharacter>(Classe->GetDefaultObject()))
+		{
+			const USkeletalMeshComponent* Corps = Modele->GetMesh();
+			const UAnimBlueprintGeneratedClass* Anim = Corps ? Cast<UAnimBlueprintGeneratedClass>(Corps->AnimClass.Get()) : nullptr;
+			if (Anim && Corps->SkeletalMesh && Anim->TargetSkeleton && Anim->TargetSkeleton != Corps->SkeletalMesh->Skeleton)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[Ennemis] %s ignore : son animation (%s) ne va pas avec son corps (%s)."),
+					*NomBlueprint(Classe), *Anim->GetName(), *Corps->SkeletalMesh->GetName());
+				continue;
+			}
 		}
 		ClassesGardees.AddUnique(Classe);
 		const FString CheminPaquet = A.PackagePath.ToString();

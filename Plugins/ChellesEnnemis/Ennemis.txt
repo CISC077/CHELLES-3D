@@ -32,7 +32,8 @@ DossierIA=/Game/FPS_Game/Blueprints/Bonus/AI
 DossierAuto=/Game/FPS_Game/Blueprints/Bonus/AI/Other
 # Blueprints jamais utilises (separes par des virgules). Les deux premiers sont une vieille copie
 # cassee du pack (ils provoquent "BLUEPRINT COMPILE ERROR") : ne les enlevez pas de la liste.
-Exclus=BP_SimplePrototypingZombie,BP_EnemySpawner
+# AI_Super_Heros : son animation ne va pas avec son corps (erreurs "GetAnimInstance" en jeu).
+Exclus=BP_SimplePrototypingZombie,BP_EnemySpawner,AI_Super_Heros
 
 # ---------------------------------------------------------------
 # 2) Dossier Other : tout personnage depose dedans devient un ennemi des joueurs
