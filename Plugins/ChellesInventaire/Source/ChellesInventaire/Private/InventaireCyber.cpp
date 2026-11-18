@@ -7,9 +7,14 @@
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/Image.h"
+#include "Components/PanelWidget.h"
+#include "Components/ScrollBox.h"
 #include "Components/TextBlock.h"
 #include "Engine/Texture.h"
 #include "Engine/World.h"
+#include "Framework/Application/IInputProcessor.h"
+#include "Framework/Application/SlateApplication.h"
+#include "InputCoreTypes.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/FileHelper.h"
@@ -75,6 +80,38 @@ namespace
 	}
 }
 
+/** Voit chaque clic et chaque touche avant le reste de l'ecran (ne les bloque pas). */
+class FFermetureInventaire : public IInputProcessor
+{
+public:
+	explicit FFermetureInventaire(AInventaireCyber* InProprietaire) : Proprietaire(InProprietaire) {}
+
+	virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override {}
+
+	virtual bool HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& Evenement) override
+	{
+		AInventaireCyber* A = Proprietaire.Get();
+		if (A && Evenement.GetEffectingButton() == EKeys::LeftMouseButton)
+		{
+			return A->ClicDansMenu(Evenement.GetScreenSpacePosition()); // true = clic pris par le menu
+		}
+		return false; // ailleurs, le clic continue son chemin normalement
+	}
+
+	virtual bool HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& Evenement) override
+	{
+		AInventaireCyber* A = Proprietaire.Get();
+		if (A && Evenement.GetKey() == EKeys::Escape && !Evenement.IsRepeat())
+		{
+			return A->DemanderFermeture(); // Echap ferme le menu (et ne fait rien d'autre dans ce cas)
+		}
+		return false;
+	}
+
+private:
+	TWeakObjectPtr<AInventaireCyber> Proprietaire;
+};
+
 AInventaireCyber::AInventaireCyber()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -86,7 +123,127 @@ void AInventaireCyber::BeginPlay()
 {
 	Super::BeginPlay();
 	ChargerReglages();
+	if (FSlateApplication::IsInitialized())
+	{
+		Filtre = MakeShared<FFermetureInventaire>(this);
+		FSlateApplication::Get().RegisterInputPreProcessor(Filtre);
+	}
 	UE_LOG(LogTemp, Log, TEXT("[Inventaire] Pret (actif=%d, quitter=%d)."), Reglages.bActif ? 1 : 0, Reglages.bQuitterRepare ? 1 : 0);
+}
+
+void AInventaireCyber::EndPlay(const EEndPlayReason::Type Raison)
+{
+	if (Filtre.IsValid() && FSlateApplication::IsInitialized())
+	{
+		FSlateApplication::Get().UnregisterInputPreProcessor(Filtre);
+	}
+	Filtre.Reset();
+	Super::EndPlay(Raison);
+}
+
+bool AInventaireCyber::VisibleSousCurseur(UButton* Bouton, const FVector2D& PositionEcran)
+{
+	if (!Bouton || !Bouton->GetCachedWidget().IsValid() || !Bouton->IsVisible())
+	{
+		return false;
+	}
+	if (!Bouton->GetCachedGeometry().IsUnderLocation(PositionEcran))
+	{
+		return false;
+	}
+	// Une case cachee par le defilement (liste BACKPACK) ne compte pas : le curseur doit aussi etre
+	// dans chaque liste qui la contient. On remonte aussi a travers les cases (widgets dans le widget).
+	UWidget* Courant = Bouton;
+	for (int32 Garde = 0; Courant && Garde < 64; ++Garde)
+	{
+		if (!Courant->IsVisible())
+		{
+			return false;
+		}
+		if (UScrollBox* Liste = Cast<UScrollBox>(Courant))
+		{
+			if (Liste->GetCachedWidget().IsValid() && !Liste->GetCachedGeometry().IsUnderLocation(PositionEcran))
+			{
+				return false;
+			}
+		}
+		UWidget* Parent = Courant->GetParent();
+		if (!Parent)
+		{
+			// Racine d'une case : on continue avec la case elle-meme (UserWidget qui la contient)
+			UUserWidget* Case = Courant->GetTypedOuter<UUserWidget>();
+			Parent = (Case && Case != Courant) ? Case : nullptr;
+		}
+		Courant = Parent;
+	}
+	return true;
+}
+
+bool AInventaireCyber::ClicDansMenu(const FVector2D& PositionEcran)
+{
+	if (!Reglages.bActif || !Reglages.bQuitterRepare || Ouverts.Num() == 0)
+	{
+		return false;
+	}
+	UButton* Meilleur = nullptr;
+	float PlusPetit = TNumericLimits<float>::Max();
+	for (const TWeakObjectPtr<UButton>& Faible : BoutonsMenus)
+	{
+		UButton* Bouton = Faible.Get();
+		if (!VisibleSousCurseur(Bouton, PositionEcran))
+		{
+			continue;
+		}
+		// Plusieurs boutons l'un dans l'autre : on prend le plus petit (celui du dessus)
+		const FVector2D Taille = Bouton->GetCachedGeometry().GetAbsoluteSize();
+		const float Aire = Taille.X * Taille.Y;
+		if (Aire < PlusPetit)
+		{
+			PlusPetit = Aire;
+			Meilleur = Bouton;
+		}
+	}
+	if (!Meilleur)
+	{
+		return false;
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Inventaire] Clic sur %s."), *Meilleur->GetName());
+	BoutonAClic = Meilleur;
+	return true;
+}
+
+void AInventaireCyber::RamasserBoutons(UUserWidget* Widget, int32 Profondeur)
+{
+	if (!Widget || !Widget->WidgetTree || Profondeur > 6)
+	{
+		return;
+	}
+	TArray<UUserWidget*> Enfants;
+	Widget->WidgetTree->ForEachWidget([this, &Enfants](UWidget* Element)
+	{
+		if (UUserWidget* Sous = Cast<UUserWidget>(Element))
+		{
+			Enfants.Add(Sous);
+		}
+		else if (UButton* Bouton = Cast<UButton>(Element))
+		{
+			BoutonsMenus.AddUnique(Bouton);
+		}
+	});
+	for (UUserWidget* Sous : Enfants)
+	{
+		RamasserBoutons(Sous, Profondeur + 1);
+	}
+}
+
+bool AInventaireCyber::DemanderFermeture()
+{
+	if (!Reglages.bActif || !Reglages.bQuitterRepare || Ouverts.Num() == 0)
+	{
+		return false;
+	}
+	bFermetureDemandee = true;
+	return true;
 }
 
 void AInventaireCyber::ChargerReglages()
@@ -145,6 +302,16 @@ void AInventaireCyber::Tick(float DeltaSeconds)
 	{
 		return;
 	}
+	if (UButton* Bouton = BoutonAClic.Get())
+	{
+		BoutonAClic = nullptr;
+		Bouton->OnClicked.Broadcast(); // comme un vrai clic : Equip, Drop, Use Item, case d'arme, Close...
+	}
+	if (bFermetureDemandee)
+	{
+		bFermetureDemandee = false;
+		FermerInventaire();
+	}
 	const float Maintenant = GetWorld()->GetRealTimeSeconds();
 	if (Maintenant < ProchainControle)
 	{
@@ -153,6 +320,8 @@ void AInventaireCyber::Tick(float DeltaSeconds)
 	ProchainControle = Maintenant + 0.2f;
 
 	Ouverts.Reset();
+	BoutonsQuitter.Reset();
+	BoutonsMenus.Reset();
 	UWorld* Monde = GetWorld();
 	for (TObjectIterator<UUserWidget> It; It; ++It)
 	{
@@ -175,6 +344,12 @@ void AInventaireCyber::Tick(float DeltaSeconds)
 		if (Reglages.bQuitterRepare)
 		{
 			BrancherQuitter(W);
+			RamasserBoutons(W, 0);
+			// La souris doit etre visible pour se servir du menu
+			if (APlayerController* PC = W->GetOwningPlayer())
+			{
+				PC->bShowMouseCursor = true;
+			}
 		}
 	}
 }
@@ -274,11 +449,10 @@ void AInventaireCyber::StyliserUn(UWidget* Element)
 
 void AInventaireCyber::BrancherQuitter(UUserWidget* Menu)
 {
-	if (DejaBranches.Contains(Menu) || !Menu->WidgetTree)
+	if (!Menu->WidgetTree)
 	{
 		return;
 	}
-	DejaBranches.Add(Menu);
 	UButton* Quitter = Cast<UButton>(Menu->WidgetTree->FindWidget(TEXT("CloseInventory_BTN")));
 	if (!Quitter)
 	{
@@ -294,11 +468,18 @@ void AInventaireCyber::BrancherQuitter(UUserWidget* Menu)
 	}
 	if (Quitter)
 	{
-		Quitter->OnClicked.AddUniqueDynamic(this, &AInventaireCyber::FermerInventaire);
-		UE_LOG(LogTemp, Log, TEXT("[Inventaire] Bouton QUITTER branche sur %s (%s)."), *Quitter->GetName(), *Menu->GetClass()->GetName());
+		BoutonsQuitter.AddUnique(Quitter);
+		if (!DejaBranches.Contains(Menu))
+		{
+			DejaBranches.Add(Menu);
+			Quitter->SetIsEnabled(true);
+			Quitter->OnClicked.AddUniqueDynamic(this, &AInventaireCyber::FermerInventaire);
+			UE_LOG(LogTemp, Log, TEXT("[Inventaire] Bouton QUITTER branche sur %s (%s)."), *Quitter->GetName(), *Menu->GetClass()->GetName());
+		}
 	}
-	else
+	else if (!DejaBranches.Contains(Menu))
 	{
+		DejaBranches.Add(Menu);
 		UE_LOG(LogTemp, Warning, TEXT("[Inventaire] Bouton QUITTER introuvable dans %s."), *Menu->GetClass()->GetName());
 	}
 }
@@ -326,6 +507,8 @@ void AInventaireCyber::FermerInventaire()
 		}
 	}
 	Ouverts.Reset();
+	BoutonsQuitter.Reset();
+	BoutonsMenus.Reset();
 }
 
 void AInventaireCyber::RendreLaMain(UUserWidget* Menu)

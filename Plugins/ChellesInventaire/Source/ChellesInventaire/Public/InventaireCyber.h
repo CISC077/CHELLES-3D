@@ -11,8 +11,10 @@
 #include "GameFramework/Actor.h"
 #include "InventaireCyber.generated.h"
 
+class UButton;
 class UUserWidget;
 class UWidget;
+class FFermetureInventaire;
 
 /** Reglages lus dans Plugins\ChellesInventaire\Inventaire.txt */
 struct FReglagesInventaire
@@ -39,6 +41,7 @@ public:
 	AInventaireCyber();
 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type Raison) override;
 	virtual void Tick(float DeltaSeconds) override;
 
 	/** Console : Chelles.Inventaire [Info|0|1|Relire|Fermer] */
@@ -47,6 +50,16 @@ public:
 	/** Ferme tous les menus d'inventaire ouverts (appele par le bouton QUITTER). */
 	UFUNCTION()
 	void FermerInventaire();
+
+	/**
+	 * Appele par le filtre de la souris (avant le reste de l'ecran) : un clic gauche a cet endroit
+	 * tombe-t-il sur un bouton d'un menu d'armes ouvert (Close, Equip, Drop, Use Item, case d'arme) ?
+	 * Si oui, le bouton est "clique" a l'image suivante et le clic est garde (rend true).
+	 * Marche meme si un autre ecran (HUD...) recouvre le menu et vole les clics.
+	 */
+	bool ClicDansMenu(const FVector2D& PositionEcran);
+	/** Touche Echap : ferme le menu s'il est ouvert. */
+	bool DemanderFermeture();
 
 private:
 	void ChargerReglages();
@@ -65,4 +78,16 @@ private:
 	TSet<TWeakObjectPtr<UUserWidget>> DejaBranches;
 	/** Menus vus ouverts au dernier controle. */
 	TArray<TWeakObjectPtr<UUserWidget>> Ouverts;
+	/** Boutons QUITTER des menus ouverts. */
+	TArray<TWeakObjectPtr<UButton>> BoutonsQuitter;
+	/** Tous les boutons des menus ouverts (et de leurs cases d'armes). */
+	TArray<TWeakObjectPtr<UButton>> BoutonsMenus;
+	/** Bouton clique par la souris, a declencher a la prochaine image. */
+	TWeakObjectPtr<UButton> BoutonAClic;
+	void RamasserBoutons(UUserWidget* Widget, int32 Profondeur);
+	static bool VisibleSousCurseur(UButton* Bouton, const FVector2D& PositionEcran);
+	/** Un clic sur QUITTER a ete vu : fermer a la prochaine image. */
+	bool bFermetureDemandee = false;
+	/** Filtre de la souris et du clavier branche sur Slate. */
+	TSharedPtr<FFermetureInventaire> Filtre;
 };
