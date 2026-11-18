@@ -11,6 +11,7 @@ public class ChellesInventaire : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+			"InputCore",
 			"UMG",
 			"Slate",
 			"SlateCore"
