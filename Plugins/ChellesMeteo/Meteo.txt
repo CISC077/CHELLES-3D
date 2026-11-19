@@ -1,0 +1,88 @@
+# ============================================================
+#  METEO DE CHELLES 3D  (plugin ChellesMeteo)
+#  Modifiez une valeur avec le Bloc-notes, enregistrez, puis relancez Play
+#  (ou console touche ² : Chelles.Meteo Relire). Pas besoin de recompiler.
+#  Les lignes qui commencent par # sont des commentaires.
+# ============================================================
+
+# Oui = la meteo pilote le ciel, Non = plugin eteint
+Actif=Oui
+
+# ---------------- HEURE DU JEU ----------------
+# Reel     = l'heure du PC (a 19h chez vous, 19h dans le jeu). Heure d'hiver / d'ete automatique.
+# Accelere = une journee complete dure DureeJourneeMinutes (pour voir tout le cycle vite)
+# Fixe     = toujours l'heure HeureFixe (pour regler les couleurs tranquillement)
+Mode=Reel
+DureeJourneeMinutes=24
+HeureFixe=19
+
+# Lever et coucher du soleil : Auto = calcules pour Chelles selon la date du jour
+# (fin novembre : lever ~8h20, coucher ~17h00). Ou une heure fixe, ex : Coucher=17:00
+Lever=Auto
+Coucher=Auto
+
+# ---------------- COULEURS DU CIEL LE SOIR ----------------
+# Minutes APRES le coucher du soleil. En hiver (coucher 17h00) :
+#  bleu nuit de 17h30 a 18h30, bleu nuit profond a 19h, orange a partir de 19h30, orange plein a 20h.
+BleuDebut=30
+BleuPlein=90
+OrangeDebut=150
+OrangePlein=180
+# Le matin, l'orange s'efface ... minutes AVANT le lever du soleil (puis bleu, puis jour)
+OrangeFinMatin=120
+
+# Couleurs (Rouge,Vert,Bleu de 0 a 1)
+BleuNuit=0.03,0.12,0.75
+OrangeNuit=1.0,0.42,0.12
+# Luminosite du ciel : 1 = comme le ciel d'origine, 2 = deux fois plus clair
+LuminositeBleu=2.2
+LuminositeOrange=1.3
+# Luminosite minimum (evite un ciel noir) : 0 = pas de minimum
+LuminositeMinBleu=0.06
+LuminositeMinOrange=0.05
+
+# Brouillard (il colore l'horizon) : memes moments que le ciel
+BrouillardBleu=0.02,0.08,0.45
+BrouillardOrange=0.55,0.22,0.06
+
+# Lumiere ambiante (SkyLight) la nuit : 1 = comme le jour, 0.5 = moitie
+AmbianceNuit=0.55
+
+# Taille du ciel GoodSky : Auto = assez grand pour couvrir tout le quartier, ou un nombre (ex : 40)
+TailleCiel=Auto
+
+# ---------------- NEIGE (hiver) ----------------
+# Auto = entre NeigeDebut et NeigeFin (date du PC), Oui = toujours, Non = jamais
+Neige=Auto
+NeigeDebut=15/11
+NeigeFin=28/02
+# Effet de neige du pack WinterTown (il fonctionne, contrairement a P_Snow)
+NeigeEffet=/Game/WinterTown/Particles/PS_Snow
+# Nombre de nuages de neige autour du joueur : 1 = un seul, 3 = 3x3 = 9 (plus dense, plus large)
+NeigeGrille=1
+# Ecart entre deux nuages de neige (metres) et hauteur au-dessus du joueur (metres)
+NeigeEcart=15
+NeigeHauteur=12
+# Taille de chaque nuage (1 = taille du pack)
+NeigeTaille=1
+
+# ---------------- SAPINS DE NOEL ----------------
+# Auto = entre SapinsDebut et SapinsFin, Oui = toujours, Non = jamais
+Sapins=Auto
+SapinsDebut=15/11
+SapinsFin=06/01
+# Sapins poses tout seuls sur l'herbe du quartier (memes places pour tous les joueurs)
+SapinsAuto=12
+# Ecart minimum entre deux sapins (metres) et distance max autour du point de depart des joueurs (metres)
+SapinsEcart=30
+SapinsRayon=250
+# Taille des sapins (1 = taille du pack)
+TailleSapin=1.3
+# Petites lumieres colorees qui clignotent autour de chaque sapin la nuit (0 = aucune)
+LumieresParSapin=4
+# Puissance des lumieres et distance d'affichage (metres)
+PuissanceLumieres=2500
+DistanceLumieres=80
+# Vitesse du clignotement (1 = normal, 2 = deux fois plus vite)
+Clignotement=1
+# Vos propres sapins : console Chelles.Meteo PoserSapin (sapin devant vous, garde dans Sapins_Positions.txt)

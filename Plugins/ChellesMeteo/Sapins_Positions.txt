@@ -1,0 +1,3 @@
+# Sapins poses a la main (console touche ² : Chelles.Meteo PoserSapin).
+# Une ligne par sapin : X;Y;Z;Rotation   (en centimetres, comme dans Unreal)
+# Pour en enlever un, supprimez sa ligne. Console Chelles.Meteo RetirerSapin enleve le plus proche.
