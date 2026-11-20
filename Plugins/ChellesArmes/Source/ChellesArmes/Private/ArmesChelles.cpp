@@ -1,6 +1,7 @@
 // CHELLES 3D - Armes : nouvelles apparences des armes FPS_Game + tirs speciaux en plus du tir normal
 #include "ArmesChelles.h"
 #include "ArmesRelais.h"
+#include "ArsenalChelles.h"
 #include "TirSpecialChelles.h"
 
 #include "AnimationRuntime.h"
@@ -15,6 +16,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Framework/Application/SlateApplication.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
@@ -71,6 +73,40 @@ namespace
 		}
 		Valeur = P->GetPropertyValue_InContainer(Objet);
 		return true;
+	}
+
+	/** Arme jetee au sol : FPS_Game fait apparaitre un BP_WeaponDropSpawner qui recopie le modele de l'arme. */
+	bool EstDepotArme(UClass* Classe)
+	{
+		for (UClass* K = Classe; K; K = K->GetSuperClass())
+		{
+			if (K->GetName() == TEXT("BP_WeaponDropSpawner_C"))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Classe de l'arme contenue dans un depot (variable WeaponToDrop), nullptr si pas encore remplie. */
+	UClass* ClasseDuDepot(AActor* Depot)
+	{
+		FProperty* P = Depot ? FindFProperty<FProperty>(Depot->GetClass(), TEXT("WeaponToDrop")) : nullptr;
+		if (FObjectPropertyBase* PO = CastField<FObjectPropertyBase>(P))
+		{
+			UObject* Valeur = PO->GetObjectPropertyValue_InContainer(Depot);
+			if (UClass* C = Cast<UClass>(Valeur))
+			{
+				return C;
+			}
+			return Valeur ? Valeur->GetClass() : nullptr;
+		}
+		if (FSoftClassProperty* PS = CastField<FSoftClassProperty>(P))
+		{
+			const FSoftObjectPtr* Ptr = PS->GetPropertyValuePtr_InContainer(Depot);
+			return Ptr ? Cast<UClass>(Ptr->Get()) : nullptr;
+		}
+		return nullptr;
 	}
 
 	UActorComponent* TrouverComposant(AActor* Acteur, const TCHAR* Nom)
@@ -423,7 +459,7 @@ namespace
 
 void AArmesChelles::Apparu(AActor* Acteur)
 {
-	if (Acteur && EstArme(Acteur->GetClass()))
+	if (Acteur && (EstArme(Acteur->GetClass()) || EstDepotArme(Acteur->GetClass())))
 	{
 		AVerifier.Add(Acteur);
 	}
@@ -439,7 +475,7 @@ void AArmesChelles::Scanner()
 	for (TActorIterator<AActor> It(W); It; ++It)
 	{
 		AActor* A = *It;
-		if (A && !Habillees.Contains(A) && EstArme(A->GetClass()))
+		if (A && !Habillees.Contains(A) && (EstArme(A->GetClass()) || EstDepotArme(A->GetClass())))
 		{
 			Habiller(A);
 		}
@@ -531,12 +567,19 @@ void AArmesChelles::Habiller(AActor* Arme)
 	{
 		return;
 	}
+	// Arme jetee au sol (BP_WeaponDropSpawner) : on l'habille comme l'arme qu'elle contient
+	const bool bDepot = EstDepotArme(Arme->GetClass());
+	UClass* ClasseArme = bDepot ? ClasseDuDepot(Arme) : Arme->GetClass();
+	if (!ClasseArme)
+	{
+		return; // depot pas encore rempli : nouvel essai au prochain passage
+	}
 	FArmeHabillee& Infos = Habillees.Add(Arme);
 	if (!Reglages.bApparences || GetNetMode() == NM_DedicatedServer)
 	{
 		return;
 	}
-	Infos.Cle = TrouverCle(Arme->GetClass(), Reglages.Apparences);
+	Infos.Cle = TrouverCle(ClasseArme, Reglages.Apparences);
 	if (Infos.Cle.IsEmpty())
 	{
 		return; // pas de nouvelle apparence pour cette arme
@@ -566,7 +609,17 @@ void AArmesChelles::Habiller(AActor* Arme)
 	const FReglageApparence* Trouve = Reglages.Reglages.Find(Infos.Cle);
 	const FReglageApparence Manuel = Trouve ? *Trouve : FReglageApparence();
 
-	for (const TCHAR* NomMaillage : NomsMaillages)
+	static const TCHAR* const MaillagesDepot[] = { TEXT("SkeletalMesh") };
+	TArray<const TCHAR*> Noms;
+	if (bDepot)
+	{
+		Noms.Append(MaillagesDepot, UE_ARRAY_COUNT(MaillagesDepot));
+	}
+	else
+	{
+		Noms.Append(NomsMaillages, UE_ARRAY_COUNT(NomsMaillages));
+	}
+	for (const TCHAR* NomMaillage : Noms)
 	{
 		UMeshComponent* Origine = Cast<UMeshComponent>(TrouverComposant(Arme, NomMaillage));
 		if (!Origine || !ModeleDe(Origine))
@@ -617,7 +670,8 @@ void AArmesChelles::Habiller(AActor* Arme)
 		for (UPrimitiveComponent* C : Liste)
 		{
 			const FString Nom = C ? C->GetName() : FString();
-			if (Nom.StartsWith(TEXT("FPP_Attachment")) || Nom.StartsWith(TEXT("TPP_Attachment")))
+			if (Nom.StartsWith(TEXT("FPP_Attachment")) || Nom.StartsWith(TEXT("TPP_Attachment"))
+				|| (bDepot && Nom.StartsWith(TEXT("Attachment_0"))))
 			{
 				FArmesMasque M;
 				M.Composant = C;
@@ -633,6 +687,10 @@ void AArmesChelles::Habiller(AActor* Arme)
 	if (Infos.Paires.Num() > 0)
 	{
 		UE_LOG(LogTemp, Log, TEXT("[Armes] %s habillee avec %s."), *NomArme(Arme), *Modele->GetName());
+	}
+	else if (bDepot)
+	{
+		Habillees.Remove(Arme); // modele du depot pas encore recopie : nouvel essai au prochain passage
 	}
 }
 
@@ -873,7 +931,48 @@ void AArmesChelles::LierClavier()
 	}
 	FInputKeyBinding& B = InputComponent->BindKey(Touche, IE_Pressed, this, &AArmesChelles::Changer);
 	B.bConsumeInput = false;
+	FKey ToucheFlash(*Reglages.ToucheFlash);
+	if (!ToucheFlash.IsValid())
+	{
+		ToucheFlash = EKeys::X;
+	}
+	FInputKeyBinding& Flash = InputComponent->BindKey(ToucheFlash, IE_Pressed, this, &AArmesChelles::FlashElectrique);
+	Flash.bConsumeInput = false;
 	bLieClavier = true;
+}
+
+void AArmesChelles::FlashElectrique()
+{
+	// FLASH ELECTRIQUE (2026-11-11) : double eclair (une main puis l'autre), meme effet que le tir FOUDRE :
+	// il saute ensuite sur les ennemis voisins. Reserve aux heros listes dans HerosFlash (Armes.txt).
+	APlayerController* PC = GetPC();
+	APawn* Pion = PC ? PC->GetPawn() : nullptr;
+	ACharacter* Perso = Cast<ACharacter>(Pion);
+	UWorld* Monde = GetWorld();
+	if (!Perso || !Perso->GetMesh() || !Perso->GetMesh()->SkeletalMesh || !Monde || Monde->IsPaused() || PC->bShowMouseCursor || !Reglages.bTirsSpeciaux)
+	{
+		return;
+	}
+	const FString Corps = Perso->GetMesh()->SkeletalMesh->GetName();
+	bool bHeros = false;
+	for (const FString& H : Reglages.HerosFlash)
+	{
+		bHeros = bHeros || Corps.Contains(H);
+	}
+	if (!bHeros)
+	{
+		Message(TEXT("FLASH ELECTRIQUE : reserve a Spider-Male, Spider-Femelle et PANTERA (roue TAB)."));
+		return;
+	}
+	const float Instant = Monde->GetTimeSeconds();
+	if (Instant - DernierFlash < FMath::Max(Reglages.Tirs[ChellesArmes::Foudre].Cadence, 0.8f))
+	{
+		return;
+	}
+	DernierFlash = Instant;
+	TirerMains(ChellesArmes::Foudre, PC, Pion);
+	TirerMains(ChellesArmes::Foudre, PC, Pion);
+	Message(TEXT("FLASH ELECTRIQUE !"));
 }
 
 void AArmesChelles::Changer()
@@ -889,6 +988,18 @@ void AArmesChelles::Changer()
 		return;
 	}
 	AActor* Arme = ArmeEnMain(PC->GetPawn());
+	if (!Arme && EstHeros(PC->GetPawn()))
+	{
+		// Heros sans arme : on passe au tir suivant (jamais "aucun", ses mains sont son arme)
+		uint8 Suivant = uint8(TirDuHeros() + 1);
+		if (Suivant >= NombreTirs)
+		{
+			Suivant = Laser;
+		}
+		ChoisirTirHeros(Suivant);
+		Message(FString::Printf(TEXT("TIR DES MAINS : %s  -  clic gauche = tirer, %s = changer"), NomTir(Suivant), *Reglages.ToucheChanger));
+		return;
+	}
 	if (!Arme)
 	{
 		Message(TEXT("Prends une arme pour choisir un tir special."));
@@ -923,6 +1034,30 @@ void AArmesChelles::SuivreTirs()
 		MunitionsVues = -1;
 	}
 	Etiquette.Reset();
+	if (AArsenalChelles::ArmeLocale(GetWorld()) != ChellesArsenal::Aucune)
+	{
+		MunitionsVues = -1;
+		return; // une arme de l'arsenal (touche N) est en main : pas de tir special ni de tir des mains
+	}
+	if (!Arme && Reglages.bTirsSpeciaux && EstHeros(Pion))
+	{
+		// Heros sans arme (PANTERA) : clic gauche = tir special depuis les mains
+		const uint8 TirMains = TirDuHeros();
+		Etiquette = FString::Printf(TEXT("MAINS : %s   (clic gauche, %s = changer)"), NomTir(TirMains), *Reglages.ToucheChanger);
+		UWorld* Monde = GetWorld();
+		if (!PC || PC->bShowMouseCursor || !Monde || Monde->IsPaused() || !PC->IsInputKeyDown(EKeys::LeftMouseButton))
+		{
+			return;
+		}
+		const float Instant = Monde->GetTimeSeconds();
+		if (Instant - DernierTirLocal[TirMains] < Reglages.Tirs[TirMains].Cadence)
+		{
+			return;
+		}
+		DernierTirLocal[TirMains] = Instant;
+		TirerMains(TirMains, PC, Pion);
+		return;
+	}
 	if (!Arme || !Reglages.bTirsSpeciaux)
 	{
 		return;
@@ -978,7 +1113,21 @@ void AArmesChelles::TirerLocal(uint8 Tir, AActor* Arme, APlayerController* PC, A
 	USceneComponent* MaillageFPP = Cast<USceneComponent>(TrouverComposant(Arme, TEXT("Weapon_Mesh_FPP")));
 	const bool bFPP = MaillageFPP && MaillageFPP->GetVisibleFlag() && !MaillageFPP->bHiddenInGame;
 	USceneComponent* Bouche = Cast<USceneComponent>(TrouverComposant(Arme, bFPP ? TEXT("ProjectileSpawnFromMuzzleFPP") : TEXT("ProjectileSpawnFromMuzzleTPP")));
-	FVector Origine = Bouche ? Bouche->GetComponentLocation() : Camera + Avant * 60.f;
+	const FVector Origine = Bouche ? Bouche->GetComponentLocation() : Camera + Avant * 60.f;
+	TirerDepuis(Tir, Origine, PC, Pion);
+}
+
+void AArmesChelles::TirerDepuis(uint8 Tir, const FVector& Origine, APlayerController* PC, APawn* Pion)
+{
+	AArmesRelais* Relais = MonRelais();
+	if (!Relais || !PC)
+	{
+		return;
+	}
+	FVector Camera;
+	FRotator Regard;
+	PC->GetPlayerViewPoint(Camera, Regard);
+	const FVector Avant = Regard.Vector();
 
 	// Cible : ce que vise le centre de l'ecran
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(ViseeArmesChelles), false, Pion);
@@ -997,6 +1146,79 @@ void AArmesChelles::TirerLocal(uint8 Tir, AActor* Arme, APlayerController* PC, A
 		Direction = Avant;
 	}
 	Relais->ServeurTir(Tir, Origine, Direction);
+}
+
+// =====================================================================================
+//  Heros sans arme (PANTERA, 2026-11-11) : tirs speciaux depuis les mains
+// =====================================================================================
+
+bool AArmesChelles::EstHeros(APawn* Pion) const
+{
+	const ACharacter* Perso = Cast<ACharacter>(Pion);
+	const USkeletalMeshComponent* Corps = Perso ? Perso->GetMesh() : nullptr;
+	if (!Corps || !Corps->SkeletalMesh || Corps->bHiddenInGame)
+	{
+		return false;
+	}
+	const FString Nom = Corps->SkeletalMesh->GetName();
+	for (const FString& H : Reglages.Heros)
+	{
+		if (Nom.Contains(H))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+uint8 AArmesChelles::TirDuHeros()
+{
+	static const FString Cle(TEXT("HEROS"));
+	if (const uint8* Deja = Choix.Find(Cle))
+	{
+		return *Deja;
+	}
+	uint8 Tir = Reglages.TirHeros;
+	int32 Sauve = -1;
+	if (GConfig && GConfig->GetInt(TEXT("ChellesArmes"), TEXT("Tir.HEROS"), Sauve, GGameUserSettingsIni) && Sauve > Aucun && Sauve < NombreTirs)
+	{
+		Tir = uint8(Sauve); // choix fait avec la touche O lors d'une partie precedente
+	}
+	if (Tir == Aucun || Tir >= NombreTirs)
+	{
+		Tir = Laser;
+	}
+	Choix.Add(Cle, Tir);
+	return Tir;
+}
+
+void AArmesChelles::ChoisirTirHeros(uint8 Tir)
+{
+	Choix.Add(TEXT("HEROS"), Tir);
+	if (GConfig)
+	{
+		GConfig->SetInt(TEXT("ChellesArmes"), TEXT("Tir.HEROS"), Tir, GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+}
+
+void AArmesChelles::TirerMains(uint8 Tir, APlayerController* PC, APawn* Pion)
+{
+	ACharacter* Perso = Cast<ACharacter>(Pion);
+	USkeletalMeshComponent* Corps = Perso ? Perso->GetMesh() : nullptr;
+	if (!Corps)
+	{
+		return;
+	}
+	// Une main puis l'autre
+	bMainGauche = !bMainGauche;
+	const FName Main = bMainGauche ? FName(TEXT("hand_l")) : FName(TEXT("hand_r"));
+	FVector Camera;
+	FRotator Regard;
+	PC->GetPlayerViewPoint(Camera, Regard);
+	FVector Origine = Corps->DoesSocketExist(Main) ? Corps->GetSocketLocation(Main) : Pion->GetActorLocation() + FVector(0.f, 0.f, 40.f);
+	Origine += Regard.Vector() * 30.f; // un peu devant la main : le tir ne touche pas son propre corps
+	TirerDepuis(Tir, Origine, PC, Pion);
 }
 
 // =====================================================================================

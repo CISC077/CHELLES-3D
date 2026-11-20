@@ -5,6 +5,7 @@
 #include "HAL/IConsoleManager.h"
 #include "Modules/ModuleManager.h"
 #include "ArmesChelles.h"
+#include "ArsenalChelles.h"
 
 namespace
 {
@@ -45,6 +46,25 @@ namespace
 		TEXT("Regle l'apparence de l'arme en main : Avant/Haut/Cote <cm>, Tangage/Lacet/Roulis <degres>, Echelle <x>, Zero, Original, Tir <Laser|Feu|Glace|Foudre|Aucun>, Recharger. Exemple : Chelles.Arme Roulis 180"),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeArme));
 
+	/** Console : Chelles.Arsenal Blaster | Bazooka | Sabre | Grenade | Aucune | Recharger */
+	void CommandeArsenal(const TArray<FString>& Arguments, UWorld* Monde)
+	{
+		if (!Monde)
+		{
+			return;
+		}
+		for (TActorIterator<AArsenalChelles> It(Monde); It; ++It)
+		{
+			It->Commande(Arguments);
+			return;
+		}
+	}
+
+	FAutoConsoleCommandWithWorldAndArgs GCommandeArsenal(
+		TEXT("Chelles.Arsenal"),
+		TEXT("Prendre une arme de l'arsenal : Chelles.Arsenal Blaster | Bazooka | Sabre | Grenade | Aucune | Recharger (relit Arsenal.txt)"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeArsenal));
+
 	FAutoConsoleCommandWithWorldAndArgs GCommandeArmes(
 		TEXT("Chelles.Armes"),
 		TEXT("Chelles.Armes 0 = armes d'origine du kit FPS_Game, Chelles.Armes 1 = nouvelles apparences."),
@@ -72,13 +92,17 @@ private:
 		{
 			return;
 		}
-		if (TActorIterator<AArmesChelles>(MondeDuJeu))
-		{
-			return; // deja la
-		}
 		FActorSpawnParameters Params;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		MondeDuJeu->SpawnActor<AArmesChelles>(AArmesChelles::StaticClass(), FTransform::Identity, Params);
+		if (!TActorIterator<AArmesChelles>(MondeDuJeu))
+		{
+			MondeDuJeu->SpawnActor<AArmesChelles>(AArmesChelles::StaticClass(), FTransform::Identity, Params);
+		}
+		// Arsenal (2026-11-17) : blaster, bazooka, sabre lumineux, grenade a zombies (touche N)
+		if (!TActorIterator<AArsenalChelles>(MondeDuJeu))
+		{
+			MondeDuJeu->SpawnActor<AArsenalChelles>(AArsenalChelles::StaticClass(), FTransform::Identity, Params);
+		}
 	}
 
 	FDelegateHandle Abonnement;

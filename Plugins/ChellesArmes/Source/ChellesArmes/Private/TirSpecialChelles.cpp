@@ -58,6 +58,9 @@ ATirSpecialChelles::ATirSpecialChelles()
 	{
 		Sphere->SetCollisionResponseToChannel(ECollisionChannel(Canal), ECR_Ignore);
 	}
+	// ... sauf "Ability" (ECC_GameTraceChannel1) : c'est le type de collision des bandits, soldats, chargers et
+	// zombies FPS_Game (capsule ET corps). Ignore, le tir les traversait sans les toucher (corrige 2026-11-18).
+	Sphere->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Block);
 	Sphere->SetGenerateOverlapEvents(false);
 	Sphere->CanCharacterStepUpOn = ECB_No;
 	RootComponent = Sphere;
@@ -288,23 +291,32 @@ void ATirSpecialChelles::Exploser(AActor* Autre, const FHitResult& Impact)
 	case Feu:
 		if (DegatsZone > 0.f && Rayon > 0.f)
 		{
-			TArray<AActor*> Epargnes;
-			if (Lanceur)
+			// Degats autour, personnage par personnage. (ApplyRadialDamage ne voyait pas les ennemis FPS_Game :
+			// il ne cherche que les types Pawn/WorldDynamic..., or eux sont de type "Ability".)
+			TArray<APawn*> Voisins;
+			for (TActorIterator<APawn> It(GetWorld()); It; ++It)
 			{
-				Epargnes.Add(Lanceur);
-			}
-			if (!bToucherJoueurs)
-			{
-				for (TActorIterator<APawn> It(GetWorld()); It; ++It)
+				APawn* P = *It;
+				if (P != Autre && PeutBlesser(P) && FVector::Dist(P->GetActorLocation(), Point) <= Rayon)
 				{
-					if (It->IsPlayerControlled())
-					{
-						Epargnes.AddUnique(*It);
-					}
+					Voisins.Add(P);
 				}
 			}
-			UGameplayStatics::ApplyRadialDamage(this, DegatsZone, Point, Rayon, UDamageType::StaticClass(), Epargnes, this,
-				Lanceur ? Lanceur->GetController() : nullptr, false, ECC_Visibility);
+			for (APawn* P : Voisins)
+			{
+				if (!IsValid(P))
+				{
+					continue;
+				}
+				FVector Vers = (P->GetActorLocation() - Point).GetSafeNormal();
+				if (Vers.IsNearlyZero())
+				{
+					Vers = Direction;
+				}
+				FHitResult Faux(P, nullptr, P->GetActorLocation(), -Vers);
+				Faux.ImpactPoint = P->GetActorLocation();
+				Blesser(P, DegatsZone, Faux, Vers);
+			}
 		}
 		break;
 
@@ -347,7 +359,8 @@ void ATirSpecialChelles::Exploser(AActor* Autre, const FHitResult& Impact)
 		break;
 	}
 
-	MulticastImpact(Point, PointsFoudre);
+	const FVector Normale = Impact.bBlockingHit ? FVector(Impact.ImpactNormal) : -Direction;
+	MulticastImpact(Point, PointsFoudre, Normale, ChellesArmesEffets::EstUnCorps(Autre));
 
 	// On laisse le temps a l'effet d'arriver chez tous, puis le projectile disparait
 	Mouvement->StopMovementImmediately();
@@ -356,7 +369,8 @@ void ATirSpecialChelles::Exploser(AActor* Autre, const FHitResult& Impact)
 	SetLifeSpan(0.3f);
 }
 
-void ATirSpecialChelles::MulticastImpact_Implementation(FVector_NetQuantize Point, const TArray<FVector_NetQuantize>& Points)
+void ATirSpecialChelles::MulticastImpact_Implementation(FVector_NetQuantize Point, const TArray<FVector_NetQuantize>& Points,
+	FVector_NetQuantizeNormal Normale, bool bCorps)
 {
 	if (GetNetMode() == NM_DedicatedServer)
 	{
@@ -364,6 +378,14 @@ void ATirSpecialChelles::MulticastImpact_Implementation(FVector_NetQuantize Poin
 	}
 	SetActorHiddenInGame(true);
 	UWorld* W = GetWorld();
+
+	// Marque visible au point d'arrivee : giclee sur un ennemi, trou noirci / brulure sur un mur ou le sol
+	ChellesArmesEffets::Impact(W, Point, Normale, bCorps, Type == Feu ? 4.f : 1.2f, Type != Feu);
+	for (const FVector_NetQuantize& P : Points)
+	{
+		ChellesArmesEffets::Impact(W, P, FVector::UpVector, true, 1.f, false); // cibles de la foudre
+	}
+
 	switch (Type)
 	{
 	case Laser:
