@@ -1,0 +1,63 @@
+﻿# ===========================================================================
+#  CHELLES 3D - BUTIN : reglages (Bloc-notes, pas besoin de recompiler)
+#  Oui / Non ; distances en metres ; durees en secondes.
+#  Dans le jeu, console (touche ²) : Chelles.Butin Relire  pour relire ce fichier.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# COFFRES DE BUTIN (facon Fortnite / Apex)
+# Des coffres lumineux apparaissent autour des joueurs (colonne de lumiere visible
+# de loin) : bleu = COFFRE, violet = RARE, or = LEGENDAIRE. Touche pour ouvrir.
+# Ils donnent de l'XP (plugin ChellesPouvoirs), la vie au maximum et des munitions
+# pour les armes lourdes (plugin ChellesArmes : mitrailleuse, lance-flammes).
+# ---------------------------------------------------------------------------
+Coffres=Oui
+Coffres.Max=8
+Coffres.ParJoueur=3
+Coffres.DistanceMin=25
+Coffres.DistanceMax=120
+Coffres.DistanceRetrait=250
+Coffres.Attente=15
+Coffres.Touche=E
+Coffres.ChanceRare=22
+Coffres.ChanceLegendaire=8
+Coffres.XPCommun=40
+Coffres.XPRare=100
+Coffres.XPLegendaire=250
+Coffres.BallesMitrailleuse=150
+Coffres.JetsLanceFlammes=100
+Coffres.Modele=/Game/Low_Poly_Viking_World/Models/Props/Treasure_Chest/SM_Treasure_Chest_01_A.SM_Treasure_Chest_01_A
+Coffres.ModeleOuvert=/Game/Low_Poly_Viking_World/Models/Props/Currency/SM_Coin_Treasure_Chest_01.SM_Coin_Treasure_Chest_01
+Coffres.Son=/Game/Sounds/InterfaceAudio/Mono/UI_LapComplete_Cue.UI_LapComplete_Cue
+
+# ---------------------------------------------------------------------------
+# PING (facon Apex) : vise et appuie sur J. Tous les joueurs voient le
+# repere : ICI, ENNEMI !, BUTIN ou VEHICULE, avec ton nom. Un seul ping a la fois.
+# Touches possibles : J, ThumbMouseButton, MiddleMouseButton ... (noms anglais d'Unreal)
+# (la molette sert deja a changer d'arme dans FPS_Game)
+# ---------------------------------------------------------------------------
+Ping=Oui
+Ping.Touche=J
+Ping.Duree=8
+Ping.Son=/Game/Sounds/InterfaceAudio/Mono/UI_Countdown_Cue.UI_Countdown_Cue
+
+# ---------------------------------------------------------------------------
+# SERIES D'ELIMINATIONS (facon Call of Duty) : ennemis ou zombies elimines a la
+# suite sans mourir.
+#  Radar = les ennemis proches sont marques en rouge a travers les murs
+#  Frappe = FRAPPE AERIENNE : vise un endroit et appuie sur ToucheFrappe (Four = touche 4)
+#  XP = bonus d'XP + radar
+# Mettre 0 pour retirer une recompense.
+# ---------------------------------------------------------------------------
+Series=Oui
+Series.Radar=3
+Series.Frappe=5
+Series.XP=7
+Series.DureeRadar=20
+Series.DistanceRadar=100
+Series.ToucheFrappe=Four
+Series.Bombes=6
+Series.DegatsBombe=160
+Series.RayonBombe=6.5
+Series.XPBonus=150
+Series.Son=/Game/Sounds/InterfaceAudio/Mono/UI_CountdownFinish_Cue.UI_CountdownFinish_Cue

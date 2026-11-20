@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Butin",
+	"Description": "Idees Fortnite / Apex / Call of Duty : coffres de butin lumineux a ouvrir (E), ping (touche J) vu par tous les joueurs, series d'eliminations (radar, frappe aerienne, XP). Reglages dans Butin.txt.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesButin",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
