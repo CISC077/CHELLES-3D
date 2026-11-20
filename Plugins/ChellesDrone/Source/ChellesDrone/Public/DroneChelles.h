@@ -20,6 +20,7 @@ class APawn;
 class APlayerController;
 class UAudioComponent;
 class UMaterialInstanceDynamic;
+class UMeshComponent;
 class UPointLightComponent;
 class UStaticMesh;
 class UStaticMeshComponent;
@@ -49,6 +50,14 @@ struct FReglagesDrone
 	float Souplesse = 4.f;
 
 	// Apparence
+	/** Modele 3D du drone (SkeletalMesh ou StaticMesh). Vide ou introuvable = drone en formes simples. */
+	FString Modele = TEXT("/Game/PoliceDr\u00F4ne/Police+Drone+Model");
+	/** Animation jouee en boucle sur le modele (helices...). Vide = aucune. */
+	FString Animation = TEXT("/Game/PoliceDr\u00F4ne/Police+Drone+Model_Anim");
+	/** Envergure du modele en cm (le modele est agrandi ou reduit pour faire cette taille). */
+	float TailleModeleCm = 90.f;
+	/** Pour remettre le modele dans le bon sens s'il vole de cote (90, -90, 180). */
+	float RotationModele = 0.f;
 	float Taille = 1.f;
 	FLinearColor CouleurCorps = FLinearColor(0.04f, 0.04f, 0.05f);
 	FLinearColor CouleurBras = FLinearColor(0.85f, 0.45f, 0.02f);
@@ -144,6 +153,8 @@ protected:
 
 private:
 	void Construire();
+	/** Pose le modele 3D de Drone.txt. Rend faux s'il est introuvable (on garde alors les formes simples). */
+	bool ConstruireModele(FVector& PointCanon);
 	UStaticMeshComponent* AjouterForme(USceneComponent* Parent, UStaticMesh* Forme, const FVector& Place, const FRotator& Rotation,
 		const FVector& Echelle, const FLinearColor& Couleur, bool bOmbre = false);
 	void Suivre(float DeltaSeconds, bool bImmediat);
@@ -162,6 +173,8 @@ private:
 	UPROPERTY(Transient) USceneComponent* Racine = nullptr;
 	UPROPERTY(Transient) USceneComponent* Corps = nullptr;
 	UPROPERTY(Transient) USceneComponent* Tourelle = nullptr;
+	/** Le modele 3D choisi dans Drone.txt (PoliceDrone) : remplace les formes simples. */
+	UPROPERTY(Transient) UMeshComponent* ModeleDrone = nullptr;
 	UPROPERTY(Transient) TArray<UStaticMeshComponent*> Helices;
 	UPROPERTY(Transient) UPointLightComponent* Oeil = nullptr;
 	UPROPERTY(Transient) UPointLightComponent* Eclair = nullptr;

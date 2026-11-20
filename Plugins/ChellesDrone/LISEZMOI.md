@@ -1,6 +1,6 @@
 # Drone compagnon (CHELLES 3D)
 
-Chaque joueur a son petit drone (4 hélices, canon laser bleu). Il vole au-dessus de l'épaule droite, suit le joueur partout (à pied, en vol, en véhicule) et tire tout seul sur les ennemis et les zombies proches.
+Chaque joueur a son drone : le modèle **Police Drone** du dossier `Content\PoliceDrône` (blanc et noir, deux canons), avec son animation. Si ce modèle est introuvable, l'ancien petit drone en formes simples revient tout seul. Il vole au-dessus de l'épaule droite, suit le joueur partout (à pied, en vol, en véhicule) et tire tout seul sur les ennemis et les zombies proches.
 
 ## Installer (une fois)
 
@@ -26,6 +26,13 @@ Rien n'est ajouté dans la carte ni dans les Blueprints : le drone est fabriqué
 ## Réglages
 
 Ouvrez `Plugins\ChellesDrone\Drone.txt` avec le Bloc-notes (portée, cadence, dégâts, couleurs, place, touche, volume). Relancez la partie, pas besoin de recompiler.
+
+## Le modèle 3D
+
+- Dans `Drone.txt` : `Modele=` (chemin du modèle), `Animation=`, `TailleModeleCm=` (envergure, 90 par défaut).
+- S'il vole de côté ou à l'envers : `RotationModele=90` (ou `-90`, `180`).
+- `Modele=` vide = l'ancien drone en formes simples.
+- Jeu exporté (démo ou jeu complet) : ajoutez le dossier `PoliceDrône` aux dossiers toujours cuisinés (Project Settings > Packaging > Additional Asset Directories to Cook), sinon le jeu exporté montrera l'ancien drone.
 
 ## Console (touche ²)
 

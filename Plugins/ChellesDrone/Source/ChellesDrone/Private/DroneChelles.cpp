@@ -9,6 +9,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimationAsset.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
@@ -121,6 +123,10 @@ namespace
 			else if (Cle.Equals(TEXT("Cote"), ESearchCase::IgnoreCase)) R.Cote = Nombre();
 			else if (Cle.Equals(TEXT("Arriere"), ESearchCase::IgnoreCase)) R.Arriere = Nombre();
 			else if (Cle.Equals(TEXT("Souplesse"), ESearchCase::IgnoreCase)) R.Souplesse = FMath::Clamp(Nombre(), 0.5f, 30.f);
+			else if (Cle.Equals(TEXT("Modele"), ESearchCase::IgnoreCase)) R.Modele = Valeur;
+			else if (Cle.Equals(TEXT("Animation"), ESearchCase::IgnoreCase)) R.Animation = Valeur;
+			else if (Cle.Equals(TEXT("TailleModeleCm"), ESearchCase::IgnoreCase)) R.TailleModeleCm = FMath::Clamp(Nombre(), 10.f, 1000.f);
+			else if (Cle.Equals(TEXT("RotationModele"), ESearchCase::IgnoreCase)) R.RotationModele = Nombre();
 			else if (Cle.Equals(TEXT("Taille"), ESearchCase::IgnoreCase)) R.Taille = FMath::Clamp(Nombre(), 0.2f, 5.f);
 			else if (Cle.Equals(TEXT("CouleurCorps"), ESearchCase::IgnoreCase)) LireCouleur(Valeur, R.CouleurCorps);
 			else if (Cle.Equals(TEXT("CouleurBras"), ESearchCase::IgnoreCase)) LireCouleur(Valeur, R.CouleurBras);
@@ -361,6 +367,94 @@ UStaticMeshComponent* ADroneChelles::AjouterForme(USceneComponent* Parent, UStat
 	return C;
 }
 
+bool ADroneChelles::ConstruireModele(FVector& PointCanon)
+{
+	const FReglagesDrone& R = ReglagesDrone();
+	if (R.Modele.IsEmpty())
+	{
+		return false;
+	}
+	FString Chemin = R.Modele;
+	if (!Chemin.Contains(TEXT(".")))
+	{
+		Chemin += TEXT(".") + FPaths::GetBaseFilename(Chemin); // "/Game/Dossier/Objet" -> "/Game/Dossier/Objet.Objet"
+	}
+	UObject* Objet = LoadObject<UObject>(nullptr, *Chemin, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	if (!Objet)
+	{
+		// Accent mal lu dans Drone.txt (fichier enregistre sans UTF-8) : on essaie le chemin d'origine
+		const FString Origine = FReglagesDrone().Modele;
+		Objet = LoadObject<UObject>(nullptr, *(Origine + TEXT(".") + FPaths::GetBaseFilename(Origine)), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	}
+	USkeletalMesh* Squelettique = Cast<USkeletalMesh>(Objet);
+	UStaticMesh* Statique = Cast<UStaticMesh>(Objet);
+	if (!Squelettique && !Statique)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Drone] Modele introuvable : %s (drone en formes simples)"), *Chemin);
+		return false;
+	}
+
+	// Pivot : remet le modele dans le bon sens, a la bonne taille, centre sur le drone
+	USceneComponent* Pivot = NewObject<USceneComponent>(this, TEXT("PivotModele"));
+	Pivot->SetupAttachment(Corps);
+	Pivot->SetRelativeRotation(FRotator(0.f, R.RotationModele, 0.f));
+	Pivot->RegisterComponent();
+
+	const FBoxSphereBounds Bornes = Squelettique ? Squelettique->GetBounds() : Statique->GetBounds();
+	const FVector Etendue = Bornes.BoxExtent * 2.f;
+	const float Plus = FMath::Max3(Etendue.X, Etendue.Y, Etendue.Z);
+	const float Echelle = Plus > 1.f ? R.TailleModeleCm / Plus : 1.f;
+
+	if (Squelettique)
+	{
+		USkeletalMeshComponent* Mesh = NewObject<USkeletalMeshComponent>(this, TEXT("ModeleDrone"));
+		Mesh->SetSkeletalMesh(Squelettique);
+		Mesh->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
+		ModeleDrone = Mesh;
+	}
+	else
+	{
+		UStaticMeshComponent* Mesh = NewObject<UStaticMeshComponent>(this, TEXT("ModeleDrone"));
+		Mesh->SetStaticMesh(Statique);
+		ModeleDrone = Mesh;
+	}
+	ModeleDrone->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ModeleDrone->SetGenerateOverlapEvents(false);
+	ModeleDrone->SetCastShadow(true);
+	ModeleDrone->SetupAttachment(Pivot);
+	ModeleDrone->SetRelativeScale3D(FVector(Echelle));
+	ModeleDrone->SetRelativeLocation(-Bornes.Origin * Echelle);
+	ModeleDrone->RegisterComponent();
+
+	if (USkeletalMeshComponent* Mesh = Cast<USkeletalMeshComponent>(ModeleDrone))
+	{
+		if (!R.Animation.IsEmpty())
+		{
+			FString CheminAnim = R.Animation;
+			if (!CheminAnim.Contains(TEXT(".")))
+			{
+				CheminAnim += TEXT(".") + FPaths::GetBaseFilename(CheminAnim);
+			}
+			if (UAnimationAsset* Anim = LoadObject<UAnimationAsset>(nullptr, *CheminAnim, nullptr, LOAD_NoWarn | LOAD_Quiet))
+			{
+				Mesh->PlayAnimation(Anim, true);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Log, TEXT("[Drone] Animation introuvable : %s"), *CheminAnim);
+			}
+		}
+	}
+
+	// Bout des canons = l'avant du modele, un peu sous le milieu (dans le repere du drone)
+	// (tourne de 90 ou 270 degres, c'est la largeur Y du modele qui se retrouve devant)
+	const float Quart = FMath::Abs(FMath::Fmod(FMath::Abs(R.RotationModele), 180.f) - 90.f);
+	const float Longueur = Quart < 45.f ? Etendue.Y : Etendue.X;
+	PointCanon = FVector(FMath::Max(Longueur * 0.5f * Echelle, 10.f), 0.f, -Etendue.Z * 0.2f * Echelle);
+	UE_LOG(LogTemp, Log, TEXT("[Drone] Modele %s pose (echelle %.2f)"), *Objet->GetName(), Echelle);
+	return true;
+}
+
 void ADroneChelles::Construire()
 {
 	if (bConstruit)
@@ -382,39 +476,52 @@ void ADroneChelles::Construire()
 	const FLinearColor Gris(0.12f, 0.12f, 0.13f);
 	const FLinearColor Noir(0.02f, 0.02f, 0.02f);
 
-	// Coque : soucoupe aplatie + dome de couleur
-	AjouterForme(Corps, Sphere, FVector::ZeroVector, FRotator::ZeroRotator, FVector(0.42f, 0.34f, 0.15f), R.CouleurCorps, true);
-	AjouterForme(Corps, Sphere, FVector(0.f, 0.f, 6.f), FRotator::ZeroRotator, FVector(0.22f, 0.2f, 0.11f), R.CouleurBras);
-	// Bras en X
-	AjouterForme(Corps, Cube, FVector(0.f, 0.f, 2.f), FRotator(0.f, 45.f, 0.f), FVector(0.68f, 0.045f, 0.035f), Gris, true);
-	AjouterForme(Corps, Cube, FVector(0.f, 0.f, 2.f), FRotator(0.f, -45.f, 0.f), FVector(0.68f, 0.045f, 0.035f), Gris, true);
-
-	// 4 moteurs avec leurs helices + feux de position (rouge a gauche, vert a droite)
-	const float Bout = 24.f;
-	const FVector Coins[4] = { FVector(Bout, Bout, 3.f), FVector(Bout, -Bout, 3.f), FVector(-Bout, Bout, 3.f), FVector(-Bout, -Bout, 3.f) };
-	for (int32 i = 0; i < 4; ++i)
+	// Nouveau drone (modele 3D de Drone.txt, dossier Content PoliceDrone) : les canons sont sur le modele
+	FVector PointCanon;
+	if (ConstruireModele(PointCanon))
 	{
-		AjouterForme(Corps, FormeCylindre, Coins[i], FRotator::ZeroRotator, FVector(0.07f, 0.07f, 0.08f), R.CouleurBras);
-		USceneComponent* Moyeu = NewObject<USceneComponent>(this);
-		Moyeu->SetupAttachment(Corps);
-		Moyeu->SetRelativeLocation(Coins[i] + FVector(0.f, 0.f, 6.f));
-		Moyeu->RegisterComponent();
-		if (UStaticMeshComponent* Pale = AjouterForme(Moyeu, Cube, FVector::ZeroVector, FRotator(0.f, 30.f * i, 0.f), FVector(0.4f, 0.035f, 0.006f), Noir))
-		{
-			Helices.Add(Pale);
-		}
-		AjouterForme(Corps, Sphere, Coins[i] * 1.18f - FVector(0.f, 0.f, 3.f), FRotator::ZeroRotator, FVector(0.035f),
-			Coins[i].Y > 0.f ? FLinearColor(0.f, 1.f, 0.1f) : FLinearColor(1.f, 0.f, 0.f));
+		Tourelle = NewObject<USceneComponent>(this, TEXT("Tourelle"));
+		Tourelle->SetupAttachment(Corps);
+		Tourelle->SetRelativeLocation(PointCanon - FVector(24.f, 0.f, 0.f));
+		Tourelle->RegisterComponent();
 	}
+	else
+	{
 
-	// Tourelle sous le drone : elle tourne vers la cible
-	Tourelle = NewObject<USceneComponent>(this, TEXT("Tourelle"));
-	Tourelle->SetupAttachment(Corps);
-	Tourelle->SetRelativeLocation(FVector(4.f, 0.f, -8.f));
-	Tourelle->RegisterComponent();
-	AjouterForme(Tourelle, Sphere, FVector::ZeroVector, FRotator::ZeroRotator, FVector(0.11f), Gris);
-	AjouterForme(Tourelle, FormeCylindre, FVector(11.f, 0.f, 0.f), FRotator(90.f, 0.f, 0.f), FVector(0.045f, 0.045f, 0.2f), Noir);
-	AjouterForme(Tourelle, Sphere, FVector(21.f, 0.f, 0.f), FRotator::ZeroRotator, FVector(0.04f), R.CouleurLaser);
+		// Coque : soucoupe aplatie + dome de couleur
+		AjouterForme(Corps, Sphere, FVector::ZeroVector, FRotator::ZeroRotator, FVector(0.42f, 0.34f, 0.15f), R.CouleurCorps, true);
+		AjouterForme(Corps, Sphere, FVector(0.f, 0.f, 6.f), FRotator::ZeroRotator, FVector(0.22f, 0.2f, 0.11f), R.CouleurBras);
+		// Bras en X
+		AjouterForme(Corps, Cube, FVector(0.f, 0.f, 2.f), FRotator(0.f, 45.f, 0.f), FVector(0.68f, 0.045f, 0.035f), Gris, true);
+		AjouterForme(Corps, Cube, FVector(0.f, 0.f, 2.f), FRotator(0.f, -45.f, 0.f), FVector(0.68f, 0.045f, 0.035f), Gris, true);
+
+		// 4 moteurs avec leurs helices + feux de position (rouge a gauche, vert a droite)
+		const float Bout = 24.f;
+		const FVector Coins[4] = { FVector(Bout, Bout, 3.f), FVector(Bout, -Bout, 3.f), FVector(-Bout, Bout, 3.f), FVector(-Bout, -Bout, 3.f) };
+		for (int32 i = 0; i < 4; ++i)
+		{
+			AjouterForme(Corps, FormeCylindre, Coins[i], FRotator::ZeroRotator, FVector(0.07f, 0.07f, 0.08f), R.CouleurBras);
+			USceneComponent* Moyeu = NewObject<USceneComponent>(this);
+			Moyeu->SetupAttachment(Corps);
+			Moyeu->SetRelativeLocation(Coins[i] + FVector(0.f, 0.f, 6.f));
+			Moyeu->RegisterComponent();
+			if (UStaticMeshComponent* Pale = AjouterForme(Moyeu, Cube, FVector::ZeroVector, FRotator(0.f, 30.f * i, 0.f), FVector(0.4f, 0.035f, 0.006f), Noir))
+			{
+				Helices.Add(Pale);
+			}
+			AjouterForme(Corps, Sphere, Coins[i] * 1.18f - FVector(0.f, 0.f, 3.f), FRotator::ZeroRotator, FVector(0.035f),
+				Coins[i].Y > 0.f ? FLinearColor(0.f, 1.f, 0.1f) : FLinearColor(1.f, 0.f, 0.f));
+		}
+
+		// Tourelle sous le drone : elle tourne vers la cible
+		Tourelle = NewObject<USceneComponent>(this, TEXT("Tourelle"));
+		Tourelle->SetupAttachment(Corps);
+		Tourelle->SetRelativeLocation(FVector(4.f, 0.f, -8.f));
+		Tourelle->RegisterComponent();
+		AjouterForme(Tourelle, Sphere, FVector::ZeroVector, FRotator::ZeroRotator, FVector(0.11f), Gris);
+		AjouterForme(Tourelle, FormeCylindre, FVector(11.f, 0.f, 0.f), FRotator(90.f, 0.f, 0.f), FVector(0.045f, 0.045f, 0.2f), Noir);
+		AjouterForme(Tourelle, Sphere, FVector(21.f, 0.f, 0.f), FRotator::ZeroRotator, FVector(0.04f), R.CouleurLaser);
+	}
 
 	// "Oeil" lumineux et eclair au bout du canon
 	Oeil = NewObject<UPointLightComponent>(this, TEXT("Oeil"));

@@ -1,4 +1,4 @@
-# CHELLES 3D - Reglages du drone qui accompagne chaque joueur
+﻿# CHELLES 3D - Reglages du drone qui accompagne chaque joueur
 # Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
 # Les lignes qui commencent par # sont des commentaires.
 
@@ -32,7 +32,15 @@ Arriere=70
 Souplesse=4
 
 # ---- Apparence ----
-# 1 = environ 60 cm d'envergure, 2 = deux fois plus gros
+# Modele 3D du drone (dossier Content\PoliceDrône). Laissez vide (Modele=) pour l'ancien drone en formes simples.
+Modele=/Game/PoliceDrône/Police+Drone+Model
+# Animation jouee en boucle sur le modele (laissez vide pour aucune)
+Animation=/Game/PoliceDrône/Police+Drone+Model_Anim
+# Envergure du modele en cm
+TailleModeleCm=90
+# Si le drone vole de cote ou a l'envers, essayez 90, -90 ou 180
+RotationModele=0
+# Multiplie la taille du drone (1 = normal, 2 = deux fois plus gros)
 Taille=1
 # Couleurs en Rouge,Vert,Bleu (0 a 255)
 CouleurCorps=15,15,18
