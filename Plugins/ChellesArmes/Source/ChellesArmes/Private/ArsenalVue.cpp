@@ -48,6 +48,8 @@ void AArsenalVue::Vider()
 	}
 	Lame = nullptr;
 	Ogive = nullptr;
+	Canons = nullptr;
+	VitesseCanons = 0.f;
 	Lueur = nullptr;
 }
 
@@ -169,6 +171,48 @@ void AArsenalVue::Construire(uint8 NouvelleArme, const FReglagesArsenal& R)
 		PointBouche->SetRelativeLocation(FVector(8.f, 0.f, 0.f));
 		break;
 	}
+	case LanceFlammes:
+	{
+		// Lance-flammes : reservoir rouge sous le bras, long tube, buse noire et petite flamme pilote bleue
+		PositionRepos = FVector(30.f, 18.f, -20.f);
+		PoseRepos = FRotator::ZeroRotator;
+		const FLinearColor Rouge(0.45f, 0.04f, 0.02f);
+		Ajouter(Piece(Pivot, Cylindre, FVector(-6.f, 4.f, -8.f), FVector(28.f, 9.f, 9.f), Rouge, false));
+		Ajouter(Piece(Pivot, Cylindre, FVector(-6.f, 4.f, -8.f), FVector(3.f, 9.6f, 9.6f), Noir, false));
+		Ajouter(Piece(Pivot, Cylindre, FVector(18.f, 0.f, 2.f), FVector(48.f, 3.2f, 3.2f), Metal, false));
+		Ajouter(Piece(Pivot, Cylindre, FVector(44.f, 0.f, 2.f), FVector(8.f, 5.f, 5.f), Noir, false));
+		Ajouter(Piece(Pivot, Cube, FVector(4.f, 0.f, -6.f), FVector(4.f, 3.f, 10.f), Noir, false, FRotator(12.f, 0.f, 0.f)));
+		Ajouter(Piece(Pivot, Cylindre, FVector(26.f, 0.f, -2.f), FVector(10.f, 1.2f, 1.2f), Noir, false));
+		Ajouter(Piece(Pivot, ChellesArsenalVisuel::Sphere, FVector(49.f, 0.f, -2.f), FVector(1.6f), FLinearColor(0.15f, 0.4f, 1.f), true));
+		PointBouche->SetRelativeLocation(FVector(50.f, 0.f, 2.f));
+		Lueur = Lumiere(FVector(52.f, 0.f, 2.f), FLinearColor(1.f, 0.45f, 0.1f), 0.f, 400.f);
+		break;
+	}
+	case Mitrailleuse:
+	{
+		// Mitrailleuse lourde a canons tournants
+		PositionRepos = FVector(30.f, 18.f, -19.f);
+		PoseRepos = FRotator::ZeroRotator;
+		const FLinearColor C = R.MitrailleuseCouleur;
+		Ajouter(Piece(Pivot, Cube, FVector(0.f, 0.f, 0.f), FVector(26.f, 9.f, 10.f), Gris, false));
+		Ajouter(Piece(Pivot, Cube, FVector(-4.f, 0.f, -9.f), FVector(10.f, 7.f, 8.f), Noir, false));
+		Ajouter(Piece(Pivot, Cube, FVector(4.f, 0.f, 8.f), FVector(16.f, 2.f, 3.f), Noir, false));
+		Canons = NewObject<USceneComponent>(this);
+		Canons->SetupAttachment(Pivot);
+		Canons->SetRelativeLocation(FVector(14.f, 0.f, 0.f));
+		Canons->RegisterComponent();
+		Pieces.Add(Canons);
+		for (int32 i = 0; i < 6; ++i)
+		{
+			const float A = FMath::DegreesToRadians(60.f * i);
+			Ajouter(Piece(Canons, Cylindre, FVector(18.f, 3.f * FMath::Cos(A), 3.f * FMath::Sin(A)), FVector(36.f, 1.5f, 1.5f), Noir, false));
+		}
+		Ajouter(Piece(Canons, Cylindre, FVector(30.f, 0.f, 0.f), FVector(2.f, 8.f, 8.f), Metal, false));
+		Ajouter(Piece(Pivot, Cube, FVector(8.f, 5.f, 0.f), FVector(6.f, 1.f, 3.f), C, true));
+		PointBouche->SetRelativeLocation(FVector(52.f, 0.f, 0.f));
+		Lueur = Lumiere(FVector(52.f, 0.f, 0.f), C, 0.f, 120.f);
+		break;
+	}
 	default:
 		break;
 	}
@@ -285,6 +329,46 @@ void AArsenalVue::Tick(float DeltaSeconds)
 		}
 		break;
 	}
+	case LanceFlammes:
+		// La buse tremble et s'illumine pendant le jet
+		if (T < 0.15f)
+		{
+			const float K = 1.f - T / 0.15f;
+			Position += FMath::VRand() * 0.6f * K;
+			if (Lueur)
+			{
+				Lueur->SetIntensity(3500.f * K + 400.f * FMath::Sin(Temps * 50.f) * K);
+			}
+		}
+		else if (Lueur)
+		{
+			Lueur->SetIntensity(0.f);
+		}
+		break;
+
+	case Mitrailleuse:
+		// Les canons tournent tant qu'on tire, puis ralentissent
+		VitesseCanons = (T < 0.15f) ? FMath::Min(1440.f, VitesseCanons + 4000.f * DeltaSeconds) : FMath::Max(0.f, VitesseCanons - 900.f * DeltaSeconds);
+		if (Canons)
+		{
+			Canons->AddLocalRotation(FRotator(0.f, 0.f, VitesseCanons * DeltaSeconds));
+		}
+		if (T < 0.07f)
+		{
+			const float K = 1.f - T / 0.07f;
+			Position.X -= 1.8f * K;
+			Pose.Pitch += 1.5f * K;
+			if (Lueur)
+			{
+				Lueur->SetIntensity(1200.f * K);
+			}
+		}
+		else if (Lueur)
+		{
+			Lueur->SetIntensity(0.f);
+		}
+		break;
+
 	default:
 		break;
 	}

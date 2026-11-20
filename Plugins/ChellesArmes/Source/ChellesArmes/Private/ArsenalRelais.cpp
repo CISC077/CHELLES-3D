@@ -4,12 +4,14 @@
 
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Net/UnrealNetwork.h"
+#include "RatelierArsenal.h"
 
 AArsenalRelais::AArsenalRelais()
 {
 	bReplicates = true;
 	bOnlyRelevantToOwner = true;
-	NetUpdateFrequency = 2.f;
+	NetUpdateFrequency = 5.f;
 	SetActorHiddenInGame(true);
 	PrimaryActorTick.bCanEverTick = false;
 }
@@ -49,5 +51,44 @@ void AArsenalRelais::ServeurSabre_Implementation(FVector Camera, FVector Directi
 	if (AArsenalChelles* G = GestionnaireArsenal(GetWorld()))
 	{
 		G->SabreServeur(this, Camera, Direction);
+	}
+}
+
+void AArsenalRelais::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AArsenalRelais, ChargeFlammes);
+	DOREPLIFETIME(AArsenalRelais, ChargeMitrailleuse);
+}
+
+void AArsenalRelais::ServeurFlammes_Implementation(FVector Camera, FVector Direction)
+{
+	if (AArsenalChelles* G = GestionnaireArsenal(GetWorld()))
+	{
+		G->FlammesServeur(this, Camera, Direction);
+	}
+}
+
+void AArsenalRelais::ServeurPrendre_Implementation(ARatelierArsenal* Ratelier)
+{
+	if (AArsenalChelles* G = GestionnaireArsenal(GetWorld()))
+	{
+		G->PrendreServeur(this, Ratelier);
+	}
+}
+
+void AArsenalRelais::ClientAvis_Implementation(const FString& Texte)
+{
+	if (AArsenalChelles* G = GestionnaireArsenal(GetWorld()))
+	{
+		G->AvisLocal(Texte);
+	}
+}
+
+void AArsenalRelais::ClientPris_Implementation(uint8 Arme)
+{
+	if (AArsenalChelles* G = GestionnaireArsenal(GetWorld()))
+	{
+		G->ArmeLourdePrise(Arme);
 	}
 }

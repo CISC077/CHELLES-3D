@@ -63,6 +63,11 @@ private:
 	UPROPERTY()
 	UPointLightComponent* Lueur = nullptr;
 
+	/** Mitrailleuse lourde : les canons qui tournent. */
+	UPROPERTY()
+	USceneComponent* Canons = nullptr;
+	float VitesseCanons = 0.f;
+
 	UPROPERTY()
 	UAudioComponent* Bourdon = nullptr;
 

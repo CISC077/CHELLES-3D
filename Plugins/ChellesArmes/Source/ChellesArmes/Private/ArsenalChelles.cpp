@@ -6,9 +6,15 @@
 #include "ArsenalVue.h"
 #include "EffetArsenal.h"
 #include "ProjectileArsenal.h"
+#include "RatelierArsenal.h"
+#include "ArmesEffets.h"
 #include "SonArsenalChelles.h"
 
 #include "Camera/CameraComponent.h"
+#include "Components/AudioComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
+#include "UObject/UnrealType.h"
 #include "Components/InputComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/Engine.h"
@@ -37,6 +43,48 @@ namespace
 			*bExiste = P != nullptr;
 		}
 		return P ? P->GetObjectPropertyValue_InContainer(Objet) : nullptr;
+	}
+
+	/** Acteur d'un autre plugin trouve par le nom de sa classe (garde en memoire, cherche au plus 1 fois par seconde). */
+	AActor* ArsenalActeurParClasse(UWorld* Monde, const TCHAR* NomClasse, TWeakObjectPtr<AActor>& Memoire, float& ProchaineRecherche)
+	{
+		if (!Monde)
+		{
+			return nullptr;
+		}
+		if (Memoire.IsValid() && Memoire->GetWorld() == Monde)
+		{
+			return Memoire.Get();
+		}
+		const float Maintenant = Monde->GetRealTimeSeconds();
+		if (Maintenant < ProchaineRecherche)
+		{
+			return nullptr;
+		}
+		ProchaineRecherche = Maintenant + 1.f;
+		for (TActorIterator<AActor> It(Monde); It; ++It)
+		{
+			if (It->GetClass()->GetName() == NomClasse)
+			{
+				Memoire = *It;
+				return *It;
+			}
+		}
+		return nullptr;
+	}
+
+	TWeakObjectPtr<AActor> GArsenalPouvoirs;
+	float GArsenalPouvoirsRecherche = 0.f;
+
+	bool ArsenalLireEntier(UObject* Objet, FName Nom, int32& Valeur)
+	{
+		FIntProperty* P = Objet ? FindFProperty<FIntProperty>(Objet->GetClass(), Nom) : nullptr;
+		if (!P)
+		{
+			return false;
+		}
+		Valeur = P->GetPropertyValue_InContainer(Objet);
+		return true;
 	}
 
 	FBoolProperty* ArsenalProprieteProfondeur()
@@ -89,6 +137,7 @@ void AArsenalChelles::BeginPlay()
 
 void AArsenalChelles::EndPlay(const EEndPlayReason::Type Raison)
 {
+	ArreterSonFlammes();
 	RemontrerArmeNormale();
 	BloquerTirNormal(nullptr, false);
 	if (Vue)
@@ -128,6 +177,8 @@ float AArsenalChelles::Cadence(uint8 Quelle) const
 	case Bazooka: return Reglages.BazookaCadence;
 	case Sabre:   return Reglages.SabreCadence;
 	case Grenade: return Reglages.GrenadeCadence;
+	case LanceFlammes: return Reglages.FlammesCadence;
+	case Mitrailleuse: return Reglages.MitrailleuseCadence;
 	default:      return 1.f;
 	}
 }
@@ -151,6 +202,10 @@ void AArsenalChelles::Tick(float DeltaSeconds)
 	{
 		ProchainRelais = Maintenant + 0.5f;
 		GererRelais();
+		if (!bRateliersPoses && Maintenant > 4.f)
+		{
+			PoserRateliers();
+		}
 	}
 	if (GetNetMode() == NM_DedicatedServer)
 	{
@@ -162,6 +217,19 @@ void AArsenalChelles::Tick(float DeltaSeconds)
 	APawn* Pion = PC ? PC->GetPawn() : nullptr;
 	bCurseur = PC && PC->bShowMouseCursor;
 	SuivreJoueur(PC, Pion);
+	SuivreRateliers(PC, Pion);
+
+	// Arme lourde vide : retour a l'arme normale
+	if (EstArmeLourde(Arme) && !Reglages.bLourdesSansRatelier && ChargeLocale(Arme) <= 0 && MonRelais())
+	{
+		const uint8 Videe = Arme;
+		Choisir(Aucune, false);
+		Message(FString::Printf(TEXT("%s : plus de munitions. Trouve un autre ratelier sur un mur."), NomArme(Videe)));
+	}
+	if (!(bTenu && Arme == LanceFlammes))
+	{
+		ArreterSonFlammes();
+	}
 
 	if (Arme == Aucune)
 	{
@@ -169,16 +237,19 @@ void AArsenalChelles::Tick(float DeltaSeconds)
 	}
 	else
 	{
-		const TCHAR* Geste = (Arme == Sabre) ? TEXT("frapper") : (Arme == Grenade) ? TEXT("lancer") : TEXT("tirer");
-		Etiquette = FString::Printf(TEXT("%s   -   clic gauche = %s   -   %s = arme suivante   -   molette = arme normale"),
-			NomArme(Arme), Geste, *Reglages.ToucheChanger);
+		const TCHAR* Geste = (Arme == Sabre) ? TEXT("frapper") : (Arme == Grenade) ? TEXT("lancer") : (Arme == LanceFlammes) ? TEXT("bruler") : TEXT("tirer");
+		const float Force = Puissance(PC);
+		const FString Munitions = (EstArmeLourde(Arme) && !Reglages.bLourdesSansRatelier) ? FString::Printf(TEXT(" (%d)"), ChargeLocale(Arme)) : FString();
+		const FString Bonus = Force > 1.001f ? FString::Printf(TEXT("   -   PUISSANCE +%d %%"), FMath::RoundToInt((Force - 1.f) * 100.f)) : FString();
+		Etiquette = FString::Printf(TEXT("%s%s   -   clic gauche = %s   -   %s = arme suivante   -   molette = arme normale%s"),
+			NomArme(Arme), *Munitions, Geste, *Reglages.ToucheChanger, *Bonus);
 		MasquerArmeNormale(Pion);
 		PlacerVue(Pion);
 		if (bTenu && PC && !PC->IsInputKeyDown(EKeys::LeftMouseButton))
 		{
 			bTenu = false;
 		}
-		if (bTenu && (Arme == Blaster || Arme == Sabre))
+		if (bTenu && (Arme == Blaster || Arme == Sabre || Arme == Mitrailleuse || Arme == LanceFlammes))
 		{
 			EssayerTir(); // rafale tant que le clic est maintenu
 		}
@@ -272,7 +343,17 @@ void AArsenalChelles::Changer()
 	{
 		return; // menu ouvert
 	}
-	Choisir(uint8((Arme + 1) % NombreArmes), true);
+	// Arme suivante, en sautant les armes lourdes pas encore prises (ou pas assez d'XP)
+	uint8 Suivante = Arme;
+	for (int32 i = 0; i < NombreArmes; ++i)
+	{
+		Suivante = uint8((Suivante + 1) % NombreArmes);
+		if (Disponible(Suivante))
+		{
+			break;
+		}
+	}
+	Choisir(Suivante, true);
 }
 
 void AArsenalChelles::Choisir(uint8 NouvelleArme, bool bMessage)
@@ -293,6 +374,12 @@ void AArsenalChelles::Choisir(uint8 NouvelleArme, bool bMessage)
 		if (!Cast<ACharacter>(Pion))
 		{
 			Message(TEXT("Arsenal : seulement a pied (soldat ou heros), pas en vehicule."));
+			return;
+		}
+		FString Raison;
+		if (!Disponible(NouvelleArme, &Raison))
+		{
+			Message(Raison);
 			return;
 		}
 	}
@@ -346,6 +433,8 @@ void AArsenalChelles::Choisir(uint8 NouvelleArme, bool bMessage)
 		case Sabre:   Message(Reglages.bSabreTueZombies ? TEXT("SABRE LUMINEUX : clic gauche pour frapper, un coup tranche un zombie")
 			: TEXT("SABRE LUMINEUX : clic gauche pour frapper")); break;
 		case Grenade: Message(TEXT("GRENADE A ZOMBIES : lance-la, elle attire les zombies puis explose")); break;
+		case LanceFlammes: Message(TEXT("LANCE-FLAMMES : maintiens le clic gauche pour cracher le feu (portee 9 m)")); break;
+		case Mitrailleuse: Message(TEXT("MITRAILLEUSE LOURDE : maintiens le clic gauche pour tirer en rafale")); break;
 		default: break;
 		}
 	}
@@ -590,6 +679,31 @@ void AArsenalChelles::EssayerTir()
 		// Lancer en cloche, un peu au-dessus du viseur
 		Relais->ServeurTirer(Grenade, Origine, (Avant + FVector(0.f, 0.f, 0.28f)).GetSafeNormal());
 		break;
+	case Mitrailleuse:
+		Relais->ServeurTirer(Mitrailleuse, Origine, Direction);
+		break;
+	case LanceFlammes:
+	{
+		Relais->ServeurFlammes(Camera, Avant);
+		// Le jet de feu, vu tout de suite par le joueur (les autres le voient par le serveur)
+		const float Portee = Reglages.FlammesPortee;
+		for (int32 i = 1; i <= 3; ++i)
+		{
+			const float K = (float(i) / 3.f) * FMath::FRandRange(0.8f, 1.f);
+			const FVector Point = Origine + Avant * Portee * K * 0.9f + FMath::VRand() * 15.f * K;
+			ChellesArmesEffets::Bouffee(W, ChellesArmesEffets::Flammes(), Point, 0.35f + 0.6f * K, 0.25f);
+		}
+		if (!SonFlammes.IsValid())
+		{
+			USoundBase* Feu = LoadObject<USoundBase>(nullptr, TEXT("/Game/StarterContent/Audio/Fire01_Cue.Fire01_Cue"), nullptr, LOAD_NoWarn | LOAD_Quiet);
+			if (Feu)
+			{
+				SonFlammes = UGameplayStatics::SpawnSoundAttached(Feu, Pion->GetRootComponent(), NAME_None, FVector::ZeroVector,
+					EAttachLocation::KeepRelativeOffset, true, 1.2f * Reglages.Volume, 1.3f);
+			}
+		}
+		break;
+	}
 	case Sabre:
 		Relais->ServeurSabre(Camera, Avant);
 		USonArsenalChelles::Jouer(this, ChellesArsenalSons::CoupSabre, Origine, 0.9f * Reglages.Volume, FMath::FRandRange(0.92f, 1.08f));
@@ -647,7 +761,7 @@ void AArsenalChelles::GererRelais()
 void AArsenalChelles::TirServeur(AArsenalRelais* Relais, uint8 Quelle, FVector Origine, FVector Direction)
 {
 	UWorld* W = GetWorld();
-	if (!W || !Relais || !Reglages.bActif || (Quelle != Blaster && Quelle != Bazooka && Quelle != Grenade))
+	if (!W || !Relais || !Reglages.bActif || (Quelle != Blaster && Quelle != Bazooka && Quelle != Grenade && Quelle != Mitrailleuse))
 	{
 		return;
 	}
@@ -663,11 +777,32 @@ void AArsenalChelles::TirServeur(AArsenalRelais* Relais, uint8 Quelle, FVector O
 		return; // trop rapide
 	}
 	Relais->DernierTir[Quelle] = Maintenant;
+	if (Quelle == Mitrailleuse)
+	{
+		if (Reglages.MitrailleuseXP > XPDuJoueur(PC))
+		{
+			return;
+		}
+		if (!Reglages.bLourdesSansRatelier)
+		{
+			if (Relais->ChargeMitrailleuse <= 0)
+			{
+				return;
+			}
+			--Relais->ChargeMitrailleuse;
+		}
+	}
+	const float Force = Puissance(PC);
 
 	Direction = Direction.GetSafeNormal();
 	if (Direction.IsNearlyZero())
 	{
 		Direction = Pion->GetControlRotation().Vector();
+	}
+	if (Quelle == Mitrailleuse)
+	{
+		// Petite dispersion de rafale
+		Direction = FMath::VRandCone(Direction, FMath::DegreesToRadians(1.6f));
 	}
 	if (FVector::Dist(Origine, Pion->GetActorLocation()) > 600.f)
 	{
@@ -704,6 +839,13 @@ void AArsenalChelles::TirServeur(AArsenalRelais* Relais, uint8 Quelle, FVector O
 		P->Relais = Relais;
 		P->Couleur = FColor(255, 120, 30);
 		break;
+	case Mitrailleuse:
+		// Meme projectile que le blaster (trait lumineux), en jaune et plus rapide
+		P->Arme = Blaster;
+		P->Vitesse = Reglages.MitrailleuseVitesse;
+		P->Degats = Reglages.MitrailleuseDegats;
+		P->Couleur = Reglages.MitrailleuseCouleur.ToFColor(true);
+		break;
 	case Grenade:
 		P->Vitesse = Reglages.GrenadeVitesse;
 		P->Degats = Reglages.GrenadeDegats;
@@ -716,6 +858,7 @@ void AArsenalChelles::TirServeur(AArsenalRelais* Relais, uint8 Quelle, FVector O
 	default:
 		break;
 	}
+	P->Degats *= Force;
 	P->FinishSpawning(Depart);
 }
 
@@ -750,6 +893,7 @@ void AArsenalChelles::SabreServeur(AArsenalRelais* Relais, FVector Camera, FVect
 	}
 	const bool bJoueurs = ChellesArsenalDegats::PvpActif(W);
 	const float Portee = Reglages.SabrePortee;
+	const float DegatsSabre = Reglages.SabreDegats * Puissance(PC);
 
 	// Tout ce qui est devant, a portee de lame (un arc d'environ 140 degres)
 	TArray<APawn*> Touches;
@@ -786,13 +930,13 @@ void AArsenalChelles::SabreServeur(AArsenalRelais* Relais, FVector Camera, FVect
 		}
 		if (Reglages.bSabreTueZombies && ChellesArsenalDegats::EstZombie(P))
 		{
-			ChellesArsenalDegats::Trancher(P, Reglages.SabreDegats, Point, Vers, Pion, this);
+			ChellesArsenalDegats::Trancher(P, DegatsSabre, Point, Vers, Pion, this);
 		}
 		else
 		{
 			FHitResult Faux(P, nullptr, Point, -Vers);
 			Faux.ImpactPoint = Point;
-			ChellesArsenalDegats::Blesser(P, Reglages.SabreDegats, Faux, Vers, Pion, this);
+			ChellesArsenalDegats::Blesser(P, DegatsSabre, Faux, Vers, Pion, this);
 		}
 		AEffetArsenal::Creer(W, ChellesEffetArsenal::Etincelles, Point, Reglages.SabreCouleur, Pion);
 	}
@@ -843,7 +987,21 @@ void AArsenalChelles::Commande(const TArray<FString>& Arguments)
 	}
 	if (Ordre.IsEmpty())
 	{
-		Message(TEXT("Chelles.Arsenal Blaster | Bazooka | Sabre | Grenade | Aucune | Recharger"));
+		Message(TEXT("Chelles.Arsenal Blaster | Bazooka | Sabre | Grenade | LanceFlammes | Mitrailleuse | Aucune | Remplir | Recharger"));
+		return;
+	}
+	if (Ordre.Equals(TEXT("Remplir"), ESearchCase::IgnoreCase))
+	{
+		// Test (solo ou hote) : munitions des armes lourdes sans passer par un ratelier
+		if (GetNetMode() != NM_Client)
+		{
+			if (AArsenalRelais* R = MonRelais())
+			{
+				R->ChargeFlammes = Reglages.FlammesCharge;
+				R->ChargeMitrailleuse = Reglages.MitrailleuseCharge;
+				Message(TEXT("Armes lourdes remplies (touche 3 pour les choisir)."));
+			}
+		}
 		return;
 	}
 	Choisir(ArmeDepuisTexte(Ordre), true);
@@ -892,7 +1050,11 @@ void AArsenalChelles::CreerEcran()
 				{
 					return FText::GetEmpty();
 				}
-				return FText::FromString(Moi->AgeInfo < 3.5f ? Moi->Info : Moi->Etiquette);
+				if (Moi->AgeInfo < 3.5f)
+				{
+					return FText::FromString(Moi->Info);
+				}
+				return FText::FromString(Moi->Etiquette.IsEmpty() ? Moi->AideRatelier : Moi->Etiquette);
 			})
 		]
 		+ SOverlay::Slot()
@@ -926,4 +1088,395 @@ void AArsenalChelles::RetirerEcran()
 		}
 	}
 	Ecran.Reset();
+}
+
+// =====================================================================================
+//  Armes lourdes : lance-flammes, mitrailleuse, rateliers au mur, puissance selon l'XP (2026-11-20)
+// =====================================================================================
+
+void AArsenalChelles::FlammesServeur(AArsenalRelais* Relais, FVector Camera, FVector Direction)
+{
+	UWorld* W = GetWorld();
+	if (!W || !Relais || !Reglages.bActif)
+	{
+		return;
+	}
+	APlayerController* PC = Cast<APlayerController>(Relais->GetOwner());
+	APawn* Pion = PC ? PC->GetPawn() : nullptr;
+	if (!Pion || Reglages.FlammesXP > XPDuJoueur(PC))
+	{
+		return;
+	}
+	const float Maintenant = W->GetTimeSeconds();
+	if (Maintenant - Relais->DernierTir[LanceFlammes] < Reglages.FlammesCadence * 0.8f)
+	{
+		return;
+	}
+	Relais->DernierTir[LanceFlammes] = Maintenant;
+	if (!Reglages.bLourdesSansRatelier)
+	{
+		if (Relais->ChargeFlammes <= 0)
+		{
+			return;
+		}
+		--Relais->ChargeFlammes;
+	}
+
+	if (FVector::Dist(Camera, Pion->GetPawnViewLocation()) > 300.f)
+	{
+		Camera = Pion->GetPawnViewLocation();
+	}
+	Direction = Direction.GetSafeNormal();
+	if (Direction.IsNearlyZero())
+	{
+		Direction = Pion->GetControlRotation().Vector();
+	}
+	const bool bJoueurs = ChellesArsenalDegats::PvpActif(W);
+	const float Portee = Reglages.FlammesPortee;
+	const float CosAngle = FMath::Cos(FMath::DegreesToRadians(FMath::Clamp(Reglages.FlammesAngle, 2.f, 80.f)));
+	const float Degats = Reglages.FlammesDegats * Puissance(PC);
+
+	// Tout ce qui est dans le cone du jet, sans mur entre les deux
+	TArray<APawn*> Touches;
+	for (TActorIterator<APawn> It(W); It; ++It)
+	{
+		APawn* P = *It;
+		if (!ChellesArsenalDegats::PeutBlesser(P, Pion, bJoueurs))
+		{
+			continue;
+		}
+		const FVector Vers = P->GetActorLocation() - Camera;
+		const float Distance = Vers.Size();
+		if (Distance > Portee || (Distance > 80.f && FVector::DotProduct(Vers / FMath::Max(Distance, 1.f), Direction) < CosAngle))
+		{
+			continue;
+		}
+		Touches.Add(P);
+	}
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(FlammesArsenal), false, Pion);
+	for (APawn* P : Touches)
+	{
+		if (!IsValid(P))
+		{
+			continue;
+		}
+		FHitResult Mur;
+		Params.ClearIgnoredActors();
+		Params.AddIgnoredActor(Pion);
+		Params.AddIgnoredActor(P);
+		if (W->LineTraceSingleByChannel(Mur, Camera, P->GetActorLocation(), ECC_Visibility, Params))
+		{
+			continue; // cache derriere un mur
+		}
+		const FVector Vers = (P->GetActorLocation() - Camera).GetSafeNormal();
+		const FVector Point = P->GetActorLocation();
+		FHitResult Faux(P, nullptr, Point, -Vers);
+		Faux.ImpactPoint = Point;
+		ChellesArsenalDegats::Blesser(P, Degats, Faux, Vers, Pion, this);
+	}
+
+	// Les autres joueurs voient le feu (un effet tous les 3 jets suffit)
+	if (++JetsFlammes % 3 == 0 && W->GetNetMode() != NM_Standalone)
+	{
+		AEffetArsenal::Creer(W, ChellesEffetArsenal::Flammes, Camera + Direction * 60.f, FLinearColor(Direction.X * 0.5f + 0.5f, Direction.Y * 0.5f + 0.5f, Direction.Z * 0.5f + 0.5f), Pion); // direction du jet rangee dans la couleur
+	}
+}
+
+void AArsenalChelles::PrendreServeur(AArsenalRelais* Relais, ARatelierArsenal* Ratelier)
+{
+	if (!Relais || !IsValid(Ratelier) || !Reglages.bActif)
+	{
+		return;
+	}
+	APlayerController* PC = Cast<APlayerController>(Relais->GetOwner());
+	APawn* Pion = PC ? PC->GetPawn() : nullptr;
+	if (!Pion || FVector::Dist(Pion->GetActorLocation(), Ratelier->Centre()) > 400.f)
+	{
+		return;
+	}
+	if (Ratelier->bVide)
+	{
+		Relais->ClientAvis(TEXT("Ce ratelier est vide : l'arme revient bientot."));
+		return;
+	}
+	const uint8 Quelle = Ratelier->Arme;
+	const int32 Requis = (Quelle == LanceFlammes) ? Reglages.FlammesXP : Reglages.MitrailleuseXP;
+	const int32 XP = XPDuJoueur(PC);
+	if (XP < Requis)
+	{
+		Relais->ClientAvis(FString::Printf(TEXT("%s : il faut %d XP (tu en as %d). Joue encore un peu !"), NomArme(Quelle), Requis, XP));
+		return;
+	}
+	if (Quelle == LanceFlammes)
+	{
+		Relais->ChargeFlammes = Reglages.FlammesCharge;
+	}
+	else if (Quelle == Mitrailleuse)
+	{
+		Relais->ChargeMitrailleuse = Reglages.MitrailleuseCharge;
+	}
+	else
+	{
+		return;
+	}
+	Relais->ForceNetUpdate();
+	Ratelier->Vider(Reglages.RatelierAttente);
+	Relais->ClientPris(Quelle);
+}
+
+void AArsenalChelles::AvisLocal(const FString& Texte)
+{
+	Message(Texte);
+}
+
+void AArsenalChelles::ArmeLourdePrise(uint8 Quelle)
+{
+	Choisir(Quelle, true);
+}
+
+bool AArsenalChelles::Disponible(uint8 Quelle, FString* OutRaison) const
+{
+	if (!Reglages.bActif)
+	{
+		if (OutRaison) *OutRaison = TEXT("Arsenal coupe (Arsenal=Non dans Plugins\\ChellesArmes\\Arsenal.txt).");
+		return false;
+	}
+	if (!EstArmeLourde(Quelle))
+	{
+		return true;
+	}
+	const int32 Requis = (Quelle == LanceFlammes) ? Reglages.FlammesXP : Reglages.MitrailleuseXP;
+	const int32 XP = XPLocale();
+	if (XP < Requis)
+	{
+		if (OutRaison) *OutRaison = FString::Printf(TEXT("%s : debloque a %d XP (tu en as %d)."), NomArme(Quelle), Requis, XP);
+		return false;
+	}
+	if (!Reglages.bLourdesSansRatelier && ChargeLocale(Quelle) <= 0)
+	{
+		if (OutRaison) *OutRaison = FString::Printf(TEXT("%s : va la prendre sur un ratelier accroche a un mur (touche %s)."), NomArme(Quelle), *Reglages.ToucheRatelier);
+		return false;
+	}
+	return true;
+}
+
+int32 AArsenalChelles::ChargeLocale(uint8 Quelle) const
+{
+	const AArsenalRelais* R = MonRelais();
+	if (!R)
+	{
+		return 0;
+	}
+	return Quelle == LanceFlammes ? R->ChargeFlammes : (Quelle == Mitrailleuse ? R->ChargeMitrailleuse : 0);
+}
+
+int32 AArsenalChelles::XPLocale() const
+{
+	// XP du joueur de cette machine, tenue par le plugin ChellesPouvoirs (lue par son nom : aucun lien de compilation)
+	int32 XP = 0;
+	AActor* Pouvoirs = ArsenalActeurParClasse(GetWorld(), TEXT("PouvoirsChelles"), GArsenalPouvoirs, GArsenalPouvoirsRecherche);
+	ArsenalLireEntier(Pouvoirs, TEXT("XPLocale"), XP);
+	return XP;
+}
+
+int32 AArsenalChelles::XPDuJoueur(APlayerController* PC) const
+{
+	UWorld* W = GetWorld();
+	if (!PC || !W)
+	{
+		return 0;
+	}
+	if (PC->IsLocalController())
+	{
+		return XPLocale();
+	}
+	// Joueur distant : son relais ChellesPouvoirs copie son XP sur le serveur
+	for (TActorIterator<AActor> It(W); It; ++It)
+	{
+		if (It->GetOwner() == PC && It->GetClass()->GetName() == TEXT("PouvoirsRelais"))
+		{
+			int32 XP = 0;
+			ArsenalLireEntier(*It, TEXT("XP"), XP);
+			return XP;
+		}
+	}
+	return 0;
+}
+
+float AArsenalChelles::Puissance(APlayerController* PC) const
+{
+	if (Reglages.PuissanceParNiveau <= 0.f)
+	{
+		return 1.f;
+	}
+	const int32 Niveau = NiveauArsenal(XPDuJoueur(PC));
+	return 1.f + Reglages.PuissanceParNiveau * float(FMath::Max(0, Niveau - 1));
+}
+
+void AArsenalChelles::PoserRateliers()
+{
+	bRateliersPoses = true;
+	UWorld* W = GetWorld();
+	if (!W || !Reglages.bActif || !Reglages.bRateliers || Reglages.RateliersMax <= 0)
+	{
+		return;
+	}
+	for (TActorIterator<ARatelierArsenal> It(W); It; ++It)
+	{
+		return; // deja poses (la carte a ete rechargee, ou un autre gestionnaire l'a fait)
+	}
+
+	// Points de depart : les socles d'armes poses par Tools\Bonus (sinon autour du joueur)
+	TArray<FVector> Departs;
+	static const FName MarqueBonus(TEXT("ChellesBonusAjoute"));
+	for (TActorIterator<AActor> It(W); It; ++It)
+	{
+		if (It->Tags.Contains(MarqueBonus) && It->GetClass()->GetName().Contains(TEXT("Factory")))
+		{
+			Departs.Add(It->GetActorLocation());
+		}
+	}
+	if (Departs.Num() == 0)
+	{
+		for (FConstPlayerControllerIterator It = W->GetPlayerControllerIterator(); It; ++It)
+		{
+			if (APawn* P = It->Get() ? It->Get()->GetPawn() : nullptr)
+			{
+				Departs.Add(P->GetActorLocation());
+				break;
+			}
+		}
+	}
+
+	TArray<FVector> Poses;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(RatelierArsenal), false);
+	for (const FVector& Depart : Departs)
+	{
+		if (Poses.Num() >= Reglages.RateliersMax)
+		{
+			break;
+		}
+		// Le sol sous le point de depart
+		FHitResult Sol;
+		FVector Base = Depart;
+		if (W->LineTraceSingleByChannel(Sol, Depart + FVector(0.f, 0.f, 150.f), Depart - FVector(0.f, 0.f, 500.f), ECC_Visibility, Params))
+		{
+			Base = Sol.ImpactPoint;
+		}
+		const FVector Hauteur = Base + FVector(0.f, 0.f, 150.f);
+
+		// Le mur le plus proche, dans 12 directions
+		FHitResult Meilleur;
+		bool bTrouve = false;
+		for (int32 i = 0; i < 12; ++i)
+		{
+			const float Angle = FMath::DegreesToRadians(30.f * i);
+			const FVector Vers(FMath::Cos(Angle), FMath::Sin(Angle), 0.f);
+			FHitResult Mur;
+			if (!W->LineTraceSingleByChannel(Mur, Hauteur, Hauteur + Vers * 500.f, ECC_Visibility, Params))
+			{
+				continue;
+			}
+			if (FMath::Abs(Mur.ImpactNormal.Z) > 0.3f || Cast<APawn>(Mur.GetActor()))
+			{
+				continue;
+			}
+			if (Mur.GetComponent() && Mur.GetComponent()->IsSimulatingPhysics())
+			{
+				continue;
+			}
+			if (!bTrouve || Mur.Distance < Meilleur.Distance)
+			{
+				Meilleur = Mur;
+				bTrouve = true;
+			}
+		}
+		if (!bTrouve)
+		{
+			continue;
+		}
+		const FVector Normale = FVector(Meilleur.ImpactNormal.X, Meilleur.ImpactNormal.Y, 0.f).GetSafeNormal();
+		const FVector Lieu = Meilleur.ImpactPoint + Normale * 5.f;
+		bool bTropPres = false;
+		for (const FVector& Autre : Poses)
+		{
+			if (FVector::DistSquared(Autre, Lieu) < FMath::Square(1500.f))
+			{
+				bTropPres = true;
+				break;
+			}
+		}
+		if (bTropPres)
+		{
+			continue;
+		}
+		FActorSpawnParameters Spawn;
+		Spawn.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		Spawn.bDeferConstruction = true;
+		const FTransform Place(Normale.Rotation(), Lieu);
+		ARatelierArsenal* R = W->SpawnActor<ARatelierArsenal>(ARatelierArsenal::StaticClass(), Place, Spawn);
+		if (!R)
+		{
+			continue;
+		}
+		R->Arme = (Poses.Num() % 2 == 0) ? LanceFlammes : Mitrailleuse;
+		R->FinishSpawning(Place);
+		Poses.Add(Lieu);
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Arsenal] %d ratelier(s) d'armes lourdes accroche(s) aux murs."), Poses.Num());
+}
+
+void AArsenalChelles::SuivreRateliers(APlayerController* PC, APawn* Pion)
+{
+	AideRatelier.Reset();
+	UWorld* W = GetWorld();
+	if (!W || !PC || !Pion || !Reglages.bActif || !Reglages.bRateliers || !Cast<ACharacter>(Pion))
+	{
+		return;
+	}
+	ARatelierArsenal* Proche = nullptr;
+	float Meilleure = FMath::Square(220.f);
+	for (TActorIterator<ARatelierArsenal> It(W); It; ++It)
+	{
+		const float D = FVector::DistSquared(It->Centre(), Pion->GetActorLocation());
+		if (D < Meilleure)
+		{
+			Meilleure = D;
+			Proche = *It;
+		}
+	}
+	if (!Proche)
+	{
+		return;
+	}
+	if (Proche->bVide)
+	{
+		AideRatelier = TEXT("Ratelier vide : l'arme revient bientot");
+		return;
+	}
+	const int32 Requis = (Proche->Arme == LanceFlammes) ? Reglages.FlammesXP : Reglages.MitrailleuseXP;
+	const int32 XP = XPLocale();
+	if (XP < Requis)
+	{
+		AideRatelier = FString::Printf(TEXT("%s : il faut %d XP (tu en as %d)"), NomArme(Proche->Arme), Requis, XP);
+		return;
+	}
+	AideRatelier = FString::Printf(TEXT("%s pour prendre : %s"), *Reglages.ToucheRatelier, NomArme(Proche->Arme));
+	const FKey Touche(*Reglages.ToucheRatelier);
+	if (Touche.IsValid() && PC->WasInputKeyJustPressed(Touche) && !PC->bShowMouseCursor)
+	{
+		if (AArsenalRelais* R = MonRelais())
+		{
+			R->ServeurPrendre(Proche);
+		}
+	}
+}
+
+void AArsenalChelles::ArreterSonFlammes()
+{
+	if (SonFlammes.IsValid())
+	{
+		SonFlammes->FadeOut(0.2f, 0.f);
+	}
+	SonFlammes.Reset();
 }

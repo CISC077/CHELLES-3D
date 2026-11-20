@@ -14,6 +14,8 @@ namespace ChellesArsenal
 		Bazooka,
 		Sabre,
 		Grenade,
+		LanceFlammes,   // arme lourde (2026-11-20) : ramassee sur un ratelier, debloquee avec l'XP
+		Mitrailleuse,   // arme lourde (2026-11-20) : ramassee sur un ratelier
 		NombreArmes
 	};
 
@@ -25,6 +27,8 @@ namespace ChellesArsenal
 		case Bazooka: return TEXT("BAZOOKA");
 		case Sabre:   return TEXT("SABRE LUMINEUX");
 		case Grenade: return TEXT("GRENADE A ZOMBIES");
+		case LanceFlammes: return TEXT("LANCE-FLAMMES");
+		case Mitrailleuse: return TEXT("MITRAILLEUSE LOURDE");
 		default:      return TEXT("ARME NORMALE");
 		}
 	}
@@ -36,6 +40,8 @@ namespace ChellesArsenal
 		if (T.StartsWith(TEXT("Baz"), ESearchCase::IgnoreCase) || T.StartsWith(TEXT("Fus"), ESearchCase::IgnoreCase) || T.StartsWith(TEXT("Miss"), ESearchCase::IgnoreCase)) return Bazooka;
 		if (T.StartsWith(TEXT("Sab"), ESearchCase::IgnoreCase)) return Sabre;
 		if (T.StartsWith(TEXT("Gren"), ESearchCase::IgnoreCase)) return Grenade;
+		if (T.StartsWith(TEXT("Lance"), ESearchCase::IgnoreCase) || T.StartsWith(TEXT("Flam"), ESearchCase::IgnoreCase)) return LanceFlammes;
+		if (T.StartsWith(TEXT("Mitr"), ESearchCase::IgnoreCase) || T.StartsWith(TEXT("Mini"), ESearchCase::IgnoreCase)) return Mitrailleuse;
 		return Aucune;
 	}
 
@@ -78,7 +84,57 @@ namespace ChellesArsenal
 		float GrenadePoussee = 1300.f;
 		float GrenadeCadence = 2.f;
 		float GrenadeVitesse = 1500.f;
+
+		// LANCE-FLAMMES (arme lourde) : jet de feu continu devant soi
+		float FlammesDegats = 9.f;       // par jet (10 jets par seconde)
+		float FlammesCadence = 0.1f;
+		float FlammesPortee = 900.f;     // cm
+		float FlammesAngle = 18.f;       // demi-ouverture du jet (degres)
+		int32 FlammesXP = 250;           // XP necessaire (250 = GARDIEN DU QUARTIER)
+		int32 FlammesCharge = 150;       // jets par ratelier (15 secondes de feu)
+
+		// MITRAILLEUSE LOURDE (arme lourde) : rafale tres rapide de balles tracantes
+		float MitrailleuseDegats = 20.f;
+		float MitrailleuseCadence = 0.07f;
+		float MitrailleuseVitesse = 15000.f;
+		int32 MitrailleuseXP = 0;
+		int32 MitrailleuseCharge = 200;  // balles par ratelier
+		FLinearColor MitrailleuseCouleur = FLinearColor(1.f, 0.8f, 0.15f);
+
+		// RATELIERS : armes lourdes accrochees aux murs dans un cadre en bois (au-dessus des socles d'armes)
+		bool bRateliers = true;
+		int32 RateliersMax = 10;
+		float RatelierAttente = 90.f;    // secondes avant que l'arme revienne sur le ratelier
+		FString ToucheRatelier = TEXT("E");
+		FString ModeleFlammes = TEXT("/Game/AAAFantasticWeapons/Meshes/SKWeapRL.SKWeapRL");
+		FString ModeleMitrailleuse = TEXT("/Game/AAAFantasticWeapons/Meshes/SKWeapSMG.SKWeapSMG");
+		FString BoisCadre = TEXT("/Game/StarterContent/Materials/M_Wood_Pine.M_Wood_Pine");
+		/** Oui = armes lourdes toujours dans la touche 3, sans ratelier (pour tester). */
+		bool bLourdesSansRatelier = false;
+
+		// PUISSANCE : les degats de l'arsenal montent avec le niveau d'XP (plugin ChellesPouvoirs)
+		float PuissanceParNiveau = 0.1f; // +10 % par niveau (niveau 6 = +50 %)
 	};
+
+	/** Niveau (1 a 6) pour une quantite d'XP : memes paliers que le plugin ChellesPouvoirs. */
+	inline int32 NiveauArsenal(int32 XP)
+	{
+		static const int32 Paliers[] = { 0, 100, 250, 500, 800, 1200 };
+		int32 Niveau = 1;
+		for (int32 i = 0; i < 6; ++i)
+		{
+			if (XP >= Paliers[i])
+			{
+				Niveau = i + 1;
+			}
+		}
+		return Niveau;
+	}
+
+	inline bool EstArmeLourde(uint8 Arme)
+	{
+		return Arme == LanceFlammes || Arme == Mitrailleuse;
+	}
 
 	FString CheminReglages();
 	void ChargerReglages(FReglagesArsenal& R);

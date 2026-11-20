@@ -78,6 +78,26 @@ Multijoueur : c'est le serveur qui crée les tirs et les explosions, tout le mon
 L'arme tenue en main n'est dessinée que chez son joueur.
 La grenade a besoin du plugin **ChellesZombies** recompilé (les zombies y suivent l'appât).
 
+## 4. ARMES LOURDES AU MUR + PUISSANCE SELON L'XP (2026-11-20)
+
+Au lancement, le serveur accroche jusqu'à 10 **râteliers** aux murs des bâtiments de Rachid,
+au-dessus des socles d'armes posés par `Tools\Bonus`. Ce sont des **cadres en bois** avec une arme lourde
+du pack AAAFantasticWeapons et une étiquette qui donne son nom et l'XP nécessaire.
+
+- Approche-toi et appuie sur **E** : tu prends l'arme avec ses munitions, elle passe en main tout de suite.
+  Le cadre reste vide 90 s, puis l'arme revient.
+- **LANCE-FLAMMES** (débloqué à **250 XP**, niveau 3) : maintiens le clic gauche pour cracher un jet de feu
+  de 9 m, avec le son du feu. Il brûle les zombies et les ennemis dans le jet, mais pas à travers les murs.
+- **MITRAILLEUSE LOURDE** (dès 0 XP) : rafale rapide de balles jaunes, canons qui tournent.
+- Le nombre de munitions s'affiche en bas de l'écran. À 0, on revient à l'arme normale.
+  Touche **3** pour reprendre une arme lourde qui a encore des munitions.
+- **PUISSANCE** : chaque niveau d'XP ajoute **+10 % de dégâts** à toutes les armes de l'arsenal
+  (niveau 6 = +50 %). Le bonus s'affiche à côté du nom de l'arme.
+
+L'XP vient du plugin **ChellesPouvoirs**. Il est lu par son nom, sans lien de compilation : s'il manque,
+l'XP vaut 0. Réglages dans `Arsenal.txt` (section ARMES LOURDES). Pour tester en solo, tape dans la console
+`Chelles.Arsenal Remplir` puis `Chelles.Arsenal LanceFlammes`.
+
 ## Installer
 
 1. Fermer Unreal.

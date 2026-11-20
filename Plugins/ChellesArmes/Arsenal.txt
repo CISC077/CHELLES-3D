@@ -62,3 +62,43 @@ Grenade.Rayon=700
 Grenade.Poussee=1300
 Grenade.Cadence=2
 Grenade.Vitesse=1500
+
+# ---------------------------------------------------------------------------
+# ARMES LOURDES (2026-11-20) : accrochees aux murs des batiments dans un cadre en bois.
+# Approche-toi d'un ratelier et appuie sur la touche (E) pour prendre l'arme avec
+# ses munitions, puis touche 3 pour la reprendre en main. L'arme revient sur le
+# ratelier apres Attente secondes. XP = XP necessaire (plugin ChellesPouvoirs).
+# Paliers d'XP : 100 = niveau 2, 250 = 3, 500 = 4, 800 = 5, 1200 = 6.
+# ---------------------------------------------------------------------------
+Rateliers=Oui
+Rateliers.Max=10
+Rateliers.Attente=90
+Rateliers.Touche=E
+Rateliers.ModeleLanceFlammes=/Game/AAAFantasticWeapons/Meshes/SKWeapRL.SKWeapRL
+Rateliers.ModeleMitrailleuse=/Game/AAAFantasticWeapons/Meshes/SKWeapSMG.SKWeapSMG
+Rateliers.Bois=/Game/StarterContent/Materials/M_Wood_Pine.M_Wood_Pine
+# Oui = armes lourdes sans ratelier ni munitions (touche 3, seule l'XP compte)
+ArmesLourdesSansRatelier=Non
+
+# LANCE-FLAMMES : jet de feu (Portee en cm, Angle = demi-ouverture en degres).
+# Charge = nombre de jets par ratelier (10 jets par seconde).
+LanceFlammes.XP=250
+LanceFlammes.Degats=9
+LanceFlammes.Cadence=0.1
+LanceFlammes.Portee=900
+LanceFlammes.Angle=18
+LanceFlammes.Charge=150
+
+# MITRAILLEUSE LOURDE : rafale de balles lumineuses. Charge = balles par ratelier.
+Mitrailleuse.XP=0
+Mitrailleuse.Degats=20
+Mitrailleuse.Cadence=0.07
+Mitrailleuse.Vitesse=15000
+Mitrailleuse.Charge=200
+Mitrailleuse.Couleur=255,205,40
+
+# ---------------------------------------------------------------------------
+# PUISSANCE SELON L'XP : degats de TOUTES les armes de l'arsenal en plus par niveau.
+# 0.1 = +10 % par niveau (niveau 6 = +50 %). 0 = toujours la meme puissance.
+# ---------------------------------------------------------------------------
+Puissance.ParNiveau=0.1

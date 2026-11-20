@@ -71,6 +71,23 @@ void AEffetArsenal::BeginPlay()
 		ChellesArmesEffets::Bouffee(W, ChellesArmesEffets::Etincelles(), Ici, 0.8f, 0.4f);
 		USonArsenalChelles::Jouer(this, ChellesArsenalSons::Impact, Ici, 0.7f, 0.6f);
 		break;
+	case ChellesEffetArsenal::Flammes:
+	{
+		// Le joueur qui tient le lance-flammes voit deja son propre feu
+		APlayerController* PC = W->GetFirstPlayerController();
+		if (PC && PC->GetPawn() && PC->GetPawn() == GetInstigator())
+		{
+			break;
+		}
+		const FLinearColor C(Couleur);
+		const FVector Vers = FVector(C.R * 2.f - 1.f, C.G * 2.f - 1.f, C.B * 2.f - 1.f).GetSafeNormal();
+		for (int32 i = 1; i <= 4; ++i)
+		{
+			const float K = float(i) / 4.f;
+			ChellesArmesEffets::Bouffee(W, ChellesArmesEffets::Flammes(), Ici + Vers * 800.f * K + FMath::VRand() * 20.f * K, 0.4f + 0.7f * K, 0.4f);
+		}
+		break;
+	}
 	default:
 		break;
 	}

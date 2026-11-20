@@ -91,6 +91,31 @@ namespace ChellesArsenal
 			else if (Est(TEXT("Grenade.Poussee"))) R.GrenadePoussee = FMath::Clamp(N, 0.f, 10000.f);
 			else if (Est(TEXT("Grenade.Cadence"))) R.GrenadeCadence = FMath::Clamp(N, 0.2f, 30.f);
 			else if (Est(TEXT("Grenade.Vitesse"))) R.GrenadeVitesse = FMath::Clamp(N, 200.f, 6000.f);
+
+			else if (Est(TEXT("LanceFlammes.Degats"))) R.FlammesDegats = FMath::Max(0.f, N);
+			else if (Est(TEXT("LanceFlammes.Cadence"))) R.FlammesCadence = FMath::Clamp(N, 0.05f, 2.f);
+			else if (Est(TEXT("LanceFlammes.Portee"))) R.FlammesPortee = FMath::Clamp(N, 100.f, 4000.f);
+			else if (Est(TEXT("LanceFlammes.Angle"))) R.FlammesAngle = FMath::Clamp(N, 3.f, 60.f);
+			else if (Est(TEXT("LanceFlammes.XP"))) R.FlammesXP = FMath::Max(0, FMath::RoundToInt(N));
+			else if (Est(TEXT("LanceFlammes.Charge"))) R.FlammesCharge = FMath::Clamp(FMath::RoundToInt(N), 1, 100000);
+
+			else if (Est(TEXT("Mitrailleuse.Degats"))) R.MitrailleuseDegats = FMath::Max(0.f, N);
+			else if (Est(TEXT("Mitrailleuse.Cadence"))) R.MitrailleuseCadence = FMath::Clamp(N, 0.03f, 2.f);
+			else if (Est(TEXT("Mitrailleuse.Vitesse"))) R.MitrailleuseVitesse = FMath::Clamp(N, 500.f, 60000.f);
+			else if (Est(TEXT("Mitrailleuse.XP"))) R.MitrailleuseXP = FMath::Max(0, FMath::RoundToInt(N));
+			else if (Est(TEXT("Mitrailleuse.Charge"))) R.MitrailleuseCharge = FMath::Clamp(FMath::RoundToInt(N), 1, 100000);
+			else if (Est(TEXT("Mitrailleuse.Couleur"))) LireCouleur(Valeur, R.MitrailleuseCouleur);
+
+			else if (Est(TEXT("Rateliers"))) R.bRateliers = EstOui(Valeur);
+			else if (Est(TEXT("Rateliers.Max"))) R.RateliersMax = FMath::Clamp(FMath::RoundToInt(N), 0, 60);
+			else if (Est(TEXT("Rateliers.Attente"))) R.RatelierAttente = FMath::Clamp(N, 5.f, 3600.f);
+			else if (Est(TEXT("Rateliers.Touche"))) R.ToucheRatelier = Valeur;
+			else if (Est(TEXT("Rateliers.ModeleLanceFlammes"))) R.ModeleFlammes = Valeur;
+			else if (Est(TEXT("Rateliers.ModeleMitrailleuse"))) R.ModeleMitrailleuse = Valeur;
+			else if (Est(TEXT("Rateliers.Bois"))) R.BoisCadre = Valeur;
+			else if (Est(TEXT("ArmesLourdesSansRatelier"))) R.bLourdesSansRatelier = EstOui(Valeur);
+
+			else if (Est(TEXT("Puissance.ParNiveau"))) R.PuissanceParNiveau = FMath::Clamp(N, 0.f, 2.f);
 		}
 		UE_LOG(LogTemp, Log, TEXT("[Arsenal] Reglages lus (%s). Touche %s = changer d'arme."), *Chemin, *R.ToucheChanger);
 	}

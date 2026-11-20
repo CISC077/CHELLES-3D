@@ -10,7 +10,8 @@ namespace ChellesEffetArsenal
 	enum EGenre : uint8
 	{
 		CoupSabre = 0,  // le sabre fend l'air (son pour les autres joueurs)
-		Etincelles      // le sabre touche quelqu'un
+		Etincelles,     // le sabre touche quelqu'un
+		Flammes         // jet du lance-flammes (la couleur contient la direction du jet)
 	};
 }
 

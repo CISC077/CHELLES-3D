@@ -8,6 +8,8 @@
 
 class AArsenalRelais;
 class AArsenalVue;
+class ARatelierArsenal;
+class UAudioComponent;
 class APawn;
 class APlayerController;
 class SWidget;
@@ -51,6 +53,12 @@ public:
 	// ---- Serveur ----
 	void TirServeur(AArsenalRelais* Relais, uint8 Arme, FVector Origine, FVector Direction);
 	void SabreServeur(AArsenalRelais* Relais, FVector Camera, FVector Direction);
+	void FlammesServeur(AArsenalRelais* Relais, FVector Camera, FVector Direction);
+	void PrendreServeur(AArsenalRelais* Relais, ARatelierArsenal* Ratelier);
+
+	// ---- Machine du joueur (appele par le relais) ----
+	void AvisLocal(const FString& Texte);
+	void ArmeLourdePrise(uint8 Quelle);
 
 	ChellesArsenal::FReglagesArsenal Reglages;
 
@@ -101,6 +109,21 @@ private:
 	// ---- Serveur ----
 	void GererRelais();
 	float ProchainRelais = 0.f;
+
+	// ---- Armes lourdes, rateliers et puissance selon l'XP (2026-11-20) ----
+	/** L'arme peut-elle etre prise en main par le joueur de cette machine ? Sinon OutRaison explique pourquoi. */
+	bool Disponible(uint8 Quelle, FString* OutRaison = nullptr) const;
+	int32 ChargeLocale(uint8 Quelle) const;
+	int32 XPLocale() const;
+	int32 XPDuJoueur(APlayerController* PC) const;
+	float Puissance(APlayerController* PC) const;
+	void PoserRateliers();
+	void SuivreRateliers(APlayerController* PC, APawn* Pion);
+	void ArreterSonFlammes();
+	bool bRateliersPoses = false;
+	FString AideRatelier;
+	TWeakObjectPtr<UAudioComponent> SonFlammes;
+	int32 JetsFlammes = 0;
 
 	// ---- Ecran ----
 	void Message(const FString& Texte);
