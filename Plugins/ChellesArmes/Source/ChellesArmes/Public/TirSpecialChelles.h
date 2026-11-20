@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Engine/NetSerialization.h"
 #include "TirSpecialChelles.generated.h"
 
 class USphereComponent;
@@ -67,7 +68,7 @@ private:
 
 	/** Effet visuel et sonore de l'impact, chez tout le monde. Points = cibles de la foudre. */
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastImpact(FVector_NetQuantize Point, const TArray<FVector_NetQuantize>& Points);
+	void MulticastImpact(FVector_NetQuantize Point, const TArray<FVector_NetQuantize>& Points, FVector_NetQuantizeNormal Normale, bool bCorps);
 
 	void Exploser(AActor* Autre, const FHitResult& Impact);
 	bool PeutBlesser(AActor* Cible) const;
