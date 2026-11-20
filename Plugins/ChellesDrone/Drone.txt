@@ -1,0 +1,65 @@
+﻿# CHELLES 3D - Reglages du drone qui accompagne chaque joueur
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = chaque joueur a son drone, Non = plus de drone du tout
+Actif=Oui
+# Oui = le drone est deja sorti en arrivant dans la partie, Non = il faut appuyer sur la touche
+SortiAuDepart=Oui
+# Touche pour ranger / rappeler son drone (noms Unreal : F10, F11, Six, Seven, NumPadZero...)
+Touche=F10
+
+# ---- Combat ----
+# Distance de tir autour du joueur, en metres
+PorteeMetres=25
+# Nombre de tirs par seconde
+TirsParSeconde=2
+# Degats d'un tir. 5 ou plus = compte comme une balle dans le corps :
+#  zombie de l'invasion = 3 tirs, ennemi du dossier Other = 4 tirs
+Degats=20
+# Non = le drone vise le torse. Oui = la tete (un zombie meurt d'un seul tir : trop facile)
+ViserTete=Non
+# Non = le drone ne tire pas quand son joueur conduit un vehicule
+TirerEnVehicule=Oui
+
+# ---- Place du drone a cote du joueur (en cm) ----
+Hauteur=150
+# a droite du joueur (mettez -90 pour la gauche)
+Cote=90
+# derriere le joueur
+Arriere=70
+# vitesse a laquelle il rattrape le joueur (plus grand = colle plus au joueur)
+Souplesse=4
+
+# ---- Apparence ----
+# Modele 3D du drone (dossier Content\PoliceDrône). Laissez vide (Modele=) pour l'ancien drone en formes simples.
+Modele=/Game/PoliceDrône/Police+Drone+Model
+# Animation jouee en boucle sur le modele (laissez vide pour aucune)
+Animation=/Game/PoliceDrône/Police+Drone+Model_Anim
+# Envergure du modele en cm
+TailleModeleCm=90
+# Si le drone vole de cote ou a l'envers, essayez 90, -90 ou 180
+RotationModele=0
+# Multiplie la taille du drone (1 = normal, 2 = deux fois plus gros)
+Taille=1
+# Couleurs en Rouge,Vert,Bleu (0 a 255)
+CouleurCorps=15,15,18
+CouleurBras=235,120,5
+CouleurLaser=30,220,255
+
+# ---- Sons (0 = muet, 1 = normal) ----
+VolumeTir=0.6
+VolumeMoteur=0.25
+
+# ---- Qui est un ennemi ? ----
+# Sont toujours vises : les ennemis du dossier FPS_Game/Blueprints/Bonus/AI (Charger, Other, Patrol,
+# Soldier, Zombie), les zombies de l'invasion et les ennemis poses par les plugins Chelles.
+# En plus, toute classe dont le nom contient un de ces mots (une ligne par mot) :
+ClasseEnnemie=Zombie
+ClasseEnnemie=BP_AI_Char
+ClasseEnnemie=Bandit
+# Jamais vises (passants, policiers, marchands...) : une ligne par mot
+ClasseIgnoree=Passant
+ClasseIgnoree=Policier
+ClasseIgnoree=Police
+ClasseIgnoree=Merchant
