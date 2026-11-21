@@ -5,6 +5,8 @@
 #include "Animation/AnimSequence.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/BoxComponent.h"
+#include "Components/LightComponent.h"
+#include "Components/LocalLightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -1276,6 +1278,40 @@ void ABusChelles::PreparerBus()
 	if (Max.X > X + 5.f)
 	{
 		CreerMur(FVector((X + Max.X) * 0.5f, YPortes, (Bas + Haut) * 0.5f), FVector((Max.X - X) * 0.5f, Ep, (Haut - Bas) * 0.5f));
+	}
+
+	// Anti-lag (21/11) : le bus est pose a chaque image, il doit couter le moins possible.
+	// 1) Ses lampes (phares, feux, lampe interieure) n'ont plus d'ombres et eclairent moins loin :
+	//    une lampe qui bouge avec ombres redessine toute la ville autour d'elle a chaque image.
+	// 2) Ni le bus ni ses murs invisibles ne calculent plus de "chevauchements" quand il avance.
+	// 3) Le Blueprint du pack ne tourne plus a chaque image (compteur, traces de pneus...) :
+	//    c'est le plugin qui conduit le bus.
+	{
+		int32 Lampes = 0;
+		TInlineComponentArray<ULightComponent*> Lumieres(Bus);
+		for (ULightComponent* L : Lumieres)
+		{
+			L->bAffectTranslucentLighting = false;
+			L->SetCastShadows(false); // (marque aussi la lampe a redessiner)
+			if (ULocalLightComponent* Locale = Cast<ULocalLightComponent>(L))
+			{
+				Locale->SetAttenuationRadius(FMath::Min(Locale->AttenuationRadius, 1500.f));
+			}
+			++Lampes;
+		}
+		int32 Formes = 0;
+		TInlineComponentArray<UPrimitiveComponent*> Primitives(Bus);
+		for (UPrimitiveComponent* P : Primitives)
+		{
+			P->SetGenerateOverlapEvents(false);
+			++Formes;
+		}
+		for (USkeletalMeshComponent* C : Squelettes)
+		{
+			C->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
+		}
+		Bus->SetActorTickEnabled(false);
+		UE_LOG(LogBusChelles, Log, TEXT("[Bus] Allege : %d lampe(s) sans ombre, %d forme(s) sans chevauchement, Blueprint du bus en pause."), Lampes, Formes);
 	}
 
 	for (FPorteBus& P : PortesBus) { P.bOuverteAffichee = false; }
