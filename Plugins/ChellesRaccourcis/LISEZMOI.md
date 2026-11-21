@@ -1,7 +1,8 @@
-# Plugin ChellesRaccourcis - touches F1 a F12 (21/11/2026)
+# Plugin ChellesRaccourcis - touches F1 a F12 + roue des armes TAB (21/11/2026)
 
-Etape 1 de la refonte (Prompt2026.md) : F1-F12 = choix du MODE, avec un menu deroulant en haut de l'ecran.
-La roue TAB marche toujours ; a l'etape 3 elle deviendra la roue des ARMES.
+Refonte "menu armes" (Prompt2026.md) :
+- etape 1 : F1-F12 = choix du MODE, avec un menu deroulant en haut de l'ecran ;
+- etapes 2 et 3 : TAB = roue des ARMES facon GTA, liste des armes dans le tableau DT_Armes.
 
 ## Touches (par defaut)
 | Touche | Mode |
@@ -47,3 +48,31 @@ pour quitter ce mode, F1 (Soldat) ou F7 a F11 marchent.
 - `Chelles.Raccourcis 0` / `1` : couper / remettre
 
 Journal : lignes `[Raccourcis]` dans Saved\Logs\FPS_Chelles.log
+
+## Roue des armes (maintenir TAB)
+- Maintenir TAB : la roue apparait (gris-bleu transparent), le temps ralentit en solo.
+- Viser une arme a la souris, relacher TAB (ou clic gauche) pour la prendre. Clic droit : annuler.
+- Au centre : nom de l'arme et munitions (chargeur / reserve). L'arme en main a un lisere blanc.
+- En bas a droite : le personnage joue (mode choisi avec F1-F12).
+- Armes pas encore ramassees : grisees (`ToutesLesArmes=Non` pour ne montrer que les armes ramassees,
+  `DonnerLesArmes=Oui` pour les recevoir en les choisissant, pratique pour tester en solo).
+- L'ancienne roue des modes (ChellesRoue) ne s'ouvre plus sur TAB (sa liaison TAB est retiree pendant le jeu,
+  le plugin ChellesRoue n'est pas modifie). Les modes sont sur F1-F12.
+
+Les armes sont des DONNEES : tableau `/Game/Chelles/Donnees/DT_Armes` (structure `ChellesArmeLigne`) :
+| Colonne | Role |
+|---|---|
+| Nom | texte de la case (vide = nom de l'arme, WeaponName) |
+| ClasseArme | Blueprint de l'arme FPS_Game (BPC_WeaponPistol...), vide pour l'arsenal |
+| Arsenal | Blaster, Bazooka, Sabre, Grenade, LanceFlammes, Mitrailleuse (armes ChellesArmes) |
+| Icone | image de la case (vide = WeaponImage de l'arme, ou un petit dessin) |
+| Couleur | couleur de la bande (transparente = gris-bleu) |
+| Categorie | Pistolet, Fusil, Pompe, Precision, Lourde, Melee, Energie, Lancer (choisit le dessin) |
+| bDonner | coche = choisir l'arme la donne si elle n'est pas ramassee (solo / hote) |
+- Creer : `Tools\RaccourcisF\CREER_LA_TABLE.bat` (cree DT_Raccourcis ET DT_Armes, depuis Armes.csv).
+- Ajouter une arme : bouton Add du tableau DT_Armes, remplir la ligne, Save. Rien a recompiler.
+- Une arme ramassee qui n'est dans aucune ligne apparait quand meme dans la roue.
+Tant que DT_Armes n'existe pas, une liste par defaut (la meme que Armes.csv) est utilisee.
+
+Console : `Chelles.RoueArmes` (liste), `Chelles.RoueArmes Relire`, `Chelles.RoueArmes 0` / `1`.
+Journal : lignes `[RoueArmes]`.

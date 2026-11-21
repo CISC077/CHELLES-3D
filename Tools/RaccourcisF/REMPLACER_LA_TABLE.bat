@@ -1,7 +1,7 @@
 @echo off
 rem ------------------------------------------------------------------
-rem  CHELLES 3D - Refaire le tableau des touches F1-F12 depuis Raccourcis.csv (ECRASE vos changements) (double-clic, Unreal FERME)
-rem  Ouvre Unreal, cree /Game/Chelles/Donnees/DT_Raccourcis depuis Raccourcis.csv, enregistre et referme.
+rem  CHELLES 3D - Refaire les tableaux DT_Raccourcis et DT_Armes depuis Raccourcis.csv et Armes.csv (ECRASE vos changements) (double-clic, Unreal FERME)
+rem  Ouvre Unreal, cree DT_Raccourcis (touches F1-F12) et DT_Armes (roue TAB) dans /Game/Chelles/Donnees, enregistre et referme.
 rem  Il faut avoir compile Plugins\ChellesRaccourcis avant.
 rem  Journal : Tools\RaccourcisF\table.log
 rem ------------------------------------------------------------------
