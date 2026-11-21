@@ -1,9 +1,10 @@
-// CHELLES 3D - HUD du joueur : le dessin (vie, niveau, XP, pouvoir, zombies)
+// CHELLES 3D - HUD du joueur : le dessin (vie, niveau, XP, pouvoir, zombies, mini-carte GPS en bas a gauche)
 // Les accents sont ecrits avec des codes unicode pour que Visual Studio les lise correctement.
 #include "SHudChelles.h"
 
 #include "Fonts/FontMeasure.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Layout/Clipping.h"
 #include "Rendering/DrawElements.h"
 #include "Rendering/SlateRenderer.h"
 #include "Styling/CoreStyle.h"
@@ -162,7 +163,9 @@ void SHudChelles::TeteZombie(FSlateWindowElementList& Sortie, int32 Couche, cons
 	Crane.Add(Centre + FVector2D(-0.45f * R, R));
 	Crane.Add(Centre + FVector2D(-0.55f * R, 0.5f * R));
 	Crane.Add(Centre + FVector2D(-R, 0.35f * R));
-	Crane.Add(Crane[0]);
+	// copie d'abord : ajouter Crane[0] directement plante si le tableau s'agrandit pendant l'ajout
+	const FVector2D PremierPoint = Crane[0];
+	Crane.Add(PremierPoint);
 	Trait(Crane, 2.f);
 	// yeux en croix
 	for (int32 Cote = -1; Cote <= 1; Cote += 2)
@@ -175,6 +178,298 @@ void SHudChelles::TeteZombie(FSlateWindowElementList& Sortie, int32 Couche, cons
 	// dents
 	Trait({ Centre + FVector2D(-0.3f * R, 0.62f * R), Centre + FVector2D(0.3f * R, 0.62f * R) }, 1.5f);
 	Trait({ Centre + FVector2D(0.f, 0.5f * R), Centre + FVector2D(0.f, 0.85f * R) }, 1.5f);
+}
+
+void SHudChelles::Remplir(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const TArray<FVector2D>& Points,
+	const FLinearColor& Couleur, const FSlateBrush* Image, const FVector2D& CoinImage, const FVector2D& TailleImage) const
+{
+	if (Points.Num() < 3)
+	{
+		return;
+	}
+	const FSlateBrush* Pinceau = Image ? Image : FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
+	const FSlateResourceHandle Ressource = FSlateApplication::Get().GetRenderer()->GetResourceHandle(*Pinceau);
+	const FSlateRenderTransform Transformation = G.GetAccumulatedRenderTransform();
+	const FColor CouleurSommets = Couleur.ToFColor(true);
+	const FVector2D Echelle(1.f / FMath::Max(TailleImage.X, 1.f), 1.f / FMath::Max(TailleImage.Y, 1.f));
+
+	TArray<FSlateVertex> Sommets;
+	Sommets.Reserve(Points.Num());
+	for (const FVector2D& P : Points)
+	{
+		const FVector2D UV = Image ? (P - CoinImage) * Echelle : FVector2D(0.5f, 0.5f);
+		Sommets.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(Transformation, P, UV, CouleurSommets));
+	}
+	// eventail depuis le premier point
+	TArray<SlateIndex> Indices;
+	Indices.Reserve((Points.Num() - 2) * 3);
+	for (int32 i = 1; i + 1 < Points.Num(); ++i)
+	{
+		Indices.Add(0);
+		Indices.Add((SlateIndex)i);
+		Indices.Add((SlateIndex)(i + 1));
+	}
+	// l'image vue du ciel n'a pas toujours un canal alpha plein : on l'ignore, seule la transparence de Couleur compte
+	FSlateDrawElement::MakeCustomVerts(Sortie, Couche, Ressource, Sommets, Indices, nullptr, 0, 0,
+		Image ? ESlateDrawEffect::IgnoreTextureAlpha : ESlateDrawEffect::None);
+}
+
+namespace
+{
+	/** Contour d'un rectangle aux coins arrondis (sens des aiguilles d'une montre, a l'ecran). */
+	void PointsArrondis(TArray<FVector2D>& Points, const FVector2D& Pos, const FVector2D& Taille, float Rayon)
+	{
+		Points.Reset();
+		Rayon = FMath::Min(Rayon, FMath::Min(Taille.X, Taille.Y) * 0.5f);
+		const FVector2D Centres[4] =
+		{
+			Pos + FVector2D(Rayon, Rayon),
+			Pos + FVector2D(Taille.X - Rayon, Rayon),
+			Pos + FVector2D(Taille.X - Rayon, Taille.Y - Rayon),
+			Pos + FVector2D(Rayon, Taille.Y - Rayon)
+		};
+		const int32 Pas = 8;
+		for (int32 Coin = 0; Coin < 4; ++Coin)
+		{
+			// haut-gauche 180..270, haut-droite 270..360, bas-droite 0..90, bas-gauche 90..180 (Y vers le bas)
+			const float Debut = PI + Coin * HALF_PI;
+			for (int32 i = 0; i <= Pas; ++i)
+			{
+				const float A = Debut + HALF_PI * i / Pas;
+				Points.Add(Centres[Coin] + FVector2D(FMath::Cos(A), FMath::Sin(A)) * Rayon);
+			}
+		}
+	}
+
+	void PointsCercle(TArray<FVector2D>& Points, const FVector2D& Centre, float Rayon, int32 Pas = 20)
+	{
+		Points.Reset();
+		for (int32 i = 0; i < Pas; ++i)
+		{
+			const float A = 2.f * PI * i / Pas;
+			Points.Add(Centre + FVector2D(FMath::Cos(A), FMath::Sin(A)) * Rayon);
+		}
+	}
+
+	/** Ramene un point dans le rectangle [Min, Max] sur la ligne qui part de Depart (qui est dedans). Renvoie vrai s'il etait dehors. */
+	bool RamenerDansCadre(FVector2D& P, const FVector2D& Depart, const FVector2D& Min, const FVector2D& Max)
+	{
+		if (P.X >= Min.X && P.X <= Max.X && P.Y >= Min.Y && P.Y <= Max.Y)
+		{
+			return false;
+		}
+		const FVector2D D = P - Depart;
+		float T = 1.f;
+		if (D.X > KINDA_SMALL_NUMBER) { T = FMath::Min(T, (Max.X - Depart.X) / D.X); }
+		if (D.X < -KINDA_SMALL_NUMBER) { T = FMath::Min(T, (Min.X - Depart.X) / D.X); }
+		if (D.Y > KINDA_SMALL_NUMBER) { T = FMath::Min(T, (Max.Y - Depart.Y) / D.Y); }
+		if (D.Y < -KINDA_SMALL_NUMBER) { T = FMath::Min(T, (Min.Y - Depart.Y) / D.Y); }
+		P = Depart + D * FMath::Max(T, 0.f);
+		return true;
+	}
+}
+
+float SHudChelles::DessinerCarte(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Ecran) const
+{
+	if (!Etat.bCarte)
+	{
+		return 0.f;
+	}
+	const FSlateFontInfo PoliceDistance = FCoreStyle::GetDefaultFontStyle("Bold", 13);
+	const FSlateFontInfo PolicePetite = FCoreStyle::GetDefaultFontStyle("Bold", 7);
+	const FSlateFontInfo PoliceNord = FCoreStyle::GetDefaultFontStyle("Bold", 8);
+
+	// Carte facon GPS en bas a gauche : cadre arrondi semi-transparent, le joueur en bas au centre
+	const FVector2D Taille(ChellesCarte::Largeur, ChellesCarte::Hauteur);
+	const FVector2D Coin(22.f, FMath::RoundToFloat(Ecran.Y - Taille.Y - 22.f));
+	const float Arrondi = 18.f;
+	const FVector2D Joueur = Coin + FVector2D(Taille.X * 0.5f, Taille.Y * ChellesCarte::PlaceJoueur);
+	// 1 unite de position = la moitie de la largeur de la carte
+	const float Echelle = Taille.X * 0.5f;
+
+	TArray<FVector2D> Forme;
+	PointsArrondis(Forme, Coin, Taille, Arrondi);
+
+	// ---- Fond : verre fume, puis le quartier vu du ciel (ou un quadrillage leger) ----
+	Remplir(Sortie, Couche + 2, G, Forme, FLinearColor(0.12f, 0.14f, 0.17f, 0.55f));
+	if (Etat.bImageCarte && BrushCarte.GetResourceObject())
+	{
+		const FLinearColor Teinte(0.78f, 0.8f, 0.84f, 0.8f);
+		if (Etat.bCoinsArrondis)
+		{
+			Remplir(Sortie, Couche + 3, G, Forme, Teinte, &BrushCarte, Coin, Taille);
+		}
+		else
+		{
+			FSlateDrawElement::MakeBox(Sortie, Couche + 3, G.ToPaintGeometry(Coin + FVector2D(4.f, 4.f), Taille - FVector2D(8.f, 8.f)),
+				&BrushCarte, ESlateDrawEffect::IgnoreTextureAlpha, Teinte);
+		}
+	}
+	else
+	{
+		for (int32 i = 1; i < 9; ++i)
+		{
+			const float X = Taille.X * i / 9.f;
+			Boite(Sortie, Couche + 3, G, Coin + FVector2D(X, 6.f), FVector2D(1.f, Taille.Y - 12.f), FLinearColor(1.f, 1.f, 1.f, 0.05f));
+		}
+		for (int32 i = 1; i < 6; ++i)
+		{
+			const float Y = Taille.Y * i / 6.f;
+			Boite(Sortie, Couche + 3, G, Coin + FVector2D(6.f, Y), FVector2D(Taille.X - 12.f, 1.f), FLinearColor(1.f, 1.f, 1.f, 0.05f));
+		}
+	}
+	// voile sombre en haut, pour que la distance reste lisible
+	Boite(Sortie, Couche + 4, G, Coin + FVector2D(Arrondi, 0.f), FVector2D(Taille.X - 2.f * Arrondi, 30.f), FLinearColor(0.f, 0.f, 0.f, 0.12f));
+
+	// contour clair
+	{
+		TArray<FVector2D> Contour = Forme;
+		Contour.Add(Forme[0]);
+		FSlateDrawElement::MakeLines(Sortie, Couche + 9, G.ToPaintGeometry(), Contour, ESlateDrawEffect::None,
+			FLinearColor(1.f, 1.f, 1.f, 0.35f), true, 1.5f);
+	}
+
+	// Tout ce qui suit reste dans la carte
+	const FVector2D Min = Coin + FVector2D(12.f, 12.f);
+	const FVector2D Max = Coin + Taille - FVector2D(12.f, 12.f);
+	Sortie.PushClip(FSlateClippingZone(G.LocalToAbsolute(Coin + FVector2D(2.f, 2.f)), G.LocalToAbsolute(Coin + FVector2D(Taille.X - 2.f, 2.f)),
+		G.LocalToAbsolute(Coin + FVector2D(2.f, Taille.Y - 2.f)), G.LocalToAbsolute(Coin + Taille - FVector2D(2.f, 2.f))));
+
+	auto VersEcran = [&](const FVector2D& Pos) { return Joueur + Pos * Echelle; };
+	const FLinearColor Turquoise(0.05f, 0.88f, 0.8f, 1.f);
+	TArray<FVector2D> Tmp;
+
+	// ---- Itineraire cyan ----
+	if (Etat.bDestination && Etat.Itineraire.Num() >= 2)
+	{
+		TArray<FVector2D> Trace;
+		Trace.Reserve(Etat.Itineraire.Num());
+		for (const FVector2D& P : Etat.Itineraire)
+		{
+			Trace.Add(VersEcran(P));
+		}
+		FSlateDrawElement::MakeLines(Sortie, Couche + 5, G.ToPaintGeometry(), Trace, ESlateDrawEffect::None,
+			FLinearColor(0.f, 0.25f, 0.25f, 0.55f), true, 9.f);
+		FSlateDrawElement::MakeLines(Sortie, Couche + 6, G.ToPaintGeometry(), Trace, ESlateDrawEffect::None, Turquoise, true, 6.f);
+	}
+
+	// ---- Points : teleporteurs, autres joueurs, zombies ----
+	auto Losange = [&](const FVector2D& P, float R, const FLinearColor& C, float Epaisseur)
+	{
+		TArray<FVector2D> L;
+		L.Add(P + FVector2D(0.f, -R));
+		L.Add(P + FVector2D(R, 0.f));
+		L.Add(P + FVector2D(0.f, R));
+		L.Add(P + FVector2D(-R, 0.f));
+		L.Add(P + FVector2D(0.f, -R));
+		FSlateDrawElement::MakeLines(Sortie, Couche + 7, G.ToPaintGeometry(), L, ESlateDrawEffect::None, C, true, Epaisseur);
+	};
+	const float Pulse = 0.65f + 0.35f * FMath::Abs(FMath::Sin(Etat.Horloge * 4.f));
+	const FLinearColor RougeZombie(1.f, 0.12f, 0.1f, 1.f);
+	const FLinearColor CyanJoueur(0.2f, 0.95f, 1.f, 1.f);
+	for (const FPointCarteChelles& Point : Etat.PointsCarte)
+	{
+		FVector2D P = VersEcran(Point.Pos);
+		const bool bAuBord = RamenerDansCadre(P, Joueur, Min, Max);
+		if (bAuBord && !Point.bGarderAuBord)
+		{
+			continue;
+		}
+		const float Alpha = bAuBord ? 0.75f : 1.f;
+		switch (Point.Type)
+		{
+		case FPointCarteChelles::Teleporteur:
+		{
+			// petite pastille sombre arrondie, losange rose dedans
+			PointsArrondis(Tmp, P - FVector2D(9.f, 9.f), FVector2D(18.f, 18.f), 5.f);
+			Remplir(Sortie, Couche + 6, G, Tmp, FLinearColor(0.05f, 0.08f, 0.14f, 0.8f * Alpha));
+			Losange(P, 5.5f, HudRose * FLinearColor(1.f, 1.f, 1.f, Alpha), 2.f);
+			Boite(Sortie, Couche + 8, G, P - FVector2D(1.5f, 1.5f), FVector2D(3.f, 3.f), FLinearColor(1.f, 1.f, 1.f, Alpha));
+			break;
+		}
+		case FPointCarteChelles::Joueur:
+		{
+			PointsCercle(Tmp, P, 5.5f, 14);
+			Remplir(Sortie, Couche + 6, G, Tmp, FLinearColor(0.f, 0.f, 0.f, 0.6f * Alpha));
+			PointsCercle(Tmp, P, 4.f, 14);
+			Remplir(Sortie, Couche + 7, G, Tmp, CyanJoueur * FLinearColor(1.f, 1.f, 1.f, Alpha));
+			break;
+		}
+		default:
+		{
+			PointsCercle(Tmp, P, 4.5f, 12);
+			Remplir(Sortie, Couche + 6, G, Tmp, FLinearColor(0.f, 0.f, 0.f, 0.55f));
+			PointsCercle(Tmp, P, 3.2f, 12);
+			Remplir(Sortie, Couche + 7, G, Tmp, RougeZombie * FLinearColor(1.f, 1.f, 1.f, Pulse));
+			break;
+		}
+		}
+	}
+
+	// ---- Repere de la destination (epingle turquoise), colle au bord si elle est loin ----
+	if (Etat.bDestination)
+	{
+		FVector2D P = VersEcran(Etat.Destination);
+		RamenerDansCadre(P, Joueur, Min + FVector2D(0.f, 14.f), Max);
+		const FVector2D Tete = P - FVector2D(0.f, 13.f);
+		TArray<FVector2D> Pointe;
+		Pointe.Add(P);
+		Pointe.Add(Tete + FVector2D(-6.f, 3.5f));
+		Pointe.Add(Tete + FVector2D(6.f, 3.5f));
+		PointsCercle(Tmp, Tete, 9.f, 18);
+		Remplir(Sortie, Couche + 7, G, Tmp, FLinearColor(0.f, 0.f, 0.f, 0.45f));
+		Remplir(Sortie, Couche + 8, G, Pointe, Turquoise);
+		PointsCercle(Tmp, Tete, 7.5f, 18);
+		Remplir(Sortie, Couche + 8, G, Tmp, Turquoise);
+		PointsCercle(Tmp, Tete, 3.f, 12);
+		Remplir(Sortie, Couche + 9, G, Tmp, FLinearColor(0.02f, 0.1f, 0.12f, 1.f));
+	}
+
+	// ---- N (nord) : rond sombre sur le bord, dans la bonne direction ----
+	{
+		const FVector2D Nord = Etat.CarteNord;
+		if (Nord.SizeSquared() > KINDA_SMALL_NUMBER)
+		{
+			FVector2D P = Joueur + Nord.GetSafeNormal() * 2000.f;
+			RamenerDansCadre(P, Joueur, Coin + FVector2D(12.f, 12.f), Coin + Taille - FVector2D(12.f, 12.f));
+			PointsCercle(Tmp, P, 9.f, 18);
+			Remplir(Sortie, Couche + 8, G, Tmp, FLinearColor(0.02f, 0.03f, 0.05f, 0.85f));
+			Ecrire(Sortie, Couche + 9, G, P, TEXT("N"), PoliceNord, FLinearColor::White, 0.5f);
+		}
+	}
+
+	// ---- Le joueur : rond noir et fleche blanche, en bas au centre (la carte tourne avec la camera) ----
+	{
+		PointsCercle(Tmp, Joueur, 12.f, 24);
+		Remplir(Sortie, Couche + 8, G, Tmp, FLinearColor(0.02f, 0.02f, 0.03f, 0.9f));
+		TArray<FVector2D> Fleche;
+		Fleche.Add(Joueur + FVector2D(0.f, 2.5f));  // creux (centre de l'eventail)
+		Fleche.Add(Joueur + FVector2D(-5.5f, 6.f));
+		Fleche.Add(Joueur + FVector2D(0.f, -7.f));
+		Fleche.Add(Joueur + FVector2D(5.5f, 6.f));
+		Remplir(Sortie, Couche + 9, G, Fleche, FLinearColor::White);
+	}
+
+	Sortie.PopClip();
+
+	// ---- Distance en haut a gauche (comme un GPS), sinon l'echelle ----
+	if (Etat.bDestination)
+	{
+		Ecrire(Sortie, Couche + 10, G, Coin + FVector2D(14.f, 16.f), FString::Printf(TEXT("%.2f km"), Etat.DistanceKm),
+			PoliceDistance, FLinearColor::White, 0.f);
+		if (!Etat.NomDestination.IsEmpty())
+		{
+			Ecrire(Sortie, Couche + 10, G, Coin + FVector2D(15.f, 33.f), Etat.NomDestination, PolicePetite,
+				FLinearColor(0.6f, 1.f, 0.95f, 0.9f), 0.f);
+		}
+	}
+	else
+	{
+		Ecrire(Sortie, Couche + 10, G, Coin + FVector2D(14.f, 16.f), FString::Printf(TEXT("%d m"), FMath::RoundToInt(Etat.CarteRayonMetres)),
+			PolicePetite, FLinearColor(1.f, 1.f, 1.f, 0.8f), 0.f);
+	}
+
+	return Taille.Y;
 }
 
 int32 SHudChelles::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSlateRect& Clip,
@@ -221,14 +516,20 @@ int32 SHudChelles::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 	}
 
 	// =====================================================================
-	// Panneau en bas a gauche : VIE, NIVEAU + XP, POUVOIR
+	// Mini-carte facon GPS, tout en bas a gauche
+	// =====================================================================
+	const float HauteurCarte = DessinerCarte(Sortie, Couche, G, Ecran);
+
+	// =====================================================================
+	// Panneau en bas a gauche, juste au-dessus de la mini-carte : VIE, NIVEAU + XP, POUVOIR
 	// =====================================================================
 	const float Largeur = 360.f;
 	const float Marge = 14.f;
 	const float HauteurVie = 50.f;
 	const float HauteurPouvoirs = Etat.bPouvoirs ? 74.f : 0.f;
 	const float Hauteur = HauteurVie + HauteurPouvoirs + 6.f;
-	const FVector2D Coin(22.f, FMath::RoundToFloat(Ecran.Y - Hauteur - 22.f));
+	const float SousLePanneau = HauteurCarte > 0.f ? HauteurCarte + 10.f : 0.f;
+	const FVector2D Coin(22.f, FMath::RoundToFloat(Ecran.Y - Hauteur - 22.f - SousLePanneau));
 	Panneau(Sortie, Couche + 2, G, Coin, FVector2D(Largeur, Hauteur), HudFond, HudCyanVif * FLinearColor(1.f, 1.f, 1.f, 0.6f));
 	Boite(Sortie, Couche + 4, G, Coin + FVector2D(12.f, 0.f), FVector2D(90.f, 3.f), HudCyanVif);
 
@@ -384,5 +685,5 @@ int32 SHudChelles::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 		}
 	}
 
-	return Couche + 8;
+	return Couche + 11;
 }

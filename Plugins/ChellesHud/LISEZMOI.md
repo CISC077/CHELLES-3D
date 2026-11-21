@@ -2,7 +2,14 @@
 
 Affichage clair pendant le jeu, sur chaque PC (solo et multijoueur) :
 
-- **En bas à gauche** : VIE (barre verte → orange → rouge, chiffres), NIVEAU + titre + barre d'XP,
+- **Tout en bas à gauche : la MINI-CARTE façon GPS.** Cadre arrondi semi-transparent, le quartier vu du ciel
+  qui tourne avec la caméra (ce qui est devant toi est en haut). Toi = flèche blanche dans un rond noir, en bas au
+  centre (on voit surtout ce qui est devant). **Itinéraire cyan** jusqu'à la destination, avec une épingle turquoise
+  au bout et la **distance en km en haut à gauche** : la destination est la mission en cours (plugin ChellesMissions),
+  sinon le téléporteur le plus proche. Le trajet suit les rues quand le NavMesh est là, sinon il va en ligne droite.
+  Pastilles roses = les 5 téléporteurs (collées au bord quand ils sont loin), points rouges = zombies, points cyan =
+  les autres joueurs en multijoueur, rond « N » = le nord.
+- **Juste au-dessus de la carte** : VIE (barre verte → orange → rouge, chiffres), NIVEAU + titre + barre d'XP,
   POUVOIR choisi avec Y et son état (PRÊT • J / ACTIF 0:12 / RECHARGE 0:32 / BLOQUÉ).
 - **En haut à droite**, seulement pendant une invasion : nombre de zombies restants + temps restant.
 - Les bords de l'écran clignotent en rouge quand tu prends un coup, et pulsent quand la vie passe sous 25 %.
@@ -24,7 +31,20 @@ du personnage joué (BP_CharacterBase et ses enfants). Un personnage sans vie (c
 ## Console (touche ²)
 
 - `Chelles.Hud 0` cache le HUD, `Chelles.Hud 1` le remontre.
+- `Chelles.MiniCarte 0` cache la mini-carte, `Chelles.MiniCarte 1` = points seuls sur fond quadrillé (plus léger
+  si le jeu rame), `Chelles.MiniCarte 2` = avec le quartier vu du ciel (par défaut).
+- `Chelles.MiniCarteZoom 150` voit plus loin (20 à 500 mètres du joueur au bord, 100 par défaut).
+- `Chelles.MiniCarteItineraire 0` enlève le trajet cyan et la distance, `1` les remet.
+- `Chelles.MiniCarteCoins 0` si la vue du ciel n'apparaît pas dans le cadre arrondi (elle redevient carrée).
+- `Chelles.MiniCarteNord 90` si le « N » n'est pas du bon côté (-90 par défaut ; essayer 90, 0 ou 180).
 - Pour tester : `Chelles.XP 300` (XP), `Chelles.Zombies` (lance une invasion), `Chelles.ZombiesFin`.
+
+Pour garder un réglage à chaque lancement, ajouter par exemple `Chelles.MiniCarteZoom=120` sous `[SystemSettings]`
+dans `Config\DefaultEngine.ini`.
+
+Les téléporteurs sont trouvés tout seuls (classes dont le nom contient « Teleport », ex. BP_Teleporter) ; les zombies
+aussi (personnages dont le nom contient « Zombie », plus la liste de l'invasion). Un téléporteur ajouté plus tard
+apparaît donc sans rien changer.
 
 Journal : lignes `[HUD]` dans `Saved\Logs\FPS_Chelles.log`.
 
