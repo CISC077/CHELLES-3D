@@ -13,13 +13,16 @@ class APlayerController;
 class UInputComponent;
 class UUserWidget;
 class SRoueModes;
+class USkeletalMeshComponent;
 class ARoueRelais;
+class USkeletalMesh;
+class UMaterialInterface;
 
 UENUM(BlueprintType)
 enum class ETypeModeRoue : uint8
 {
 	APied     UMETA(DisplayName = "A pied (soldat)"),
-	Vol       UMETA(DisplayName = "Vol (Spider-Man)"),
+	Vol       UMETA(DisplayName = "Vol (Spider-Male)"),
 	Vehicule  UMETA(DisplayName = "Vehicule"),
 	Personnage UMETA(DisplayName = "Personnage de pack (pris en main directement)"),
 	Libre     UMETA(DisplayName = "Libre (fonction a venir)")
@@ -38,7 +41,8 @@ enum class EIconeRoue : uint8
 	FerACheval,
 	Eclair,
 	Flamme,
-	Epees
+	Epees,
+	Griffes   // PANTERA (2026-11-11)
 };
 
 /** Une case de la roue. */
@@ -94,6 +98,34 @@ struct FModeRoue
 	/** Circulation pendant ce mode : nombre maximum de voitures, une par rue (0 = circulation normale). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue", meta = (ClampMin = "0"))
 	int32 LimiteCirculation = 0;
+
+	/** Case de vol : secondes de vol maximum avant atterrissage force (0 = sans limite). Il faut toucher le sol pour revoler. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue", meta = (ClampMin = "0"))
+	float DureeVolMax = 0.f;
+
+	/** Vrai : deux yeux blancs en amande poses sur le masque (PANTERA). Reglables en jeu : console Chelles.PanteraYeux */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
+	bool bYeuxMasque = false;
+
+	/**
+	 * Case de vol : au sol on joue le SOLDAT (armes, tir, visee, recharge, ramassage, vie) habille avec CostumeSoldat.
+	 * Pour s'envoler : sauter puis rappuyer sur Espace en l'air. En se posant, on reprend le soldat et ses armes.
+	 * (Spider-Male, 2026-11-11, demande MERIDJA)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue")
+	bool bFonctionsSoldat = false;
+
+	/** Corps mis sur le soldat pour bFonctionsSoldat (squelette du soldat FPS_Game). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Roue", meta = (AllowedClasses = "SkeletalMesh"))
+	FSoftObjectPath CostumeSoldat;
+};
+
+/** Spider-Male soldat : ce que le soldat portait avant le costume (rendu en quittant le mode). */
+struct FRoueCorpsAvant
+{
+	TWeakObjectPtr<USkeletalMeshComponent> Composant;
+	TWeakObjectPtr<USkeletalMesh> Mesh;
+	TArray<TWeakObjectPtr<UMaterialInterface>> Materiaux;
 };
 
 /**
@@ -144,6 +176,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Roue")
 	bool EstOuverte() const { return bOuverte; }
 
+	/** Passe au mode qui porte ce nom (ex. "PANTERA", appele par le menu HABILLAGE). Vrai si c'est maintenant le mode joue. */
+	UFUNCTION(BlueprintCallable, Category = "Roue")
+	bool ChoisirModeParNom(const FString& NomMode);
+
+	/** Yeux blancs du masque PANTERA : pose (bAvecYeux) ou retire les yeux sur ce corps. */
+	static void MettreYeuxMasque(USkeletalMeshComponent* Corps, bool bAvecYeux);
+	/** Console Chelles.PanteraYeux : relit les reglages des yeux et les remet sur tous les personnages. */
+	static void ReglerYeux(UWorld* Monde, const TArray<FString>& Arguments);
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type Raison) override;
@@ -181,6 +222,8 @@ private:
 	void FinMontee();
 	void ChiffreAzerty(FKey ToucheAzerty, bool bAppui);
 	void EmpecherChute();
+	/** Apres un changement de personnage : remet le nouveau pion AU-DESSUS du sol s'il est apparu dedans (2026-11-21). */
+	void RecalerAuSol(APawn* Pion, AActor* Ignorer = nullptr);
 	void AppliquerTouchesDuMode();
 	void RetablirTouches();
 	void SortSuivant(int32 Sens);
@@ -190,6 +233,17 @@ private:
 	bool EntrerPersonnage(int32 Index);
 	void SortirPersonnage();
 	void HabillerPion(APawn* Pion, const FModeRoue& Mode, bool bAvertir);
+	/** Limite de vol (DureeVolMax) du personnage joue sur cette machine. */
+	void LimiterVol(float DeltaSeconds);
+
+	// Spider-Male avec les fonctions du soldat (bFonctionsSoldat) : soldat au sol, volant en l'air
+	void SuivreSoldatVolant(float DeltaSeconds);
+	/** Donne au personnage du pack SuperheroFlight (BP_Player) son guide des commandes s'il ne l'a pas (2026-11-11). */
+	void DonnerGuideCommandes();
+	void HabillerSoldat(APawn* Soldat, bool bCostume);
+	void FinSoldatVolant();
+	void ToucheSaut();
+	void PreparerCasesSoldatVolant();
 
 	// Multijoueur : chaque joueur a un ARoueRelais, le serveur fait les changements de mode
 	bool EstMultijoueur() const;
@@ -224,6 +278,9 @@ private:
 	UPROPERTY(Transient)
 	TArray<UClass*> ClassesVehicules;
 
+	/** Termine tout de suite le chargement (normalement en arriere-plan) des classes de vehicules. */
+	void FinirChargementVehicules();
+
 	UPROPERTY(Transient)
 	UInputComponent* EntreesRoue = nullptr;
 
@@ -249,6 +306,10 @@ private:
 
 	/** Anti-chute sous la carte : dernier endroit ou le personnage joue touchait le sol. */
 	TWeakObjectPtr<APawn> PionSurveille;
+
+	/** Guide des commandes de BP_Player : dernier pion verifie et s'il est en ordre. */
+	TWeakObjectPtr<APawn> PionGuide;
+	bool bGuideVerifie = false;
 	FVector DernierSol = FVector::ZeroVector;
 	bool bSolConnu = false;
 
@@ -266,4 +327,22 @@ private:
 	int32 ModeVuReseau = INDEX_NONE;
 	/** Multijoueur : soldats caches des joueurs dont on a coupe la collision sur cette machine. */
 	TArray<TWeakObjectPtr<APawn>> CollisionsCoupees;
+
+	/** Limite de vol : secondes volees depuis le dernier contact avec le sol. */
+	float TempsVol = 0.f;
+	/** Atterrissage force fait : on ne revole qu'apres avoir touche le sol. */
+	bool bAtterrissageForce = false;
+	int32 DernierAvisVol = -1;
+	TWeakObjectPtr<APawn> PionVolSuivi;
+
+	/** Case bFonctionsSoldat jouee en ce moment (solo), INDEX_NONE sinon. */
+	int32 ModeSoldatVol = INDEX_NONE;
+	/** Soldat qui porte le costume, et ce qu'il portait avant (rendu en quittant le mode). */
+	TWeakObjectPtr<APawn> SoldatCostume;
+	TArray<FRoueCorpsAvant> CorpsAvant;
+	/** Envol demande (Espace en l'air) : le vol du pack est lance au tick suivant. */
+	bool bDemarrerVol = false;
+	/** Secondes passees posees au sol avec le volant (on reprend le soldat apres un court instant). */
+	float TempsPose = 0.f;
+	bool bAvisCostumeSoldat = false;
 };

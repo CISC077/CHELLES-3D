@@ -437,12 +437,21 @@ void ARoueArmes::LierClavier()
 	}
 	if (APlayerController* PC = GetPC())
 	{
+		if (APlayerController* Ancien = PCLie.Get())
+		{
+			DisableInput(Ancien);
+		}
+		if (InputComponent)
+		{
+			InputComponent->KeyBindings.Reset();
+		}
 		EnableInput(PC);
 		if (InputComponent && Touche.IsValid())
 		{
 			InputComponent->BindKey(Touche, IE_Pressed, this, &ARoueArmes::Ouvrir);
 			InputComponent->BindKey(Touche, IE_Released, this, &ARoueArmes::Relacher);
 			bLieClavier = true;
+			PCLie = PC;
 			UE_LOG(LogTemp, Log, TEXT("[RoueArmes] Maintenir %s pour choisir une arme."), *Touche.ToString());
 		}
 	}
@@ -501,13 +510,20 @@ void ARoueArmes::Ouvrir()
 {
 	APlayerController* PC = GetPC();
 	UWorld* Monde = GetWorld();
-	if (!bActif || bOuverte || !PC || !Monde || PC->IsPaused() || PC->bShowMouseCursor)
+	if (!bActif || bOuverte || !PC || !Monde)
 	{
+		return;
+	}
+	if (PC->IsPaused() || PC->bShowMouseCursor)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[RoueArmes] %s appuye mais roue non ouverte : %s."), *Touche.ToString(),
+			PC->IsPaused() ? TEXT("jeu en pause") : TEXT("curseur de la souris affiche (un menu est ouvert)"));
 		return;
 	}
 	UGameViewportClient* Vue = Monde->GetGameViewport();
 	if (!Vue)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[RoueArmes] Pas d'ecran de jeu : roue non ouverte."));
 		return;
 	}
 	Widget = SNew(SRoueArmes);
@@ -547,6 +563,7 @@ void ARoueArmes::Ouvrir()
 	Apparition = 0.f;
 	bOuverte = true;
 	MettreAJourCentre();
+	UE_LOG(LogTemp, Log, TEXT("[RoueArmes] Roue ouverte (%d cases)."), Widget->Cases.Num());
 }
 
 void ARoueArmes::Remplir()
@@ -897,9 +914,29 @@ void ARoueArmes::MettreAJourSurvol()
 void ARoueArmes::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (bLieClavier && PCLie.Get() != GetPC())
+	{
+		bLieClavier = false; // le joueur a change de PlayerController (menu -> partie) : on se relie au nouveau
+	}
 	if (!bLieClavier)
 	{
 		LierClavier();
+	}
+	// Lecture directe de la touche, comme les touches F1-F12 : marche meme si un autre element du jeu
+	// prend TAB avant la roue (2026-11-21 : la liaison seule ne suffisait pas chez MERIDJA).
+	if (APlayerController* PCTouche = GetPC())
+	{
+		if (Touche.IsValid() && bActif)
+		{
+			if (!bOuverte && PCTouche->WasInputKeyJustPressed(Touche))
+			{
+				Ouvrir();
+			}
+			else if (bOuverte && !PCTouche->IsInputKeyDown(Touche))
+			{
+				Relacher();
+			}
+		}
 	}
 	const float Maintenant = GetWorld() ? GetWorld()->GetRealTimeSeconds() : 0.f;
 	if (Maintenant >= ProchaineVerification || Maintenant + 1.f < ProchaineVerification)

@@ -86,6 +86,7 @@ private:
 	void LierClavier();
 	void ReprendreTabALaRoueDesModes();
 	bool bLieClavier = false;
+	TWeakObjectPtr<APlayerController> PCLie;
 	bool bTabRepris = false;
 	float ProchaineVerification = 0.f;
 	TWeakObjectPtr<AActor> RoueModes;
