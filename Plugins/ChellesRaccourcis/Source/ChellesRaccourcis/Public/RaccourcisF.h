@@ -58,6 +58,9 @@ private:
 	APlayerController* GetPC() const;
 	void Appuyer(int32 Numero);
 	bool ToucheDejaPrise(APlayerController* PC, const FKey& Touche) const;
+	/** Retire les touches de debogage d'Unreal (F1 fil de fer, F2 sans eclairage...) posees sur nos touches. */
+	void RetirerTouchesDebogage(APlayerController* PC);
+	TWeakObjectPtr<class UPlayerInput> EntreesNettoyees;
 
 	// ---- Modes (roue ChellesRoue) ----
 	AActor* Roue() const;

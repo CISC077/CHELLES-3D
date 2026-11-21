@@ -373,6 +373,7 @@ void ARaccourcisF::Tick(float DeltaSeconds)
 		// (Maj n'est pas bloquee : c'est la course)
 		return;
 	}
+	RetirerTouchesDebogage(PC);
 	for (int32 i = 0; i < Raccourcis.Num(); ++i)
 	{
 		const FKey& Touche = Raccourcis[i].Touche;
@@ -380,6 +381,35 @@ void ARaccourcisF::Tick(float DeltaSeconds)
 		{
 			Appuyer(i);
 		}
+	}
+}
+
+void ARaccourcisF::RetirerTouchesDebogage(APlayerController* PC)
+{
+	// Jeu exporte en "Development" : Unreal garde ses touches de debogage (F1 fil de fer, F2 sans eclairage,
+	// F3 eclaire, F4 detail eclairage, F5 complexite des shaders, F9 capture...). Elles changeaient les couleurs
+	// de l'image en meme temps que le mode : on retire celles qui tombent sur nos touches.
+	UPlayerInput* Entrees = PC ? PC->PlayerInput : nullptr;
+	if (!Entrees || Entrees == EntreesNettoyees.Get())
+	{
+		return;
+	}
+	EntreesNettoyees = Entrees;
+	const int32 Avant = Entrees->DebugExecBindings.Num();
+	Entrees->DebugExecBindings.RemoveAll([this](const FKeyBind& Liaison)
+	{
+		for (const FRaccourciF& R : Raccourcis)
+		{
+			if (R.Touche == Liaison.Key)
+			{
+				return true;
+			}
+		}
+		return false;
+	});
+	if (Entrees->DebugExecBindings.Num() != Avant)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Raccourcis] %d touches de debogage d'Unreal retirees (modes de couleurs F1-F5...)."), Avant - Entrees->DebugExecBindings.Num());
 	}
 }
 
