@@ -22,7 +22,7 @@
 // Espace de noms nomme (pas anonyme) : le plugin peut etre compile en "unity build" avec RaccourcisF.cpp.
 namespace RoueArmesOutils
 {
-	const FLinearColor GrisBleu(0.45f, 0.62f, 0.85f);
+	const FLinearColor GrisBleu(0.f, 0.94f, 1.f); // couleur par defaut des cases : cyan neon (style cyberpunk)
 
 	/** Armes par defaut (tant que le tableau DT_Armes n'existe pas). Meme contenu que Tools\RaccourcisF\Armes.csv. */
 	struct FDefaut

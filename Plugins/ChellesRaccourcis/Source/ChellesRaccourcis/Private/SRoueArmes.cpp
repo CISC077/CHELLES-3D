@@ -1,4 +1,4 @@
-// CHELLES 3D - Dessin de la roue des armes (Slate, sans asset), facon GTA : gris-bleu transparent
+// CHELLES 3D - Dessin de la roue des armes (Slate, sans asset), facon GTA, couleurs cyberpunk (neon cyan / magenta)
 #include "SRoueArmes.h"
 
 #include "Fonts/FontMeasure.h"
@@ -12,12 +12,15 @@ namespace RoueArmesDessin
 {
 	const float DeuxPi = 2.f * PI;
 
-	// Couleurs du style "GTA" : gris-bleu, transparent
-	const FLinearColor FondCase(0.10f, 0.13f, 0.18f, 0.62f);
-	const FLinearColor FondSurvol(0.22f, 0.38f, 0.62f, 0.80f);
-	const FLinearColor FondCentre(0.05f, 0.07f, 0.10f, 0.78f);
-	const FLinearColor BleuClair(0.62f, 0.78f, 1.f, 1.f);
-	const FLinearColor Gris(0.55f, 0.58f, 0.62f, 1.f);
+	// Couleurs CYBERPUNK (2026-11-21, demande MERIDJA) : fond violet nuit transparent, neon cyan, survol magenta
+	const FLinearColor FondCase(0.035f, 0.f, 0.09f, 0.72f);
+	const FLinearColor FondSurvol(0.42f, 0.f, 0.36f, 0.86f);
+	const FLinearColor FondEnMain(0.f, 0.20f, 0.30f, 0.78f);
+	const FLinearColor FondCentre(0.015f, 0.f, 0.05f, 0.88f);
+	const FLinearColor BleuClair(0.f, 0.94f, 1.f, 1.f);   // cyan neon
+	const FLinearColor Magenta(1.f, 0.08f, 0.85f, 1.f);   // magenta neon
+	const FLinearColor Jaune(1.f, 0.92f, 0.f, 1.f);       // jaune neon (munitions)
+	const FLinearColor Gris(0.42f, 0.38f, 0.52f, 1.f);
 
 	FLinearColor Alpha(FLinearColor C, float A)
 	{
@@ -204,13 +207,16 @@ int32 SRoueArmes::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSla
 	const float RIn = R * 0.44f;
 	const int32 N = Cases.Num();
 
-	// Fond legerement assombri (on voit encore le jeu derriere)
+	// Fond legerement assombri, teinte violette (on voit encore le jeu derriere)
 	FSlateDrawElement::MakeBox(Sortie, Couche, G.ToPaintGeometry(), FCoreStyle::Get().GetBrush(TEXT("WhiteBrush")),
-		ESlateDrawEffect::None, FLinearColor(0.f, 0.01f, 0.03f, 0.30f * T));
+		ESlateDrawEffect::None, FLinearColor(0.03f, 0.f, 0.06f, 0.38f * T));
 
-	// Anneau de fond gris-bleu + liseres
-	Secteur(Sortie, Couche + 1, G, Centre, RIn - 6.f, R + 6.f, 0.f, DeuxPi, FLinearColor(0.06f, 0.08f, 0.12f, 0.35f * T));
-	Secteur(Sortie, Couche + 2, G, Centre, R + 6.f, R + 8.f, 0.f, DeuxPi, Alpha(BleuClair, 0.30f * T));
+	// Anneau de fond violet nuit + halo neon : cyan dehors, magenta dedans
+	Secteur(Sortie, Couche + 1, G, Centre, RIn - 6.f, R + 6.f, 0.f, DeuxPi, FLinearColor(0.05f, 0.f, 0.10f, 0.40f * T));
+	Secteur(Sortie, Couche + 1, G, Centre, R + 8.f, R + 22.f, 0.f, DeuxPi, Alpha(BleuClair, 0.07f * T));
+	Secteur(Sortie, Couche + 1, G, Centre, R + 8.f, R + 14.f, 0.f, DeuxPi, Alpha(BleuClair, 0.14f * T));
+	Secteur(Sortie, Couche + 2, G, Centre, R + 6.f, R + 9.f, 0.f, DeuxPi, Alpha(BleuClair, 0.85f * T));
+	Secteur(Sortie, Couche + 2, G, Centre, RIn - 9.f, RIn - 6.f, 0.f, DeuxPi, Alpha(Magenta, 0.75f * T));
 
 	const FSlateFontInfo PoliceCase = FCoreStyle::GetDefaultFontStyle("Bold", N > 12 ? 9 : 11);
 	const FSlateFontInfo PoliceTitre = FCoreStyle::GetDefaultFontStyle("Bold", 20);
@@ -231,19 +237,19 @@ int32 SRoueArmes::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSla
 		FLinearColor Fond = bSurvol ? FondSurvol : FondCase;
 		if (Case.bEnMain && !bSurvol)
 		{
-			Fond = FLinearColor(0.16f, 0.24f, 0.36f, 0.72f);
+			Fond = FondEnMain;
 		}
 		Fond.A *= T;
 		Secteur(Sortie, Couche + 3, G, Centre, RIn, ROut, A0, A1, Fond);
 
 		// Bande exterieure : couleur de l'arme (plus epaisse si en main ou visee)
-		const FLinearColor Teinte = Case.bPossedee ? Case.Couleur : Gris;
+		const FLinearColor Teinte = bSurvol ? Magenta : (Case.bPossedee ? Case.Couleur : Gris);
 		const float Bande = bSurvol ? 7.f : (Case.bEnMain ? 6.f : 3.f);
 		Secteur(Sortie, Couche + 4, G, Centre, ROut - Bande, ROut, A0, A1, Alpha(Teinte, (Case.bPossedee ? 0.95f : 0.45f) * T));
 		if (Case.bEnMain)
 		{
-			// Arme en main : lisere interieur blanc
-			Secteur(Sortie, Couche + 4, G, Centre, RIn, RIn + 3.f, A0, A1, Alpha(FLinearColor::White, 0.85f * T));
+			// Arme en main : lisere interieur cyan neon
+			Secteur(Sortie, Couche + 4, G, Centre, RIn, RIn + 4.f, A0, A1, Alpha(BleuClair, 0.95f * T));
 		}
 
 		// Image ou dessin
@@ -269,19 +275,19 @@ int32 SRoueArmes::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSla
 
 	// Disque central : nom + munitions
 	Disque(Sortie, Couche + 3, G, Centre, RIn - 10.f, Alpha(FondCentre, T));
-	Secteur(Sortie, Couche + 4, G, Centre, RIn - 13.f, RIn - 10.f, 0.f, DeuxPi, Alpha(BleuClair, 0.55f * T));
+	Secteur(Sortie, Couche + 4, G, Centre, RIn - 13.f, RIn - 10.f, 0.f, DeuxPi, Alpha(BleuClair, 0.80f * T));
 
 	// Aiguille vers la case visee
 	if (Curseur.SizeSquared() > 0.0025f)
 	{
 		const float Angle = FMath::Atan2(Curseur.Y, Curseur.X);
 		Secteur(Sortie, Couche + 5, G, Centre, RIn - 20.f, RIn - 15.f, Angle - 0.2f, Angle + 0.2f,
-			Alpha(FLinearColor::White, (0.35f + 0.6f * FMath::Clamp(Curseur.Size(), 0.f, 1.f)) * T));
+			Alpha(Magenta, (0.35f + 0.6f * FMath::Clamp(Curseur.Size(), 0.f, 1.f)) * T));
 	}
 
-	Texte(Sortie, Couche + 6, G, Centre - FVector2D(0.f, 26.f), Titre, PoliceTitre, Alpha(FLinearColor::White, T));
-	Texte(Sortie, Couche + 6, G, Centre + FVector2D(0.f, 8.f), Munitions, PoliceMunitions, Alpha(BleuClair, T));
-	Texte(Sortie, Couche + 6, G, Centre + FVector2D(0.f, 40.f), Aide, PoliceAide, Alpha(FLinearColor(0.75f, 0.8f, 0.86f), T));
+	Texte(Sortie, Couche + 6, G, Centre - FVector2D(0.f, 26.f), Titre, PoliceTitre, Alpha(BleuClair, T));
+	Texte(Sortie, Couche + 6, G, Centre + FVector2D(0.f, 8.f), Munitions, PoliceMunitions, Alpha(Jaune, T));
+	Texte(Sortie, Couche + 6, G, Centre + FVector2D(0.f, 40.f), Aide, PoliceAide, Alpha(FLinearColor(0.95f, 0.6f, 1.f), T));
 	Texte(Sortie, Couche + 6, G, Centre + FVector2D(0.f, 58.f), FText::FromString(TEXT("clic droit : annuler")),
 		FCoreStyle::GetDefaultFontStyle("Regular", 9), Alpha(FLinearColor(0.5f, 0.55f, 0.6f), T));
 
