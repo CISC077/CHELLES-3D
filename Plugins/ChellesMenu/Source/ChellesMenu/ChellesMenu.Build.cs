@@ -15,6 +15,7 @@ public class ChellesMenu : ModuleRules
 			"InputCore",
 			"Slate",
 			"SlateCore",
+			"UMG",
 			"OnlineSubsystem",
 			"OnlineSubsystemUtils",
 			"Sockets"
