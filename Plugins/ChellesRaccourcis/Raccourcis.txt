@@ -1,0 +1,32 @@
+﻿# CHELLES 3D - Armes sur les touches F1 a F12 (plugin ChellesRaccourcis)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# En jeu, la console (touche ²) : Chelles.Raccourcis Relire  = relit ce fichier sans quitter.
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = les touches F1-F12 prennent les armes, Non = elles ne font plus rien
+Actif=Oui
+
+# Oui = petite animation "baisser l'arme" du pack quand on change d'arme (comme la roue du pack)
+Animation=Oui
+
+# Oui = le nom de l'arme s'affiche 2 secondes en bas de l'ecran
+Messages=Oui
+
+# --- Ce que fait chaque touche ---
+# Case1 a Case4 : les cases d'armes du soldat (dans l'ordre ou vous les avez ramassees)
+# Blaster, Bazooka, Sabre, Grenade : armes de l'arsenal (comme la touche 3)
+# LanceFlammes, Mitrailleuse : armes lourdes (rateliers aux murs, XP)
+# Aucune : range l'arme de l'arsenal et rend l'arme normale
+# Reserve : la touche ne fait rien (gardee pour plus tard)
+F1=Case1
+F2=Case2
+F3=Case3
+F4=Case4
+F5=Blaster
+F6=Bazooka
+F7=Sabre
+F8=Grenade
+F9=LanceFlammes
+F10=Mitrailleuse
+F11=Reserve
+F12=Reserve

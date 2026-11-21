@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Raccourcis Armes F1-F12",
+	"Description": "Touches F1 a F10 : prendre directement une arme (cases du soldat FPS_Game et armes de l'arsenal ChellesArmes). F11 et F12 reservees. Ne modifie aucun fichier du pack. Reglages dans Raccourcis.txt.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesRaccourcis",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
