@@ -1,6 +1,6 @@
 @echo off
 rem ------------------------------------------------------------------
-rem  Compile le plugin ChellesRaccourcis (armes sur F1-F12) pour Unreal 4.27 (une seule fois).
+rem  Compile le plugin ChellesRaccourcis (touches F1-F12) pour Unreal 4.27 (une seule fois).
 rem  Ne modifie pas le projet : seul le dossier Binaries du plugin est cree.
 rem  Fermez Unreal avant de lancer ce fichier (double-clic).
 rem ------------------------------------------------------------------

@@ -1,32 +1,43 @@
-﻿# CHELLES 3D - Armes sur les touches F1 a F12 (plugin ChellesRaccourcis)
+﻿# CHELLES 3D - Touches F1 a F12 (plugin ChellesRaccourcis)
 # Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
-# En jeu, la console (touche ²) : Chelles.Raccourcis Relire  = relit ce fichier sans quitter.
+# En jeu, la console (touche ²) : Chelles.Raccourcis Relire  = relit ce fichier et le tableau.
 # Les lignes qui commencent par # sont des commentaires.
 
-# Oui = les touches F1-F12 prennent les armes, Non = elles ne font plus rien
+# Oui = les touches F marchent, Non = elles ne font plus rien
 Actif=Oui
 
-# Oui = petite animation "baisser l'arme" du pack quand on change d'arme (comme la roue du pack)
+# --- DONNEES : ce que fait chaque touche ---
+# La liste des touches vient du TABLEAU DE DONNEES (Data Table) ci-dessous : une ligne par touche.
+# Dans Unreal : Content Browser > Chelles > Donnees > double-clic sur DT_Raccourcis, changez une ligne, Save.
+# Pour ajouter une touche : bouton "Add" du tableau, sans toucher au code.
+# Le tableau se cree avec Tools\RaccourcisF\CREER_LA_TABLE.bat (a partir de Raccourcis.csv).
+Tableau=/Game/Chelles/Donnees/DT_Raccourcis.DT_Raccourcis
+
+# Menu des touches en haut de l'ecran :
+#   Deroulant = il descend quand on appuie sur une touche F puis remonte, Toujours = toujours visible, Jamais
+Menu=Deroulant
+#   Verticale = liste en haut a gauche, Horizontale = barre en haut au centre (comme le schema)
+Disposition=Verticale
+# Secondes avant que le menu remonte
+DureeMenu=3
+
+# Oui = petit message en bas de l'ecran (case vide, mode indisponible...)
+Messages=Oui
+# Oui = animation "baisser l'arme" du pack quand une touche prend une arme (Case1..Case4)
 Animation=Oui
 
-# Oui = le nom de l'arme s'affiche 2 secondes en bas de l'ecran
-Messages=Oui
-
-# --- Ce que fait chaque touche ---
-# Case1 a Case4 : les cases d'armes du soldat (dans l'ordre ou vous les avez ramassees)
-# Blaster, Bazooka, Sabre, Grenade : armes de l'arsenal (comme la touche 3)
-# LanceFlammes, Mitrailleuse : armes lourdes (rateliers aux murs, XP)
-# Aucune : range l'arme de l'arsenal et rend l'arme normale
-# Reserve : la touche ne fait rien (gardee pour plus tard)
-F1=Case1
-F2=Case2
-F3=Case3
-F4=Case4
-F5=Blaster
-F6=Bazooka
-F7=Sabre
-F8=Grenade
-F9=LanceFlammes
-F10=Mitrailleuse
-F11=Reserve
+# --- SECOURS : utilise seulement tant que le tableau DT_Raccourcis n'existe pas ---
+# Action = nom d'un mode de la roue, ou Case1..Case4 (armes du soldat), ou Blaster, Bazooka, Sabre,
+# Grenade, LanceFlammes, Mitrailleuse (arsenal), ou Reserve (rien).
+F1=Soldat
+F2=Spider-Male
+F3=Spider-Femelle
+F4=PANTERA
+F5=Motoneige
+F6=POLICE
+F7=FLASH ECLAIR
+F8=FLAMME FIRE
+F9=SuperPowers
+F10=DYNAMIC COMBAT
+F11=HORSE
 F12=Reserve
