@@ -11,6 +11,7 @@ public class ChellesHud : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+			"NavigationSystem",
 			"Slate",
 			"SlateCore",
 			"UMG"

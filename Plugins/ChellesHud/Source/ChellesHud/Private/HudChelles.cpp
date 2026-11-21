@@ -16,6 +16,8 @@
 #include "Blueprint/UserWidget.h"
 #include "UObject/UObjectHash.h"
 #include "Misc/App.h"
+#include "NavigationPath.h"
+#include "NavigationSystem.h"
 #include "UObject/UnrealType.h"
 
 bool GHudChellesAffiche = true;
@@ -28,10 +30,20 @@ static FAutoConsoleVariableRef CVarMiniCarte(
 	TEXT("Chelles.MiniCarte"), GMiniCarteMode,
 	TEXT("Mini-carte : 0 = cachee, 1 = points seuls (plus leger), 2 = avec le quartier vu du ciel."));
 
-static float GMiniCarteZoom = 80.f;
+static float GMiniCarteZoom = 100.f;
 static FAutoConsoleVariableRef CVarMiniCarteZoom(
 	TEXT("Chelles.MiniCarteZoom"), GMiniCarteZoom,
-	TEXT("Mini-carte : distance du centre au bord, en metres (20 a 500, 80 par defaut)."));
+	TEXT("Mini-carte : distance du joueur au bord gauche ou droit, en metres (20 a 500, 100 par defaut)."));
+
+static int32 GMiniCarteItineraire = 1;
+static FAutoConsoleVariableRef CVarMiniCarteItineraire(
+	TEXT("Chelles.MiniCarteItineraire"), GMiniCarteItineraire,
+	TEXT("Mini-carte : 1 = trajet cyan + distance en km vers la mission en cours, sinon vers le teleporteur le plus proche ; 0 = rien."));
+
+static int32 GMiniCarteCoins = 1;
+static FAutoConsoleVariableRef CVarMiniCarteCoins(
+	TEXT("Chelles.MiniCarteCoins"), GMiniCarteCoins,
+	TEXT("Mini-carte : 1 = vue du ciel a coins arrondis (par defaut), 0 = vue du ciel carree (si l'image n'apparait pas)."));
 
 static int32 GCacherBulleAide = 1;
 static FAutoConsoleVariableRef CVarCacherBulleAide(
@@ -85,6 +97,20 @@ namespace
 			return false;
 		}
 		Valeur = P->GetPropertyValue_InContainer(Objet);
+		return true;
+	}
+
+	/** Lit une variable FVector (ou FVector_NetQuantize) par son nom. */
+	bool LireVecteurHud(const UObject* Objet, const TCHAR* Nom, FVector& Valeur)
+	{
+		FStructProperty* P = CastField<FStructProperty>(VariableHud(Objet, { Nom }));
+		// FVector ou FVector_NetQuantize (meme contenu : X, Y, Z)
+		if (!P || !P->Struct || !(P->Struct->IsChildOf(TBaseStructure<FVector>::Get()) || P->Struct->GetName().StartsWith(TEXT("Vector")))
+			|| P->Struct->GetStructureSize() < (int32)sizeof(FVector))
+		{
+			return false;
+		}
+		Valeur = *P->ContainerPtrToValuePtr<FVector>(Objet);
 		return true;
 	}
 
@@ -225,6 +251,17 @@ void AHudChelles::ChercherActeurs()
 					Relais = *It;
 					break;
 				}
+			}
+		}
+	}
+	if (!Missions.IsValid())
+	{
+		if (UClass* C = ClasseHud(TEXT("MissionsChelles")))
+		{
+			for (TActorIterator<AActor> It(W, C); It; ++It)
+			{
+				Missions = *It;
+				break;
 			}
 		}
 	}
@@ -404,7 +441,8 @@ void AHudChelles::PreparerVueDuCiel()
 		ImageCarte = NewObject<UTextureRenderTarget2D>(this);
 		ImageCarte->ClearColor = FLinearColor(0.02f, 0.05f, 0.1f, 1.f);
 		// couleurs lineaires (la couleur de base des materiaux, sans lumiere : la carte reste lisible la nuit)
-		ImageCarte->InitCustomFormat(256, 256, PF_B8G8R8A8, true);
+		// meme forme que la carte (plus large que haute)
+		ImageCarte->InitCustomFormat(ChellesCarte::ImageX, ChellesCarte::ImageY, PF_B8G8R8A8, true);
 		ImageCarte->UpdateResourceImmediate(true);
 	}
 
@@ -432,7 +470,7 @@ void AHudChelles::PreparerVueDuCiel()
 	if (Hud.IsValid())
 	{
 		Hud->BrushCarte.SetResourceObject(ImageCarte);
-		Hud->BrushCarte.ImageSize = FVector2D(256.f, 256.f);
+		Hud->BrushCarte.ImageSize = FVector2D(ChellesCarte::ImageX, ChellesCarte::ImageY);
 	}
 	UE_LOG(LogTemp, Log, TEXT("[HUD] Mini-carte : vue du ciel prete (Chelles.MiniCarte 1 pour l'alleger, 0 pour la cacher)."));
 }
@@ -532,15 +570,11 @@ void AHudChelles::LireCarte()
 		FPointCarteChelles Point;
 		Point.Type = Type;
 		Point.Pos = VersCarte(FVector2D(L.X - Centre.X, L.Y - Centre.Y)) / Rayon;
-		const float Plus = FMath::Max(FMath::Abs(Point.Pos.X), FMath::Abs(Point.Pos.Y));
-		if (Plus > 1.f)
+		Point.bGarderAuBord = bGarderAuBord;
+		// trop loin et sans interet au bord : inutile de l'envoyer au dessin
+		if (!bGarderAuBord && Point.Pos.SizeSquared() > 4.f)
 		{
-			if (!bGarderAuBord)
-			{
-				return;
-			}
-			Point.Pos /= Plus;
-			Point.bAuBord = true;
+			return;
 		}
 		E.PointsCarte.Add(Point);
 	};
@@ -592,7 +626,36 @@ void AHudChelles::LireCarte()
 		Ajouter(Z, FPointCarteChelles::Zombie, false);
 	}
 
-	// Vue du ciel (mode 2) : une photo vue de haut toutes les 0,1 s, centree sur le joueur
+	// Itineraire cyan + distance en km
+	E.bCoinsArrondis = GMiniCarteCoins != 0;
+	if (GMiniCarteItineraire && Horloge >= ProchainItineraire)
+	{
+		ProchainItineraire = Horloge + 0.5f;
+		CalculerItineraire(Centre);
+	}
+	E.bDestination = GMiniCarteItineraire && bDestination && TrajetMonde.Num() >= 2;
+	E.Itineraire.Reset();
+	if (E.bDestination)
+	{
+		float Longueur = 0.f;
+		for (int32 i = 0; i < TrajetMonde.Num(); ++i)
+		{
+			// le trajet part toujours de la position actuelle du joueur
+			const FVector P = (i == 0) ? Centre : TrajetMonde[i];
+			if (i > 0)
+			{
+				const FVector Avant = (i == 1) ? Centre : TrajetMonde[i - 1];
+				Longueur += FVector::Dist2D(Avant, P);
+			}
+			E.Itineraire.Add(VersCarte(FVector2D(P.X - Centre.X, P.Y - Centre.Y)) / Rayon);
+		}
+		const FVector Fin = TrajetMonde.Last();
+		E.Destination = VersCarte(FVector2D(Fin.X - Centre.X, Fin.Y - Centre.Y)) / Rayon;
+		E.DistanceKm = Longueur / 100000.f;
+		E.NomDestination = NomDestination;
+	}
+
+	// Vue du ciel (mode 2) : une photo vue de haut toutes les 0,1 s ; le joueur est en bas de la carte, on voit surtout devant
 	if (GMiniCarteMode < 2)
 	{
 		RetirerVueDuCiel();
@@ -606,17 +669,91 @@ void AHudChelles::LireCarte()
 	if (Hud->BrushCarte.GetResourceObject() != ImageCarte)
 	{
 		Hud->BrushCarte.SetResourceObject(ImageCarte);
-		Hud->BrushCarte.ImageSize = FVector2D(256.f, 256.f);
+		Hud->BrushCarte.ImageSize = FVector2D(ChellesCarte::ImageX, ChellesCarte::ImageY);
 	}
 	if (Horloge >= ProchaineVueDuCiel)
 	{
 		ProchaineVueDuCiel = Horloge + 0.1f;
 		VueDuCiel->OrthoWidth = 2.f * Rayon;
-		// 80 m au-dessus du joueur, regard vers le sol ; le haut de l'image = devant le joueur
-		VueDuCiel->SetWorldLocationAndRotation(Centre + FVector(0.f, 0.f, 8000.f), FRotator(-90.f, Cap, 0.f));
+		// 80 m au-dessus, regard vers le sol ; le haut de l'image = devant le joueur.
+		// Le joueur est dessine a PlaceJoueur de la hauteur : le centre de l'image est donc un peu devant lui.
+		const float Avance = (ChellesCarte::PlaceJoueur - 0.5f) * ChellesCarte::Hauteur / (ChellesCarte::Largeur * 0.5f) * Rayon;
+		const FVector CentreImage = Centre + FVector(Devant.X, Devant.Y, 0.f) * Avance;
+		VueDuCiel->SetWorldLocationAndRotation(CentreImage + FVector(0.f, 0.f, 8000.f), FRotator(-90.f, Cap, 0.f));
 		VueDuCiel->CaptureSceneDeferred();
 		E.bImageCarte = true;
 	}
+}
+
+void AHudChelles::CalculerItineraire(const FVector& Depart)
+{
+	bDestination = false;
+	UWorld* W = GetWorld();
+	if (!W)
+	{
+		TrajetMonde.Reset();
+		return;
+	}
+
+	// 1) La mission en cours (plugin ChellesMissions), si elle donne un endroit ou aller
+	FVector Cible = FVector::ZeroVector;
+	bool bConnue = false;
+	if (AActor* M = Missions.Get())
+	{
+		LireBooleenHud(M, { TEXT("bCibleConnue") }, bConnue);
+		bConnue = bConnue && LireVecteurHud(M, TEXT("Cible"), Cible) && !Cible.IsNearlyZero();
+	}
+	if (bConnue)
+	{
+		NomDestination = TEXT("MISSION");
+	}
+	else
+	{
+		// 2) Sinon le teleporteur le plus proche (en ignorant celui sur lequel on est deja)
+		float Meilleure = TNumericLimits<float>::Max();
+		for (const TWeakObjectPtr<AActor>& T : Teleporteurs)
+		{
+			if (!T.IsValid())
+			{
+				continue;
+			}
+			const float D = FVector::DistSquared2D(T->GetActorLocation(), Depart);
+			if (D > FMath::Square(1500.f) && D < Meilleure)
+			{
+				Meilleure = D;
+				Cible = T->GetActorLocation();
+				bConnue = true;
+			}
+		}
+		NomDestination = TEXT("T\u00C9L\u00C9PORTEUR");
+	}
+	if (!bConnue)
+	{
+		TrajetMonde.Reset();
+		return;
+	}
+
+	// Trajet par les rues (NavMesh) si possible, sinon en ligne droite
+	TrajetMonde.Reset();
+	if (UNavigationPath* Chemin = UNavigationSystemV1::FindPathToLocationSynchronously(W, Depart, Cible, GetPC() ? GetPC()->GetPawn() : nullptr))
+	{
+		if (Chemin->IsValid() && Chemin->PathPoints.Num() >= 2)
+		{
+			TrajetMonde = Chemin->PathPoints;
+			// chemin incomplet : on finit en ligne droite jusqu'a la destination
+			if (FVector::DistSquared2D(TrajetMonde.Last(), Cible) > FMath::Square(300.f))
+			{
+				TrajetMonde.Add(Cible);
+			}
+		}
+	}
+	if (TrajetMonde.Num() < 2)
+	{
+		TrajetMonde.Reset();
+		TrajetMonde.Add(Depart);
+		TrajetMonde.Add(Cible);
+	}
+	bDestination = true;
 }
 
 void AHudChelles::CacherBulleAide()

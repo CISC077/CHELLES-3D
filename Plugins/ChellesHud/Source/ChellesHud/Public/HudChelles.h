@@ -21,7 +21,9 @@ extern CHELLESHUD_API bool GHudChellesAffiche;
  * la partie correspondante du HUD ne s'affiche simplement pas.
  * Console (touche ²) : Chelles.Hud 0 pour cacher, Chelles.Hud 1 pour remontrer.
  * Mini-carte : Chelles.MiniCarte 0 (cachee) / 1 (points seuls) / 2 (avec le quartier vu du ciel),
- * Chelles.MiniCarteZoom 80 (metres du centre au bord), Chelles.MiniCarteNord -90 (direction du nord).
+ * Chelles.MiniCarteZoom 100 (metres du joueur au bord gauche/droit), Chelles.MiniCarteNord -90 (direction du nord),
+ * Chelles.MiniCarteItineraire 0/1 (trajet cyan vers la mission ou le teleporteur le plus proche),
+ * Chelles.MiniCarteCoins 0/1 (image a coins arrondis ou carree).
  */
 UCLASS(NotPlaceable, Transient, meta = (DisplayName = "HUD Chelles"))
 class CHELLESHUD_API AHudChelles : public AActor
@@ -49,6 +51,8 @@ private:
 	void LirePouvoirs();
 	void LireZombies();
 	void LireCarte();
+	/** Choisit la destination (mission en cours, sinon teleporteur le plus proche) et calcule le trajet (toutes les 0,5 s). */
+	void CalculerItineraire(const FVector& Depart);
 	/** Cache la bulle d'aide "Show Controls Tutorial / Show Simple Controls Guide" du pack SuperheroFlight (elle recouvre la mini-carte). */
 	void CacherBulleAide();
 	/** Cherche les teleporteurs, les zombies et le decor a cacher sur la vue du ciel (toutes les 2 s). */
@@ -61,6 +65,8 @@ private:
 	TWeakObjectPtr<AActor> Pouvoirs;
 	TWeakObjectPtr<AActor> Relais;
 	TWeakObjectPtr<AActor> Invasion;
+	/** Plugin ChellesMissions (sa Cible sert de destination a l'itineraire). */
+	TWeakObjectPtr<AActor> Missions;
 	float ProchaineRecherche = 0.f;
 
 	/** Vie lue a l'image precedente, pour faire clignoter l'ecran en rouge quand on prend un coup. */
@@ -73,6 +79,11 @@ private:
 	float ProchainePointsCarte = 0.f;
 	float ProchaineVueDuCiel = 0.f;
 	float ProchaineBulleAide = 0.f;
+	float ProchainItineraire = 0.f;
+	/** Trajet en coordonnees du monde (le dessin le reconvertit a chaque image, la carte tournant avec la camera). */
+	TArray<FVector> TrajetMonde;
+	bool bDestination = false;
+	FString NomDestination;
 	/** Resultat du test "nom de classe" pour chaque classe deja vue (1 = teleporteur, 2 = zombie, 4 = ciel/nuage). */
 	TMap<TWeakObjectPtr<UClass>, uint8> GenreClasse;
 
