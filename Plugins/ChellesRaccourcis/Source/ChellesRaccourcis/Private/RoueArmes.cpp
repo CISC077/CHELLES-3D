@@ -79,10 +79,87 @@ namespace RoueArmesOutils
 		return nullptr;
 	}
 
+	/** Numero de l'arme en main (SelectedWeaponIndex du kit, ou un nom proche dans les copies du soldat). */
+	FNumericProperty* ProprieteCase(UClass* Classe)
+	{
+		for (const TCHAR* Nom : { TEXT("SelectedWeaponIndex"), TEXT("CurrentWeaponIndex"), TEXT("EquippedWeaponIndex"),
+			TEXT("WeaponIndex"), TEXT("SelectedWeapon"), TEXT("CurrentWeapon"), TEXT("ActiveWeaponIndex") })
+		{
+			if (FNumericProperty* P = Classe ? FindFProperty<FNumericProperty>(Classe, FName(Nom)) : nullptr)
+			{
+				if (!P->IsFloatingPoint())
+				{
+					return P;
+				}
+			}
+		}
+		return nullptr;
+	}
+
+	/** Fonction qui met une arme en main (EquipWeapon du kit, ou equivalent). */
+	UFunction* FonctionEquiper(UObject* Pion)
+	{
+		for (const TCHAR* Nom : { TEXT("EquipWeapon"), TEXT("SelectWeapon"), TEXT("Equip Weapon"), TEXT("SwitchWeapon"),
+			TEXT("ChangeWeapon"), TEXT("SwapWeapon"), TEXT("EquipWeaponFromInventory") })
+		{
+			if (UFunction* F = Pion ? Pion->FindFunction(FName(Nom)) : nullptr)
+			{
+				return F;
+			}
+		}
+		return nullptr;
+	}
+
+	/** Arme tenue (EquippedWeapon / CurrentWeapon...), nulle si inconnue. */
+	UObject* ObjetEnMain(UObject* Pion)
+	{
+		for (const TCHAR* Nom : { TEXT("EquippedWeapon"), TEXT("CurrentWeapon"), TEXT("Weapon"), TEXT("CurrentWeaponActor") })
+		{
+			if (FObjectPropertyBase* P = Pion ? FindFProperty<FObjectPropertyBase>(Pion->GetClass(), FName(Nom)) : nullptr)
+			{
+				return P->GetObjectPropertyValue_InContainer(Pion);
+			}
+		}
+		return nullptr;
+	}
+
+	/** Soldat = a un inventaire d'armes ET une facon de changer d'arme (avant : il fallait tout le kit exact,
+	 *  ce qui ratait BP_Character_SpiderMan, copie du soldat sans SelectedWeaponIndex entier). */
 	bool Soldat(APawn* Pion)
 	{
-		return Pion && FindFProperty<FIntProperty>(Pion->GetClass(), TEXT("SelectedWeaponIndex"))
-			&& Pion->FindFunction(TEXT("EquipWeapon")) && Inventaire(Pion->GetClass());
+		return Pion && Inventaire(Pion->GetClass())
+			&& (ProprieteCase(Pion->GetClass()) || FonctionEquiper(Pion) || Pion->FindFunction(TEXT("NextWeapon")));
+	}
+
+	/** Pour le journal : fonctions et variables "arme" du personnage (aide a brancher une nouvelle copie du soldat). */
+	FString DecrireSoldat(APawn* Pion)
+	{
+		FString Texte;
+		if (!Pion)
+		{
+			return Texte;
+		}
+		for (TFieldIterator<UFunction> It(Pion->GetClass()); It; ++It)
+		{
+			if (It->GetName().Contains(TEXT("Weapon")) || It->GetName().Contains(TEXT("Equip")))
+			{
+				Texte += TEXT(" ") + It->GetName() + TEXT("(");
+				for (TFieldIterator<FProperty> P(*It); P && P->HasAnyPropertyFlags(CPF_Parm); ++P)
+				{
+					Texte += P->GetCPPType() + TEXT(" ") + P->GetName() + TEXT(",");
+				}
+				Texte += TEXT(")");
+			}
+		}
+		Texte += TEXT(" | variables :");
+		for (TFieldIterator<FProperty> It(Pion->GetClass()); It; ++It)
+		{
+			if (It->GetName().Contains(TEXT("Weapon")) || It->GetName().Contains(TEXT("Inventory")))
+			{
+				Texte += TEXT(" ") + It->GetCPPType() + TEXT(" ") + It->GetName();
+			}
+		}
+		return Texte;
 	}
 
 	/** Armes ramassees par le soldat (cases de UT_Inventory, nulles comprises). */
@@ -105,8 +182,47 @@ namespace RoueArmesOutils
 
 	int32 CaseEnMain(APawn* Pion)
 	{
-		FIntProperty* P = Pion ? FindFProperty<FIntProperty>(Pion->GetClass(), TEXT("SelectedWeaponIndex")) : nullptr;
-		return P ? P->GetPropertyValue_InContainer(Pion) : INDEX_NONE;
+		if (!Pion)
+		{
+			return INDEX_NONE;
+		}
+		if (FNumericProperty* P = ProprieteCase(Pion->GetClass()))
+		{
+			return int32(P->GetSignedIntPropertyValue(P->ContainerPtrToValuePtr<void>(Pion)));
+		}
+		UObject* Tenue = ObjetEnMain(Pion);
+		return Tenue ? ArmesDuSoldat(Pion).IndexOfByKey(Tenue) : INDEX_NONE;
+	}
+
+	/** Modele de pack pose sur l'arme (etiquette lue par ChellesArmes), vide sinon. */
+	const TCHAR* const PrefixeModele = TEXT("ChellesModele=");
+	FString ModeleDeLArme(const UObject* Arme)
+	{
+		if (const AActor* A = Cast<AActor>(Arme))
+		{
+			for (const FName& Tag : A->Tags)
+			{
+				const FString T = Tag.ToString();
+				if (T.StartsWith(PrefixeModele))
+				{
+					return T.Mid(FCString::Strlen(PrefixeModele));
+				}
+			}
+		}
+		return FString();
+	}
+
+	/** Arme de base du kit pour une arme de pack, selon sa famille. */
+	FString ClasseDeBase(const FString& Categorie)
+	{
+		const TCHAR* Nom = TEXT("BPC_WeaponRifle");
+		if (Categorie.Equals(TEXT("Pistolet"), ESearchCase::IgnoreCase)) Nom = TEXT("BPC_WeaponPistol");
+		else if (Categorie.Equals(TEXT("Pompe"), ESearchCase::IgnoreCase)) Nom = TEXT("BPC_WeaponShotgun");
+		else if (Categorie.Equals(TEXT("Precision"), ESearchCase::IgnoreCase)) Nom = TEXT("BPC_WeaponSniper");
+		else if (Categorie.Equals(TEXT("Lourde"), ESearchCase::IgnoreCase)) Nom = TEXT("BPC_WeaponLauncher");
+		else if (Categorie.Equals(TEXT("Melee"), ESearchCase::IgnoreCase)) Nom = TEXT("BPC_WeaponSword");
+		else if (Categorie.Equals(TEXT("Energie"), ESearchCase::IgnoreCase)) Nom = TEXT("BPC_WeaponLaser_New");
+		return FString::Printf(TEXT("/Game/FPS_Game/Blueprints/Weapons/%s.%s_C"), Nom, Nom);
 	}
 
 	/** "BPC_Weapon_Pistol_C" et "BPC_WeaponPistol" -> "bpcweaponpistol" (versions reseau et solo du kit). */
@@ -293,6 +409,7 @@ void ARoueArmes::ChargerReglages()
 	bToutesLesArmes = true;
 	bDonnerToutes = true; // 2026-11-21 : MERIDJA veut des armes utilisables tout de suite dans la roue
 	bAnimation = true;
+	ParPage = 12;
 	CheminTableau = TEXT("/Game/Chelles/Donnees/DT_Armes.DT_Armes");
 
 	const FString Fichier = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesRaccourcis"), TEXT("Raccourcis.txt"));
@@ -346,6 +463,10 @@ void ARoueArmes::ChargerReglages()
 		{
 			bAnimation = bOui;
 		}
+		else if (Cle.Equals(TEXT("RoueArmesParPage"), ESearchCase::IgnoreCase))
+		{
+			ParPage = FMath::Clamp(FCString::Atoi(*Valeur), 4, 24);
+		}
 	}
 	ChargerTableau();
 	UE_LOG(LogTemp, Log, TEXT("[RoueArmes] Pret (%s, touche %s, %d armes lues dans %s)."),
@@ -397,7 +518,7 @@ void ARoueArmes::ChargerTableau()
 		{
 			continue;
 		}
-		if (L->ClasseArme.IsNull() && L->Arsenal.TrimStartAndEnd().IsEmpty())
+		if (L->ClasseArme.IsNull() && L->Arsenal.TrimStartAndEnd().IsEmpty() && L->Maillage.IsNull())
 		{
 			UE_LOG(LogTemp, Warning, TEXT("[RoueArmes] Ligne %s : ni ClasseArme ni Arsenal, ignoree."), *Paire.Key.ToString());
 			continue;
@@ -410,7 +531,16 @@ void ARoueArmes::ChargerTableau()
 		A.Couleur = L->Couleur;
 		A.Categorie = L->Categorie;
 		A.bDonner = L->bDonner;
-		if (L->Nom.IsEmpty() && !A.Classe.IsNull())
+		A.Maillage = L->Maillage.ToSoftObjectPath();
+		if (A.Classe.IsNull() && A.Arsenal.IsEmpty())
+		{
+			A.Classe = TSoftClassPtr<AActor>(FSoftObjectPath(ClasseDeBase(A.Categorie))); // arme de pack sans arme de base
+		}
+		if (L->Nom.IsEmpty() && !A.Maillage.IsNull())
+		{
+			A.Nom = FText::FromString(A.Maillage.GetAssetName().Replace(TEXT("_"), TEXT(" ")).ToUpper());
+		}
+		else if (L->Nom.IsEmpty() && !A.Classe.IsNull())
 		{
 			A.Nom = FText::GetEmpty(); // le nom viendra de l'arme (WeaponName)
 		}
@@ -560,6 +690,10 @@ void ARoueArmes::Ouvrir()
 		EntreesRoue->BindAxisKey(EKeys::Gamepad_RightY, this, &ARoueArmes::ManetteY);
 		EntreesRoue->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &ARoueArmes::Valider);
 		EntreesRoue->BindKey(EKeys::RightMouseButton, IE_Pressed, this, &ARoueArmes::Annuler);
+		EntreesRoue->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &ARoueArmes::PageSuivante);
+		EntreesRoue->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &ARoueArmes::PagePrecedente);
+		EntreesRoue->BindKey(EKeys::Gamepad_RightShoulder, IE_Pressed, this, &ARoueArmes::PageSuivante);
+		EntreesRoue->BindKey(EKeys::Gamepad_LeftShoulder, IE_Pressed, this, &ARoueArmes::PagePrecedente);
 	}
 	PC->PushInputComponent(EntreesRoue);
 	PC->SetIgnoreLookInput(true);
@@ -585,6 +719,7 @@ void ARoueArmes::Remplir()
 	// puis les armes ramassees qui ne sont dans aucune ligne.
 	Cibles.Reset();
 	Images.Reset();
+	Widget->Cases.Reset();
 	APlayerController* PC = GetPC();
 	APawn* Pion = PC ? PC->GetPawn() : nullptr;
 	const bool bSoldat = Soldat(Pion);
@@ -598,7 +733,7 @@ void ARoueArmes::Remplir()
 			Liste += R ? (TEXT(" ") + R->GetClass()->GetName()) : FString(TEXT(" (vide)"));
 		}
 		UE_LOG(LogTemp, Log, TEXT("[RoueArmes] Joueur %s : %s, %d case(s) d'armes :%s, en main %d, inventaire %s."),
-			Pion ? *Pion->GetClass()->GetName() : TEXT("aucun"), bSoldat ? TEXT("soldat") : TEXT("PAS soldat (pas de UT_Inventory / EquipWeapon)"),
+			Pion ? *Pion->GetClass()->GetName() : TEXT("aucun"), bSoldat ? TEXT("soldat") : *(TEXT("PAS soldat :") + DecrireSoldat(Pion)),
 			Ramassees.Num(), *Liste, EnMain,
 			(Pion && Inventaire(Pion->GetClass())) ? *Inventaire(Pion->GetClass())->GetName() : TEXT("introuvable"));
 	}
@@ -620,7 +755,7 @@ void ARoueArmes::Remplir()
 	{
 		for (int32 l = 0; l < Armes.Num(); ++l)
 		{
-			if (CaseDeLigne[l] != INDEX_NONE || (!Classes[l] && Armes[l].Classe.IsNull()))
+			if (CaseDeLigne[l] != INDEX_NONE || (!Classes[l] && Armes[l].Classe.IsNull()) || !Armes[l].Maillage.IsNull())
 			{
 				continue;
 			}
@@ -697,14 +832,31 @@ void ARoueArmes::Remplir()
 			AjouterCase(A.Nom.IsEmpty() ? FText::FromString(A.Arsenal.ToUpper()) : A.Nom, Image, A.Couleur, A.Categorie, bDispo, bDansLaMain, Cible);
 			continue;
 		}
-		const int32 c = CaseDeLigne[l];
+		Cible.Maillage = A.Maillage;
+		int32 c = CaseDeLigne[l];
+		if (!A.Maillage.IsNull())
+		{
+			// Arme d'un pack : elle utilise l'arme de base du soldat (meme Blueprint), de preference celle qui porte deja ce modele
+			const FString Chemin = A.Maillage.ToString();
+			for (int32 k = 0; k < Ramassees.Num(); ++k)
+			{
+				UClass* K = Ramassees[k] ? Ramassees[k]->GetClass() : nullptr;
+				if (K && ((Classes[l] && K->IsChildOf(Classes[l])) || NomSimple(K->GetName()) == NomSimple(A.Classe.GetAssetName())))
+				{
+					if (c == INDEX_NONE || ModeleDeLArme(Ramassees[k]) == Chemin)
+					{
+						c = k;
+					}
+				}
+			}
+		}
 		UObject* Instance = Ramassees.IsValidIndex(c) ? Ramassees[c] : nullptr;
 		if (!Instance && !bToutesLesArmes)
 		{
 			continue;
 		}
 		const UObject* Modele = Instance ? Instance : (Classes[l] ? Classes[l]->GetDefaultObject() : nullptr);
-		if (!Image)
+		if (!Image && A.Maillage.IsNull()) // arme de pack : petit dessin de sa famille plutot que l'image de l'arme de base
 		{
 			Image = ImageDeLArme(Modele);
 		}
@@ -713,7 +865,8 @@ void ARoueArmes::Remplir()
 		const FText Nom = !A.Nom.IsEmpty() ? A.Nom : (Modele ? NomDeLArme(Modele) : FText::FromString(A.Classe.GetAssetName()));
 		// Pas encore ramassee : utilisable quand meme si elle peut etre donnee (DonnerLesArmes=Oui ou colonne bDonner)
 		const bool bUtilisable = Instance != nullptr || (bSoldat && (A.bDonner || bDonnerToutes) && Classes[l] != nullptr);
-		AjouterCase(Nom, Image, A.Couleur, A.Categorie, bUtilisable, Instance && c == EnMain && !bArsenalEnMain, Cible);
+		const bool bBonModele = A.Maillage.IsNull() ? ModeleDeLArme(Instance).IsEmpty() : ModeleDeLArme(Instance) == A.Maillage.ToString();
+		AjouterCase(Nom, Image, A.Couleur, A.Categorie, bUtilisable, Instance && c == EnMain && !bArsenalEnMain && bBonModele, Cible);
 	}
 
 	// Armes ramassees qui ne sont dans aucune ligne du tableau : on les montre quand meme
@@ -728,6 +881,27 @@ void ARoueArmes::Remplir()
 		Cible.Instance = Ramassees[c];
 		AjouterCase(NomDeLArme(Ramassees[c]), ImageDeLArme(Ramassees[c]), FLinearColor(0.f, 0.f, 0.f, 0.f), TEXT("Fusil"),
 			true, c == EnMain && !bArsenalEnMain, Cible);
+	}
+
+	// Beaucoup d'armes (packs) : la roue montre une page de ParPage cases, molette = autre page.
+	NbPages = FMath::Max(1, (Widget->Cases.Num() + ParPage - 1) / ParPage);
+	if (Page >= NbPages || Page < 0)
+	{
+		Page = 0;
+	}
+	if (NbPages > 1)
+	{
+		const int32 Debut = Page * ParPage;
+		const int32 Nombre = FMath::Min(ParPage, Widget->Cases.Num() - Debut);
+		TArray<FCaseArme> CasesPage;
+		TArray<FCibleRoueArmes> CiblesPage;
+		for (int32 i = Debut; i < Debut + Nombre; ++i)
+		{
+			CasesPage.Add(Widget->Cases[i]);
+			CiblesPage.Add(Cibles[i]);
+		}
+		Widget->Cases = MoveTemp(CasesPage);
+		Cibles = MoveTemp(CiblesPage);
 	}
 
 	FText NomMode;
@@ -761,6 +935,10 @@ void ARoueArmes::MettreAJourCentre()
 		Widget->Titre = FText::FromString(TEXT("ARMES"));
 		Widget->Munitions = FText::GetEmpty();
 		Widget->Aide = FText::FromString(bSoldat ? TEXT("Bouge la souris vers une arme") : TEXT("Armes : passe en Soldat (F1)"));
+		if (NbPages > 1)
+		{
+			Widget->Aide = FText::FromString(Widget->Aide.ToString() + FString::Printf(TEXT("  |  page %d/%d (molette)"), Page + 1, NbPages));
+		}
 		return;
 	}
 	const FCaseArme& Case = Widget->Cases[Montree];
@@ -828,7 +1006,30 @@ void ARoueArmes::MettreAJourCentre()
 	{
 		Aide = TEXT("En main");
 	}
-	Widget->Aide = FText::FromString(Aide);
+	Widget->Aide = FText::FromString(NbPages > 1 ? FString::Printf(TEXT("%s  |  page %d/%d (molette)"), Aide, Page + 1, NbPages) : FString(Aide));
+}
+
+void ARoueArmes::PageSuivante()
+{
+	ChangerDePage(1);
+}
+
+void ARoueArmes::PagePrecedente()
+{
+	ChangerDePage(-1);
+}
+
+void ARoueArmes::ChangerDePage(int32 Sens)
+{
+	if (!bOuverte || !Widget.IsValid() || NbPages <= 1)
+	{
+		return;
+	}
+	Page = (Page + Sens + NbPages) % NbPages;
+	Remplir();
+	Survol = INDEX_NONE;
+	MettreAJourSurvol();
+	MettreAJourCentre();
 }
 
 void ARoueArmes::Relacher()
@@ -1020,8 +1221,8 @@ void ARoueArmes::Choisir(int32 Index)
 		DernierArsenal = Cible.Arsenal; // l'arsenal affiche lui-meme son message (ou pourquoi elle n'est pas prete)
 		return;
 	}
-	int32 Case = Cible.Inventaire;
-	if (Case == INDEX_NONE || !Cible.Instance.IsValid())
+	int32 Case = Cible.Instance.IsValid() ? Cible.Inventaire : INDEX_NONE;
+	if (Case == INDEX_NONE)
 	{
 		if (!(Cible.bDonner || bDonnerToutes))
 		{
@@ -1035,7 +1236,36 @@ void ARoueArmes::Choisir(int32 Index)
 			return;
 		}
 	}
+	const TArray<UObject*> Ramassees = ArmesDuSoldat(Pion);
+	UObject* Arme = Ramassees.IsValidIndex(Case) ? Ramassees[Case] : nullptr;
+	if (Arme && ModeleDeLArme(Arme) != Cible.Maillage.ToString())
+	{
+		PoserModele(Arme, Cible.Maillage); // arme d'un pack (ou retour au modele normal)
+		if (CaseEnMain(Pion) == Case && !ArsenalEnMain())
+		{
+			return; // meme arme de base deja en main : seul le modele change
+		}
+	}
 	PrendreCase(Pion, Case);
+}
+
+void ARoueArmes::PoserModele(UObject* Arme, const FSoftObjectPath& Maillage)
+{
+	AActor* A = Cast<AActor>(Arme);
+	if (!A)
+	{
+		return;
+	}
+	A->Tags.RemoveAll([](const FName& T) { return T.ToString().StartsWith(PrefixeModele); });
+	if (!Maillage.IsNull())
+	{
+		A->Tags.Add(FName(*(FString(PrefixeModele) + Maillage.ToString())));
+	}
+	if (!LancerCommande(TEXT("Chelles.Arme"), { TEXT("Rehabiller") }))
+	{
+		Message(TEXT("Armes des packs : il faut le plugin ChellesArmes compil\u00E9"));
+	}
+	UE_LOG(LogTemp, Log, TEXT("[RoueArmes] %s : modele %s"), *A->GetClass()->GetName(), Maillage.IsNull() ? TEXT("normal") : *Maillage.ToString());
 }
 
 bool ARoueArmes::PrendreCase(APawn* Pion, int32 Inventaire)
@@ -1051,24 +1281,74 @@ bool ARoueArmes::PrendreCase(APawn* Pion, int32 Inventaire)
 	{
 		return false;
 	}
-	FIntProperty* Selection = FindFProperty<FIntProperty>(C, TEXT("SelectedWeaponIndex"));
+	FNumericProperty* Selection = ProprieteCase(C);
+	UFunction* Equiper = FonctionEquiper(Pion);
+	UObject* Arme = Ramassees[Inventaire];
 	const bool bArsenal = ArsenalEnMain();
 	if (bArsenal)
 	{
 		LancerCommande(TEXT("Chelles.Arsenal"), { TEXT("Aucune") }); // rend l'arme normale
 	}
-	if (Selection->GetPropertyValue_InContainer(Pion) == Inventaire && !bArsenal)
+	if (CaseEnMain(Pion) == Inventaire && !bArsenal)
 	{
 		return true; // deja en main
 	}
 	// Comme la roue d'armes du kit (W_CircleWeaponSelect) : stop tir auto, case choisie, baisser l'arme, equiper
 	AppelerSansParametre(Pion, TEXT("AutoFireStop"));
-	Selection->SetPropertyValue_InContainer(Pion, Inventaire);
-	if (bAnimation)
+	if (Selection)
+	{
+		Selection->SetIntPropertyValue(Selection->ContainerPtrToValuePtr<void>(Pion), int64(Inventaire));
+	}
+	if (bAnimation && Selection)
 	{
 		AppelerSansParametre(Pion, TEXT("PlayLowerMontage"));
 	}
-	AppelerSansParametre(Pion, TEXT("EquipWeapon"));
+	if (Equiper)
+	{
+		// Parametres remplis selon leur type : nombre = case, objet = l'arme, le reste par defaut.
+		uint8* Parametres = static_cast<uint8*>(FMemory_Alloca(FMath::Max<int32>(1, Equiper->ParmsSize)));
+		FMemory::Memzero(Parametres, FMath::Max<int32>(1, Equiper->ParmsSize));
+		for (TFieldIterator<FProperty> It(Equiper); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+		{
+			It->InitializeValue_InContainer(Parametres);
+			if (It->HasAnyPropertyFlags(CPF_ReturnParm) || (It->HasAnyPropertyFlags(CPF_OutParm) && !It->HasAnyPropertyFlags(CPF_ReferenceParm)))
+			{
+				continue;
+			}
+			if (FNumericProperty* N = CastField<FNumericProperty>(*It))
+			{
+				if (!N->IsFloatingPoint())
+				{
+					N->SetIntPropertyValue(N->ContainerPtrToValuePtr<void>(Parametres), int64(Inventaire));
+				}
+			}
+			else if (FObjectProperty* O = CastField<FObjectProperty>(*It))
+			{
+				if (!O->PropertyClass || Arme->IsA(O->PropertyClass))
+				{
+					O->SetObjectPropertyValue_InContainer(Parametres, Arme);
+				}
+			}
+		}
+		Pion->ProcessEvent(Equiper, Equiper->ParmsSize > 0 ? Parametres : nullptr);
+		for (TFieldIterator<FProperty> It(Equiper); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+		{
+			It->DestroyValue_InContainer(Parametres);
+		}
+	}
+	else if (Pion->FindFunction(TEXT("NextWeapon")))
+	{
+		// Pas de fonction pour une case precise : on fait defiler l'arme suivante jusqu'a la bonne.
+		for (int32 Tour = 0; Tour < Ramassees.Num() && CaseEnMain(Pion) != Inventaire && !LireOuiNon(Pion, TEXT("isSwappingWeapons")); ++Tour)
+		{
+			AppelerSansParametre(Pion, TEXT("NextWeapon"));
+		}
+	}
+	if (CaseEnMain(Pion) != Inventaire && ObjetEnMain(Pion) != Arme)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[RoueArmes] %s n'a pas pris la case %d (%s). Fonctions :%s"),
+			*C->GetName(), Inventaire + 1, *Arme->GetClass()->GetName(), *DecrireSoldat(Pion));
+	}
 	UE_LOG(LogTemp, Log, TEXT("[RoueArmes] Case %d -> %s"), Inventaire + 1, *Ramassees[Inventaire]->GetClass()->GetName());
 	return true;
 }

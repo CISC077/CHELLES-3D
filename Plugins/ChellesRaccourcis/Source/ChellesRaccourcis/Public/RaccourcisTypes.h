@@ -84,4 +84,13 @@ struct CHELLESRACCOURCIS_API FChellesArmeLigne : public FTableRowBase
 	/** Vrai = choisir la case DONNE l'arme si le joueur ne l'a pas encore ramassee (solo / hote seulement). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arme")
 	bool bDonner = false;
+
+	/**
+	 * Arme d'un PACK (2026-11-21) : son modele 3D (SkeletalMesh ou StaticMesh), par exemple
+	 * /Game/MilitaryWeapDark/Weapons/AK47.AK47. Le soldat prend l'arme ClasseArme (son tir, ses munitions)
+	 * et le plugin ChellesArmes la dessine avec ce modele. Vide = arme normale.
+	 * Rempli tout seul par Tools/RaccourcisF/AJOUTER_LES_ARMES_DES_PACKS.bat.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arme")
+	TSoftObjectPtr<UObject> Maillage;
 };

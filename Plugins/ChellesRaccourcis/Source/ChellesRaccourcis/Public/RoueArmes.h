@@ -36,6 +36,8 @@ struct FArmeDeLaRoue
 	FLinearColor Couleur = FLinearColor(0.f, 0.f, 0.f, 0.f);
 	FString Categorie;
 	bool bDonner = false;
+	/** Modele d'un pack pose sur l'arme Classe (vide = arme normale). */
+	FSoftObjectPath Maillage;
 };
 
 /** Ce que represente une case de la roue ouverte. */
@@ -47,6 +49,7 @@ struct FCibleRoueArmes
 	FString Arsenal;
 	TSoftClassPtr<AActor> Classe;
 	bool bDonner = false;
+	FSoftObjectPath Maillage;
 };
 
 UCLASS(NotPlaceable, Transient)
@@ -77,6 +80,8 @@ private:
 	bool bDonnerToutes = false;
 	bool bPrendreTab = true;
 	bool bAnimation = true;
+	/** Cases par page (molette = page suivante quand il y a beaucoup d'armes). */
+	int32 ParPage = 12;
 	FString CheminTableau;
 	bool bDepuisTableau = false;
 	TArray<FArmeDeLaRoue> Armes;
@@ -103,6 +108,11 @@ private:
 	void ManetteY(float Valeur);
 	void MettreAJourSurvol();
 	void Remplir();
+	void PageSuivante();
+	void PagePrecedente();
+	void ChangerDePage(int32 Sens);
+	int32 Page = 0;
+	int32 NbPages = 1;
 	void MettreAJourCentre();
 
 	bool bOuverte = false;
@@ -128,6 +138,8 @@ private:
 	void Choisir(int32 Index);
 	bool PrendreCase(APawn* Pion, int32 Inventaire);
 	int32 Donner(APawn* Pion, UClass* Classe);
+	/** Pose (ou retire) le modele d'un pack sur l'arme, puis ChellesArmes la redessine. */
+	void PoserModele(UObject* Arme, const FSoftObjectPath& Maillage);
 	bool ArsenalEnMain() const;
 	AActor* RelaisArsenal() const;
 	bool LancerCommande(const FString& Nom, const TArray<FString>& Arguments) const;

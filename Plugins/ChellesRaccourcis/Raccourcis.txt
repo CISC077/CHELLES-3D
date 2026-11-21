@@ -42,8 +42,11 @@ RoueArmesRalenti=0.3
 RoueArmesSensibilite=8
 # Oui = toutes les armes du tableau (grisees tant qu'elles ne sont pas ramassees), Non = seulement celles ramassees
 ToutesLesArmes=Oui
-# Oui = choisir une arme pas encore ramassee la DONNE (solo / hote), Non = il faut la ramasser sur la carte
+# Oui = choisir une arme pas encore ramassee la DONNE (pratique pour tester, solo seulement)
 DonnerLesArmes=Oui
+# Cases par page dans la roue (beaucoup d'armes avec les packs : molette de la souris = page suivante)
+RoueArmesParPage=12
+# Les armes des packs : Tools\RaccourcisF\AJOUTER_LES_ARMES_DES_PACKS.bat (Unreal ferme)
 
 # --- SECOURS : utilise seulement tant que le tableau DT_Raccourcis n'existe pas ---
 # Action = nom d'un mode de la roue, ou Case1..Case4 (armes du soldat), ou Blaster, Bazooka, Sabre,
@@ -53,7 +56,7 @@ F2=Spider-Male
 F3=Spider-Femelle
 F4=PANTERA
 F5=Motoneige
-F6=POLICE
+F6=VOITURE
 F7=FLASH ECLAIR
 F8=FLAMME FIRE
 F9=SuperPowers
