@@ -42,8 +42,8 @@ RoueArmesRalenti=0.3
 RoueArmesSensibilite=8
 # Oui = toutes les armes du tableau (grisees tant qu'elles ne sont pas ramassees), Non = seulement celles ramassees
 ToutesLesArmes=Oui
-# Oui = choisir une arme pas encore ramassee la DONNE (pratique pour tester, solo seulement)
-DonnerLesArmes=Non
+# Oui = choisir une arme pas encore ramassee la DONNE (solo / hote), Non = il faut la ramasser sur la carte
+DonnerLesArmes=Oui
 
 # --- SECOURS : utilise seulement tant que le tableau DT_Raccourcis n'existe pas ---
 # Action = nom d'un mode de la roue, ou Case1..Case4 (armes du soldat), ou Blaster, Bazooka, Sabre,

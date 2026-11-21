@@ -206,7 +206,7 @@ namespace RoueArmesOutils
 		return nullptr;
 	}
 
-	FText TexteMunitions(const UObject* Arme)
+	FText TexteMunitions(const UObject* Arme, bool bModele = false)
 	{
 		if (!Arme)
 		{
@@ -220,6 +220,19 @@ namespace RoueArmesOutils
 		int64 Reserve = 0;
 		const bool bChargeur = LireNombre(Arme, TEXT("AmmoCurrent"), Chargeur);
 		const bool bReserve = LireNombre(Arme, TEXT("AmmoInReserve"), Reserve);
+		if (bModele)
+		{
+			// Arme pas encore en main : munitions qu'elle aura une fois donnee (chargeur plein + reserve pleine)
+			int64 Plein = 0;
+			if (Chargeur <= 0 && LireNombre(Arme, TEXT("AmmoMax"), Plein))
+			{
+				Chargeur = Plein;
+			}
+			if (Reserve <= 0 && LireNombre(Arme, TEXT("AmmoInReserve_Max"), Plein))
+			{
+				Reserve = Plein;
+			}
+		}
 		if (!bChargeur && !bReserve)
 		{
 			return FText::GetEmpty(); // arme sans munitions (epee...)
@@ -278,7 +291,7 @@ void ARoueArmes::ChargerReglages()
 	Ralenti = 0.3f;
 	Sensibilite = 8.f;
 	bToutesLesArmes = true;
-	bDonnerToutes = false;
+	bDonnerToutes = true; // 2026-11-21 : MERIDJA veut des armes utilisables tout de suite dans la roue
 	bAnimation = true;
 	CheminTableau = TEXT("/Game/Chelles/Donnees/DT_Armes.DT_Armes");
 
@@ -578,6 +591,17 @@ void ARoueArmes::Remplir()
 	const TArray<UObject*> Ramassees = bSoldat ? ArmesDuSoldat(Pion) : TArray<UObject*>();
 	const int32 EnMain = bSoldat ? CaseEnMain(Pion) : INDEX_NONE;
 	const bool bArsenalEnMain = ArsenalEnMain();
+	{
+		FString Liste;
+		for (UObject* R : Ramassees)
+		{
+			Liste += R ? (TEXT(" ") + R->GetClass()->GetName()) : FString(TEXT(" (vide)"));
+		}
+		UE_LOG(LogTemp, Log, TEXT("[RoueArmes] Joueur %s : %s, %d case(s) d'armes :%s, en main %d, inventaire %s."),
+			Pion ? *Pion->GetClass()->GetName() : TEXT("aucun"), bSoldat ? TEXT("soldat") : TEXT("PAS soldat (pas de UT_Inventory / EquipWeapon)"),
+			Ramassees.Num(), *Liste, EnMain,
+			(Pion && Inventaire(Pion->GetClass())) ? *Inventaire(Pion->GetClass())->GetName() : TEXT("introuvable"));
+	}
 	const bool bArsenalPresent = IConsoleManager::Get().FindConsoleObject(TEXT("Chelles.Arsenal")) != nullptr;
 	AActor* Relais = RelaisArsenal();
 
@@ -687,7 +711,9 @@ void ARoueArmes::Remplir()
 		Cible.Inventaire = Instance ? c : INDEX_NONE;
 		Cible.Instance = Instance;
 		const FText Nom = !A.Nom.IsEmpty() ? A.Nom : (Modele ? NomDeLArme(Modele) : FText::FromString(A.Classe.GetAssetName()));
-		AjouterCase(Nom, Image, A.Couleur, A.Categorie, Instance != nullptr, Instance && c == EnMain && !bArsenalEnMain, Cible);
+		// Pas encore ramassee : utilisable quand meme si elle peut etre donnee (DonnerLesArmes=Oui ou colonne bDonner)
+		const bool bUtilisable = Instance != nullptr || (bSoldat && (A.bDonner || bDonnerToutes) && Classes[l] != nullptr);
+		AjouterCase(Nom, Image, A.Couleur, A.Categorie, bUtilisable, Instance && c == EnMain && !bArsenalEnMain, Cible);
 	}
 
 	// Armes ramassees qui ne sont dans aucune ligne du tableau : on les montre quand meme
@@ -759,7 +785,15 @@ void ARoueArmes::MettreAJourCentre()
 	}
 	else
 	{
-		Widget->Munitions = TexteMunitions(Cible.Instance.Get());
+		if (UObject* Instance = Cible.Instance.Get())
+		{
+			Widget->Munitions = TexteMunitions(Instance);
+		}
+		else
+		{
+			UClass* Classe = Cible.Classe.IsNull() ? nullptr : Cible.Classe.LoadSynchronous();
+			Widget->Munitions = TexteMunitions(Classe ? Classe->GetDefaultObject() : nullptr, true);
+		}
 	}
 
 	const TCHAR* Aide = TEXT("Bouge la souris vers une arme");
@@ -1107,6 +1141,7 @@ int32 ARoueArmes::Donner(APawn* Pion, UClass* Classe)
 	if (!bRempli)
 	{
 		Message(FString::Printf(TEXT("Impossible de donner %s"), *Classe->GetName()));
+		UE_LOG(LogTemp, Warning, TEXT("[RoueArmes] %s : aucun parametre de %s n'accepte %s."), *Pion->GetClass()->GetName(), *F->GetName(), *Classe->GetName());
 		return INDEX_NONE;
 	}
 	const TArray<UObject*> Ramassees = ArmesDuSoldat(Pion);
