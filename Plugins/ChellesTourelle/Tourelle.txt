@@ -1,0 +1,56 @@
+﻿# CHELLES 3D - Reglages de la tourelle BP_Turet2026
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = les tourelles tirent et le cadeau existe, Non = tout est coupe
+Actif=Oui
+
+# ---- Combat ----
+# Distance de tir, en metres
+PorteeMetres=30
+# Nombre de tirs par seconde
+TirsParSeconde=4
+# Degats d'un tir. 5 ou plus = compte comme une balle dans le corps :
+#  zombie de l'invasion = 3 tirs, ennemi du dossier Other = 4 tirs
+Degats=20
+# Non = vise le torse. Oui = la tete (un zombie meurt d'un seul tir)
+ViserTete=Non
+# Vitesse a laquelle la tourelle tourne vers sa cible (plus grand = plus vif)
+VitesseRotation=6
+# Couleur des balles tracantes en Rouge,Vert,Bleu (0 a 255)
+CouleurTraceur=255,140,10
+# Volume des tirs (0 = muet, 1 = normal)
+VolumeTir=0.7
+
+# ---- Cadeau pour les joueurs fideles ----
+# Minutes de jeu avant de recevoir la tourelle
+MinutesAvantCadeau=50
+# Total = temps de jeu de toutes les parties (garde sur le PC du joueur)
+# Partie = il faut rester ce temps dans la meme partie
+Compter=Total
+# Nombre de tourelles qu'un joueur peut poser en meme temps
+TourellesParJoueur=1
+# Distance devant le joueur ou elle est posee (cm)
+DistancePose=250
+# Oui = le menu d'inventaire se ferme quand on pose la tourelle
+FermerInventaire=Oui
+# Tourelle posee par les joueurs (le Blueprint du dossier ScifiGun)
+ClassePosee=/Game/ScifiGun/BP_Turet2026.BP_Turet2026_C
+# Touche rapide pour poser / ramasser sans ouvrir l'inventaire (vide = aucune, toutes les lettres sont prises)
+ToucheRapide=
+# Place de la case TOURELLE a l'ecran quand l'inventaire est ouvert : Droite, Gauche, Haut, Bas
+PlaceCase=Droite
+# Menus d'inventaire a cote desquels la case s'affiche (debut du nom du Widget, une ligne par menu)
+MenuInventaire=W_WeaponInventory_UI
+
+# ---- Qui est un ennemi ? ----
+# Toujours vises : ennemis du dossier FPS_Game/Blueprints/Bonus/AI, zombies de l'invasion,
+# ennemis poses par les plugins Chelles. En plus, toute classe dont le nom contient :
+ClasseEnnemie=Zombie
+ClasseEnnemie=BP_AI_Char
+ClasseEnnemie=Bandit
+# Jamais vises (passants, policiers, marchands...) :
+ClasseIgnoree=Passant
+ClasseIgnoree=Policier
+ClasseIgnoree=Police
+ClasseIgnoree=Merchant

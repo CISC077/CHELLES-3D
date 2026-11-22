@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Tourelle",
+	"Description": "Tourelle BP_Turet2026 qui tire toute seule sur les ennemis et les zombies. Offerte aux joueurs apres 50 minutes de jeu, a poser depuis l'inventaire (touche I). Solo et multijoueur.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesTourelle",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
