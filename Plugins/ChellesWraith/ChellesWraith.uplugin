@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Wraith",
+	"Description": "Le joueur SOLDAT prend l'apparence de Wraith, de Dekker (packs Paragon) ou du Sci-Fi Soldier avec son arme, ses effets de tir et sa voix. Touche K = apparence suivante (4 Wraith, 5 Dekker, 5 Sci-Fi, soldat d'origine). En Spider-Male / Spider-Femelle / PANTERA, K change la couleur de la tenue. Aucun fichier du jeu n'est modifie : tout se fait pendant la partie. Reglages dans Wraith.txt.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesWraith",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
