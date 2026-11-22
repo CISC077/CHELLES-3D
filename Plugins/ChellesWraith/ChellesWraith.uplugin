@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Wraith",
+	"Description": "Le joueur SOLDAT prend l'apparence de Wraith (pack Paragon: Wraith) avec son fusil, ses effets de tir et sa voix. Touche K = changer de skin (vert militaire, rouge et noir, blanc et cyan, Wraith classique, soldat d'origine). Aucun fichier du jeu n'est modifie : tout se fait pendant la partie. Reglages dans Wraith.txt.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesWraith",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
