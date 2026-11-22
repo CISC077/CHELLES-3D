@@ -47,7 +47,6 @@ namespace
 	const FName TagWraith(TEXT("ChellesWraith"));
 	const FName TagSansHabillage(TEXT("ChellesSansHabillage")); // pose par la roue TAB (Spider-Male, PANTERA...)
 	const TCHAR* const Section = TEXT("ChellesWraith");
-	const TCHAR* const DossierVoix = TEXT("/Game/ParagonWraith/Audio/Cues/");
 
 	FString CheminReglages()
 	{
@@ -258,25 +257,48 @@ void AWraithChelles::EndPlay(const EEndPlayReason::Type Raison)
 
 void AWraithChelles::LireReglages()
 {
-	// Valeurs par defaut (si Wraith.txt est absent)
-	const FString P = TEXT("/Game/ParagonWraith/Characters/Heroes/Wraith");
+	// Heros et skins par defaut (si Wraith.txt est absent ou n'a pas de ligne Heros= / Skin=)
+	const FString W = TEXT("/Game/ParagonWraith/Characters/Heroes/Wraith");
+	const FString D = TEXT("/Game/ParagonDekker/Characters/Heroes/Dekker");
+	TArray<FString> HerosDefaut;
+	HerosDefaut.Add(TEXT("Heros=Wraith|") + W + TEXT("/Wraith_AnimBlueprint.Wraith_AnimBlueprint_C|") + W + TEXT("/Animations/Fire_A_Slow_Montage.Fire_A_Slow_Montage|")
+		+ W + TEXT("/Animations/Death_Backward.Death_Backward|/Game/ParagonWraith/Audio/Cues/|Wraith|Gun|weapon_r;gun_stock_bott;gun_barrel;gun_scope|")
+		+ TEXT("/Game/ParagonWraith/FX/Particles/Abilities/ScopedShot/FX/P_Wraith_Sniper_MuzzleFlash.P_Wraith_Sniper_MuzzleFlash"));
+	HerosDefaut.Add(TEXT("Heros=Dekker|") + D + TEXT("/Dekker_AnimBlueprint.Dekker_AnimBlueprint_C|") + D + TEXT("/Animations/Fire_Med_V2_Montage.Fire_Med_V2_Montage|")
+		+ D + TEXT("/Animations/Death_Bwd.Death_Bwd|") + D + TEXT("/Sounds/SoundCues/|Dekker|Weapon;Wapen|weapon;staff_bottom;staff_top;|")
+		+ TEXT("/Game/ParagonDekker/FX/Particles/Abilities/Primary/FX/P_Dekker_PrimaryFire.P_Dekker_PrimaryFire"));
+	TArray<FString> SkinsDefaut;
+	SkinsDefaut.Add(TEXT("Skin=WRAITH VERT MILITAIRE|") + W + TEXT("/Skins/ODGreen/Meshes/Wraith_ODGreen.Wraith_ODGreen||1|0.10,0.13,0.07|Wraith"));
+	SkinsDefaut.Add(TEXT("Skin=WRAITH ROUGE ET NOIR|") + W + TEXT("/Skins/LunarOps/Meshes/Wraith_LunarOps.Wraith_LunarOps|0.85,0.03,0.02|0.12|0.30,0.02,0.02|Wraith"));
+	SkinsDefaut.Add(TEXT("Skin=WRAITH BLANC ET CYAN|") + W + TEXT("/Skins/LunarOps/Meshes/Wraith_LunarOps.Wraith_LunarOps||1|0.75,0.78,0.80|Wraith"));
+	SkinsDefaut.Add(TEXT("Skin=WRAITH CLASSIQUE|") + W + TEXT("/Meshes/Wraith.Wraith||1|0.45,0.45,0.45|Wraith"));
+	SkinsDefaut.Add(TEXT("Skin=DEKKER|") + D + TEXT("/Meshes/Dekker.Dekker||1|0.55,0.50,0.45|Dekker"));
+	SkinsDefaut.Add(TEXT("Skin=DEKKER ENERGIE|") + D + TEXT("/Skins/Tier_1/Dekker_Energized/Meshes/DekkerEnergized.DekkerEnergized||1|0.12,0.05,0.18|Dekker"));
+	SkinsDefaut.Add(TEXT("Skin=DEKKER GLACE|") + D + TEXT("/Skins/Tier_1/Dekker_Frost/Meshes/DekkerArctic.DekkerArctic||1|0.70,0.80,0.90|Dekker"));
+	SkinsDefaut.Add(TEXT("Skin=DEKKER MAGMA|") + D + TEXT("/Skins/Tier_1/Dekker_Magma/Meshes/DekkerMagma.DekkerMagma||1|0.15,0.05,0.03|Dekker"));
+	SkinsDefaut.Add(TEXT("Skin=DEKKER SAINT-VALENTIN|") + D + TEXT("/Skins/Tier_1/Dekker_Valentine/Meshes/DekkerValentine.DekkerValentine||1|0.60,0.20,0.30|Dekker"));
+	SkinsDefaut.Add(TEXT("Skin=SOLDAT D'ORIGINE|Soldat||1||"));
+
 	bActif = true;
 	Touche = EKeys::K;
 	Skins.Reset();
-	CheminAnimations = P + TEXT("/Wraith_AnimBlueprint.Wraith_AnimBlueprint_C");
-	CheminMontageTir = P + TEXT("/Animations/Fire_A_Slow_Montage.Fire_A_Slow_Montage");
-	CheminAnimMort = P + TEXT("/Animations/Death_Backward.Death_Backward");
-	CheminEffetBouche = TEXT("/Game/ParagonWraith/FX/Particles/Abilities/ScopedShot/FX/P_Wraith_Sniper_MuzzleFlash.P_Wraith_Sniper_MuzzleFlash");
+	Heros.Reset();
+	Gardes.Reset();
 
 	TArray<FString> Lignes;
 	if (!FFileHelper::LoadFileToStringArray(Lignes, *CheminReglages()))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s introuvable : reglages par defaut."), *CheminReglages());
-		Lignes.Add(TEXT("Skin=VERT MILITAIRE|") + P + TEXT("/Skins/ODGreen/Meshes/Wraith_ODGreen.Wraith_ODGreen||1|0.10,0.13,0.07"));
-		Lignes.Add(TEXT("Skin=ROUGE ET NOIR|") + P + TEXT("/Skins/LunarOps/Meshes/Wraith_LunarOps.Wraith_LunarOps|0.85,0.03,0.02|0.12|0.30,0.02,0.02"));
-		Lignes.Add(TEXT("Skin=BLANC ET CYAN|") + P + TEXT("/Skins/LunarOps/Meshes/Wraith_LunarOps.Wraith_LunarOps||1|0.75,0.78,0.80"));
-		Lignes.Add(TEXT("Skin=WRAITH CLASSIQUE|") + P + TEXT("/Meshes/Wraith.Wraith||1|0.45,0.45,0.45"));
-		Lignes.Add(TEXT("Skin=SOLDAT D'ORIGINE|Soldat||1|"));
+	}
+	const bool bHerosFichier = Lignes.ContainsByPredicate([](const FString& L) { return L.TrimStart().StartsWith(TEXT("Heros="), ESearchCase::IgnoreCase); });
+	const bool bSkinsFichier = Lignes.ContainsByPredicate([](const FString& L) { return L.TrimStart().StartsWith(TEXT("Skin="), ESearchCase::IgnoreCase); });
+	if (!bHerosFichier)
+	{
+		Lignes.Append(HerosDefaut);
+	}
+	if (!bSkinsFichier)
+	{
+		Lignes.Append(SkinsDefaut);
 	}
 
 	for (FString Ligne : Lignes)
@@ -304,6 +326,56 @@ void AWraithChelles::LireReglages()
 			const FKey K(*Valeur);
 			Touche = K.IsValid() ? K : EKeys::K;
 		}
+		else if (Cle.Equals(TEXT("Heros"), ESearchCase::IgnoreCase))
+		{
+			// Nom|AnimBP|MontageTir|AnimMort|DossierVoix|Prefixe|MotsArme|Os poignee;arriere;avant;haut|EffetBouche
+			TArray<FString> M;
+			Valeur.ParseIntoArray(M, TEXT("|"), false);
+			if (M.Num() < 2)
+			{
+				continue;
+			}
+			while (M.Num() < 9)
+			{
+				M.Add(FString());
+			}
+			for (FString& Morceau : M)
+			{
+				Morceau = Morceau.TrimStartAndEnd();
+			}
+			FHerosWraith H;
+			H.Nom = M[0];
+			H.ClasseAnim = LoadObject<UClass>(nullptr, *M[1]);
+			H.MontageTir = M[2].IsEmpty() ? nullptr : LoadObject<UAnimMontage>(nullptr, *M[2]);
+			H.AnimMort = M[3].IsEmpty() ? nullptr : LoadObject<UAnimSequenceBase>(nullptr, *M[3]);
+			H.DossierVoix = M[4];
+			if (!H.DossierVoix.IsEmpty() && !H.DossierVoix.EndsWith(TEXT("/")))
+			{
+				H.DossierVoix += TEXT("/");
+			}
+			H.Prefixe = M[5].IsEmpty() ? H.Nom : M[5];
+			M[6].ParseIntoArray(H.MotsArme, TEXT(";"), true);
+			TArray<FString> Os;
+			M[7].ParseIntoArray(Os, TEXT(";"), false);
+			if (Os.IsValidIndex(0) && !Os[0].IsEmpty()) H.OsPoignee = FName(*Os[0].TrimStartAndEnd());
+			if (Os.IsValidIndex(1) && !Os[1].IsEmpty()) H.OsArriere = FName(*Os[1].TrimStartAndEnd());
+			if (Os.IsValidIndex(2) && !Os[2].IsEmpty()) H.OsAvant = FName(*Os[2].TrimStartAndEnd());
+			if (Os.IsValidIndex(3) && !Os[3].IsEmpty()) H.OsHaut = FName(*Os[3].TrimStartAndEnd());
+			H.EffetBouche = M[8].IsEmpty() ? nullptr : LoadObject<UParticleSystem>(nullptr, *M[8]);
+			UObject* AGarder[] = { H.ClasseAnim, H.MontageTir, H.AnimMort, H.EffetBouche };
+			for (UObject* O : AGarder)
+			{
+				if (O)
+				{
+					Gardes.Add(O);
+				}
+			}
+			if (!H.ClasseAnim)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : Animation Blueprint introuvable (%s)"), *H.Nom, *M[1]);
+			}
+			Heros.Add(H);
+		}
 		else if (Cle.Equals(TEXT("Skin"), ESearchCase::IgnoreCase))
 		{
 			TArray<FString> M;
@@ -330,29 +402,14 @@ void AWraithChelles::LireReglages()
 				Skin.bBras = true;
 				Skin.Bras = FLinearColor(A, B, C);
 			}
+			Skin.NomHeros = M.IsValidIndex(5) ? M[5].TrimStartAndEnd() : FString();
 			Skins.Add(Skin);
-		}
-		else if (Cle.Equals(TEXT("Animations"), ESearchCase::IgnoreCase))
-		{
-			CheminAnimations = Valeur;
-		}
-		else if (Cle.Equals(TEXT("MontageTir"), ESearchCase::IgnoreCase))
-		{
-			CheminMontageTir = Valeur;
-		}
-		else if (Cle.Equals(TEXT("AnimMort"), ESearchCase::IgnoreCase))
-		{
-			CheminAnimMort = Valeur;
-		}
-		else if (Cle.Equals(TEXT("EffetBouche"), ESearchCase::IgnoreCase))
-		{
-			CheminEffetBouche = Valeur;
 		}
 		else if (Cle.Equals(TEXT("Echelle"), ESearchCase::IgnoreCase))
 		{
 			Echelle = FMath::Clamp(FCString::Atof(*Valeur), 0.2f, 5.f);
 		}
-		else if (Cle.Equals(TEXT("ArmeWraith"), ESearchCase::IgnoreCase))
+		else if (Cle.Equals(TEXT("ArmeWraith"), ESearchCase::IgnoreCase) || Cle.Equals(TEXT("ArmeHeros"), ESearchCase::IgnoreCase))
 		{
 			bArmeWraith = EstOui(Valeur);
 		}
@@ -382,18 +439,32 @@ void AWraithChelles::LireReglages()
 		}
 	}
 
-	ClasseAnim = LoadObject<UClass>(nullptr, *CheminAnimations);
-	MontageTir = LoadObject<UAnimMontage>(nullptr, *CheminMontageTir);
-	AnimMort = LoadObject<UAnimSequenceBase>(nullptr, *CheminAnimMort);
-	EffetBouche = LoadObject<UParticleSystem>(nullptr, *CheminEffetBouche);
-	if (!ClasseAnim)
+	// Chaque skin retrouve son heros (Wraith par defaut)
+	for (FSkinWraith& Skin : Skins)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Wraith] Animation Blueprint introuvable : %s"), *CheminAnimations);
+		Skin.Heros = 0;
+		for (int32 i = 0; i < Heros.Num(); ++i)
+		{
+			if (Heros[i].Nom.Equals(Skin.NomHeros, ESearchCase::IgnoreCase))
+			{
+				Skin.Heros = i;
+				break;
+			}
+		}
+		if (!Skin.bSoldat && !Heros.IsValidIndex(Skin.Heros))
+		{
+			Skin.bSoldat = true; // aucun heros declare
+		}
 	}
 	if (SkinLocal >= Skins.Num())
 	{
 		SkinLocal = 0;
 	}
+}
+
+const FHerosWraith* AWraithChelles::HerosDe(const FSoldatWraith& S) const
+{
+	return Heros.IsValidIndex(S.Heros) ? &Heros[S.Heros] : nullptr;
 }
 
 USkeletalMesh* AWraithChelles::Charger(const FString& Chemin) const
@@ -580,7 +651,7 @@ void AWraithChelles::Suivre(FSoldatWraith& S, float Dt)
 		if (!S.bIntroJouee)
 		{
 			S.bIntroJouee = true;
-			Dire(S, TEXT("Wraith_Intro_Statement,Wraith_Catchphrase"), 1.f, true);
+			Dire(S, TEXT("Intro_Statement,Catchphrase"), 1.f, true);
 		}
 	}
 }
@@ -599,7 +670,7 @@ void AWraithChelles::Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 
 		if (!bAvisPack)
 		{
 			bAvisPack = true;
-			const FString Texte = FString::Printf(TEXT("Wraith introuvable (%s). Ajoutez le pack gratuit \"Paragon: Wraith\" au projet."), *Skin.Corps);
+			const FString Texte = FString::Printf(TEXT("%s introuvable (%s). Ajoutez le pack gratuit Paragon au projet."), *Skin.Nom, *Skin.Corps);
 			UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s"), *Texte);
 			if (C->IsLocallyControlled())
 			{
@@ -608,6 +679,17 @@ void AWraithChelles::Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 
 		}
 		return;
 	}
+	const FHerosWraith& H = Heros[Skin.Heros];
+
+	// Changement de heros (Wraith <-> Dekker) : autres animations, on repart de zero
+	if (S.Heros != Skin.Heros && S.Corps.IsValid())
+	{
+		S.Corps->DestroyComponent();
+		S.Corps.Reset();
+		RetirerArme(S);
+		S.bIntroJouee = false;
+	}
+	S.Heros = Skin.Heros;
 
 	USkeletalMeshComponent* W = S.Corps.Get();
 	if (!W)
@@ -624,14 +706,14 @@ void AWraithChelles::Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 
 		W->SetRelativeScale3D(FVector(Echelle));
 		W->SetSkeletalMesh(Corps);
 		W->RegisterComponent();
-		if (ClasseAnim)
+		if (H.ClasseAnim)
 		{
 			W->SetAnimationMode(EAnimationMode::AnimationBlueprint);
-			W->SetAnimInstanceClass(ClasseAnim);
+			W->SetAnimInstanceClass(H.ClasseAnim);
 		}
 		S.Corps = W;
 		S.Skin = -1;
-		UE_LOG(LogTemp, Log, TEXT("[Wraith] %s habille en Wraith."), *C->GetName());
+		UE_LOG(LogTemp, Log, TEXT("[Wraith] %s habille en %s."), *C->GetName(), *H.Nom);
 	}
 
 	if (S.Skin != Index)
@@ -762,7 +844,7 @@ void AWraithChelles::CacherCorpsSoldat(FSoldatWraith& S)
 	}
 }
 
-void AWraithChelles::MontrerFusilSeul(USkeletalMeshComponent* G)
+void AWraithChelles::MontrerFusilSeul(USkeletalMeshComponent* G, const TArray<FString>& MotsArme)
 {
 	USkeletalMesh* M = G ? G->SkeletalMesh : nullptr;
 	FSkeletalMeshRenderData* Rendu = M ? M->GetResourceForRendering() : nullptr;
@@ -786,24 +868,27 @@ void AWraithChelles::MontrerFusilSeul(USkeletalMeshComponent* G)
 			if (Materiaux.IsValidIndex(Mat))
 			{
 				const FString Nom = Materiaux[Mat].MaterialSlotName.ToString() + TEXT(" ") + GetNameSafe(Materiaux[Mat].MaterialInterface);
-				bFusil = Nom.Contains(TEXT("Gun"));
+				for (const FString& Mot : MotsArme)
+				{
+					bFusil = bFusil || Nom.Contains(Mot);
+				}
 			}
 			G->ShowMaterialSection(Mat, Sct, bFusil, L);
 		}
 	}
 }
 
-FTransform AWraithChelles::PlacementArme(USkeletalMesh* Corps, UMeshComponent* MaillageFPP, AActor* Arme) const
+FTransform AWraithChelles::PlacementArme(const FHerosWraith& H, USkeletalMesh* Corps, UMeshComponent* MaillageFPP, AActor* Arme) const
 {
 	// Repere du fusil de Wraith (pose de reference) : poignee = os weapon_r, avant = crosse -> canon
 	FTransform Poignee, Canon, Crosse, Lunette;
-	if (!OsReference(Corps, TEXT("weapon_r"), Poignee))
+	if (!OsReference(Corps, H.OsPoignee, Poignee))
 	{
 		return FTransform::Identity;
 	}
 	FVector Avant = Poignee.GetUnitAxis(EAxis::X);
-	const bool bCrosse = OsReference(Corps, TEXT("gun_stock_bott"), Crosse) || OsReference(Corps, TEXT("gun_stock_top"), Crosse);
-	if (bCrosse && OsReference(Corps, TEXT("gun_barrel"), Canon))
+	const bool bCrosse = !H.OsArriere.IsNone() && OsReference(Corps, H.OsArriere, Crosse);
+	if (bCrosse && !H.OsAvant.IsNone() && OsReference(Corps, H.OsAvant, Canon))
 	{
 		const FVector D = Canon.GetLocation() - Crosse.GetLocation();
 		if (D.Size() > 1.f)
@@ -812,7 +897,7 @@ FTransform AWraithChelles::PlacementArme(USkeletalMesh* Corps, UMeshComponent* M
 		}
 	}
 	FVector Haut = FVector::UpVector;
-	if (bCrosse && OsReference(Corps, TEXT("gun_scope"), Lunette))
+	if (bCrosse && !H.OsHaut.IsNone() && OsReference(Corps, H.OsHaut, Lunette))
 	{
 		const FVector V = Lunette.GetLocation() - Crosse.GetLocation();
 		const FVector H = V - Avant * FVector::DotProduct(V, Avant);
@@ -879,7 +964,7 @@ void AWraithChelles::SuivreArme(FSoldatWraith& S, USkeletalMesh* Corps)
 		G->bReceivesDecals = false;
 		G->SetSkeletalMesh(Corps);
 		G->RegisterComponent();
-		MontrerFusilSeul(G);
+		MontrerFusilSeul(G, Heros[S.Heros].MotsArme);
 		if (USkeletalMeshComponent* W = S.Corps.Get())
 		{
 			for (int32 i = 0; i < W->OverrideMaterials.Num(); ++i)
@@ -892,7 +977,7 @@ void AWraithChelles::SuivreArme(FSoldatWraith& S, USkeletalMesh* Corps)
 		}
 		S.ArmeFPP = G;
 	}
-	G->SetRelativeTransform(PlacementArme(Corps, FPP, Arme));
+	G->SetRelativeTransform(PlacementArme(Heros[S.Heros], Corps, FPP, Arme));
 	Sync(G, FPP);
 
 	// L'arme du soldat (et le modele pose par ChellesArmes dessus) n'est plus dessinee
@@ -1081,14 +1166,14 @@ void AWraithChelles::ChangerSkin(int32 Nouveau, bool bAnnoncer)
 	}
 	if (bAnnoncer)
 	{
-		Annonce(FString::Printf(TEXT("WRAITH : %s      (%s = skin suivant)"), *Skins[SkinLocal].Nom, *Touche.GetDisplayName().ToString()));
+		Annonce(FString::Printf(TEXT("SOLDAT : %s      (%s = skin suivant)"), *Skins[SkinLocal].Nom, *Touche.GetDisplayName().ToString()));
 		APlayerController* PC = GetPC();
 		for (FSoldatWraith& S : Soldats)
 		{
 			if (PC && S.Soldat.Get() == PC->GetPawn() && !Skins[SkinLocal].bSoldat)
 			{
 				Suivre(S, 0.f); // habille tout de suite, puis la voix
-				Dire(S, TEXT("Wraith_DraftSelect,Wraith_Emote_Taunt"), 1.f, true);
+				Dire(S, TEXT("DraftSelect,Emote_Taunt"), 1.f, true);
 			}
 		}
 	}
@@ -1176,27 +1261,39 @@ void AWraithChelles::Dire(FSoldatWraith& S, const TCHAR* Repliques, float Chance
 	{
 		return; // il parle deja
 	}
-	TArray<FString> Noms;
-	FString(Repliques).ParseIntoArray(Noms, TEXT(","), true);
-	if (Noms.Num() == 0)
+	const FHerosWraith* H = HerosDe(S);
+	if (!H || H->DossierVoix.IsEmpty())
 	{
 		return;
 	}
-	const FString Nom = Noms[FMath::RandRange(0, Noms.Num() - 1)].TrimStartAndEnd();
-	USoundBase* Son = nullptr;
-	if (USoundBase** Deja = Sons.Find(Nom))
+	// Repliques = fins de nom ("Effort_Jump") : on cherche <Prefixe>_<fin> dans le dossier des voix du heros
+	TArray<FString> Fins;
+	FString(Repliques).ParseIntoArray(Fins, TEXT(","), true);
+	TArray<USoundBase*> Possibles;
+	for (const FString& Fin : Fins)
 	{
-		Son = *Deja;
+		const FString Nom = H->Prefixe + TEXT("_") + Fin.TrimStartAndEnd();
+		const FString Chemin = FString::Printf(TEXT("%s%s.%s"), *H->DossierVoix, *Nom, *Nom);
+		USoundBase* Trouve = nullptr;
+		if (USoundBase** Deja = Sons.Find(Chemin))
+		{
+			Trouve = *Deja;
+		}
+		else
+		{
+			Trouve = LoadObject<USoundBase>(nullptr, *Chemin, nullptr, LOAD_Quiet | LOAD_NoWarn);
+			Sons.Add(Chemin, Trouve);
+		}
+		if (Trouve)
+		{
+			Possibles.Add(Trouve);
+		}
 	}
-	else
-	{
-		Son = LoadObject<USoundBase>(nullptr, *FString::Printf(TEXT("%s%s.%s"), DossierVoix, *Nom, *Nom));
-		Sons.Add(Nom, Son);
-	}
-	if (!Son)
+	if (Possibles.Num() == 0)
 	{
 		return;
 	}
+	USoundBase* Son = Possibles[FMath::RandRange(0, Possibles.Num() - 1)];
 	if (S.VoixEnCours.IsValid() && bForcer)
 	{
 		S.VoixEnCours->Stop();
@@ -1220,7 +1317,7 @@ void AWraithChelles::SuivreVoix(FSoldatWraith& S, float Dt)
 		S.VitesseZMin = 0.f;
 		if (V.Z > 200.f)
 		{
-			Dire(S, TEXT("Wraith_Effort_Jump"), 0.6f);
+			Dire(S, TEXT("Effort_Jump"), 0.6f);
 		}
 	}
 	if (bAir)
@@ -1232,11 +1329,11 @@ void AWraithChelles::SuivreVoix(FSoldatWraith& S, float Dt)
 		S.bEnLair = false;
 		if (S.VitesseZMin < -1100.f)
 		{
-			Dire(S, TEXT("Wraith_Effort_LandHeavy"), 1.f, true);
+			Dire(S, TEXT("Effort_LandHeavy"), 1.f, true);
 		}
 		else if (S.VitesseZMin < -600.f)
 		{
-			Dire(S, TEXT("Wraith_Effort_Land"), 0.5f);
+			Dire(S, TEXT("Effort_Land"), 0.5f);
 		}
 	}
 
@@ -1251,17 +1348,17 @@ void AWraithChelles::SuivreVoix(FSoldatWraith& S, float Dt)
 			if (Perte > 0.5f && Sante > 0.f && Maintenant - S.DerniereDouleur > 1.2f)
 			{
 				S.DerniereDouleur = Maintenant;
-				Dire(S, Perte >= Max * 0.25f ? TEXT("Wraith_Effort_PainHeavy") : TEXT("Wraith_Effort_Pain"), 1.f, true);
+				Dire(S, Perte >= Max * 0.25f ? TEXT("Effort_PainHeavy") : TEXT("Effort_Pain"), 1.f, true);
 			}
 			if (Sante > 0.f && Sante < Max * 0.25f && Maintenant - S.DerniereSanteBasse > 25.f)
 			{
 				S.DerniereSanteBasse = Maintenant;
-				Dire(S, TEXT("Wraith_Health_Low,Wraith_Health_Critical"));
+				Dire(S, TEXT("Health_Low,Health_Critical"));
 			}
 			if (-Perte > Max * 0.2f && Maintenant - S.DernierSoin > 10.f)
 			{
 				S.DernierSoin = Maintenant;
-				Dire(S, TEXT("Wraith_Health_Healed"), 0.7f);
+				Dire(S, TEXT("Health_Healed"), 0.7f);
 			}
 		}
 		S.SanteVue = Sante;
@@ -1277,13 +1374,14 @@ void AWraithChelles::SuivreVoix(FSoldatWraith& S, float Dt)
 	if (bMort && !S.bMort)
 	{
 		S.bMort = true;
-		Dire(S, TEXT("Wraith_Effort_Death,Wraith_Death"), 1.f, true);
+		Dire(S, TEXT("Effort_Death,Death"), 1.f, true);
 		if (Corps)
 		{
 			Corps->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-			if (AnimMort)
+			const FHerosWraith* H = HerosDe(S);
+			if (H && H->AnimMort)
 			{
-				Corps->PlayAnimation(AnimMort, false);
+				Corps->PlayAnimation(H->AnimMort, false);
 			}
 		}
 	}
@@ -1294,10 +1392,11 @@ void AWraithChelles::SuivreVoix(FSoldatWraith& S, float Dt)
 		{
 			Corps->AttachToComponent(C->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 			Corps->SetRelativeTransform(FTransform(FQuat::Identity, FVector::ZeroVector, FVector(Echelle)));
-			if (ClasseAnim)
+			const FHerosWraith* H = HerosDe(S);
+			if (H && H->ClasseAnim)
 			{
 				Corps->SetAnimationMode(EAnimationMode::AnimationBlueprint);
-				Corps->SetAnimInstanceClass(ClasseAnim);
+				Corps->SetAnimInstanceClass(H->ClasseAnim);
 			}
 		}
 	}
@@ -1309,7 +1408,7 @@ void AWraithChelles::SuivreVoix(FSoldatWraith& S, float Dt)
 		if (S.ImmobileDepuis > 60.f && !S.bVoixImmobile)
 		{
 			S.bVoixImmobile = true;
-			Dire(S, TEXT("Wraith_Status_Idle_010,Wraith_Status_Idle_020,Wraith_Status_Idle_030,Wraith_ProfileIdle_010"));
+			Dire(S, TEXT("Status_Idle,Status_Idle_010,Status_Idle_020,ProfileIdle_010,ProfileIdle_020"));
 		}
 	}
 	else
@@ -1364,6 +1463,9 @@ void AWraithChelles::Tir(FSoldatWraith& S)
 	USkeletalMeshComponent* FusilFPP = S.ArmeFPP.Get();
 	const bool bVue1re = C->GetMesh() && C->GetMesh()->bOwnerNoSee; // en 1re personne le corps est cache au joueur
 
+	const FHerosWraith* H = HerosDe(S);
+	UParticleSystem* EffetBouche = H ? H->EffetBouche : nullptr;
+	UAnimMontage* MontageTir = H ? H->MontageTir : nullptr;
 	if (bEffetsTir && EffetBouche)
 	{
 		USkeletalMeshComponent* Source = (bVue1re && FusilFPP && FusilFPP->IsVisible()) ? FusilFPP : Corps;
@@ -1387,7 +1489,7 @@ void AWraithChelles::Tir(FSoldatWraith& S)
 	if (Maintenant - S.DerniereVoixTir > 6.f)
 	{
 		S.DerniereVoixTir = Maintenant;
-		Dire(S, TEXT("Wraith_Effort_Ability_Primary,Wraith_Effort_Attack"), 0.35f);
+		Dire(S, TEXT("Effort_Ability_Primary,Effort_Ability_Primary_Fire,Effort_Attack"), 0.35f);
 	}
 }
 

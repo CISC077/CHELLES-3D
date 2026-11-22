@@ -1,50 +1,57 @@
 ; =====================================================================
-;  CHELLES 3D - Wraith (pack gratuit "Paragon: Wraith") a la place du SOLDAT
+;  CHELLES 3D - Heros Paragon (Wraith, Dekker) a la place du SOLDAT
 ;  Plugin ChellesWraith. Modifiez ce fichier avec le Bloc-notes, puis
-;  relancez le jeu (ou tapez  Chelles.Wraith Relire  dans la console, touche ²).
-;  Oui / Non pour activer ou couper une option.
+;  relancez le jeu (ou tapez  Chelles.Wraith Relire  dans la console, touche 2).
+;  Oui / Non pour activer ou couper une option. Pas d'accents dans ce fichier.
 ; =====================================================================
 
 Actif=Oui
 
-; Touche pour changer de skin (couleur / style)
+; Touche pour changer d'apparence (chaque joueur choisit la sienne, aussi en multijoueur)
 Touche=K
 
 ; ---------------------------------------------------------------------
-;  Les skins, dans l'ordre de la touche K. Une ligne par skin :
-;  Skin=NOM AFFICHE|corps|recolorer|assombrir|couleur des bras en 1re personne
+;  Les heros. Une ligne par heros :
+;  Heros=Nom|Animation Blueprint|montage de tir|animation de mort|dossier des voix|debut du nom des voix|materiaux de l'arme (;)|os poignee;arriere;avant;haut|eclair du tir
+; ---------------------------------------------------------------------
+Heros=Wraith|/Game/ParagonWraith/Characters/Heroes/Wraith/Wraith_AnimBlueprint.Wraith_AnimBlueprint_C|/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Fire_A_Slow_Montage.Fire_A_Slow_Montage|/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Death_Backward.Death_Backward|/Game/ParagonWraith/Audio/Cues/|Wraith|Gun|weapon_r;gun_stock_bott;gun_barrel;gun_scope|/Game/ParagonWraith/FX/Particles/Abilities/ScopedShot/FX/P_Wraith_Sniper_MuzzleFlash.P_Wraith_Sniper_MuzzleFlash
+Heros=Dekker|/Game/ParagonDekker/Characters/Heroes/Dekker/Dekker_AnimBlueprint.Dekker_AnimBlueprint_C|/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Fire_Med_V2_Montage.Fire_Med_V2_Montage|/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Death_Bwd.Death_Bwd|/Game/ParagonDekker/Characters/Heroes/Dekker/Sounds/SoundCues/|Dekker|Weapon;Wapen|weapon;staff_bottom;staff_top;|/Game/ParagonDekker/FX/Particles/Abilities/Primary/FX/P_Dekker_PrimaryFire.P_Dekker_PrimaryFire
+
+; ---------------------------------------------------------------------
+;  Les apparences, dans l'ordre de la touche K. Une ligne par apparence :
+;  Skin=NOM AFFICHE|corps|recolorer|assombrir|couleur des bras en 1re personne|heros
 ;   - corps : le modele du pack ("Soldat" = garder le soldat d'origine)
 ;   - recolorer : vide = couleurs du pack, sinon R,G,B (0 a 1) = nouvelle teinte
 ;   - assombrir : 1 = rien, 0.2 = les parties grises/blanches deviennent presque noires
+;   - heros : Wraith ou Dekker (ses animations, sa voix, son arme)
 ; ---------------------------------------------------------------------
-Skin=VERT MILITAIRE|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/ODGreen/Meshes/Wraith_ODGreen.Wraith_ODGreen||1|0.10,0.13,0.07
-Skin=ROUGE ET NOIR|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/LunarOps/Meshes/Wraith_LunarOps.Wraith_LunarOps|0.85,0.03,0.02|0.12|0.30,0.02,0.02
-Skin=BLANC ET CYAN|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/LunarOps/Meshes/Wraith_LunarOps.Wraith_LunarOps||1|0.75,0.78,0.80
-Skin=WRAITH CLASSIQUE|/Game/ParagonWraith/Characters/Heroes/Wraith/Meshes/Wraith.Wraith||1|0.45,0.45,0.45
-Skin=SOLDAT D'ORIGINE|Soldat||1|
-
-; Animations de Wraith (son propre Animation Blueprint du pack)
-Animations=/Game/ParagonWraith/Characters/Heroes/Wraith/Wraith_AnimBlueprint.Wraith_AnimBlueprint_C
-MontageTir=/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Fire_A_Slow_Montage.Fire_A_Slow_Montage
-AnimMort=/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Death_Backward.Death_Backward
+Skin=WRAITH VERT MILITAIRE|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/ODGreen/Meshes/Wraith_ODGreen.Wraith_ODGreen||1|0.10,0.13,0.07|Wraith
+Skin=WRAITH ROUGE ET NOIR|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/LunarOps/Meshes/Wraith_LunarOps.Wraith_LunarOps|0.85,0.03,0.02|0.12|0.30,0.02,0.02|Wraith
+Skin=WRAITH BLANC ET CYAN|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/LunarOps/Meshes/Wraith_LunarOps.Wraith_LunarOps||1|0.75,0.78,0.80|Wraith
+Skin=WRAITH CLASSIQUE|/Game/ParagonWraith/Characters/Heroes/Wraith/Meshes/Wraith.Wraith||1|0.45,0.45,0.45|Wraith
+Skin=DEKKER|/Game/ParagonDekker/Characters/Heroes/Dekker/Meshes/Dekker.Dekker||1|0.55,0.50,0.45|Dekker
+Skin=DEKKER ENERGIE|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Energized/Meshes/DekkerEnergized.DekkerEnergized||1|0.12,0.05,0.18|Dekker
+Skin=DEKKER GLACE|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Frost/Meshes/DekkerArctic.DekkerArctic||1|0.70,0.80,0.90|Dekker
+Skin=DEKKER MAGMA|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Magma/Meshes/DekkerMagma.DekkerMagma||1|0.15,0.05,0.03|Dekker
+Skin=DEKKER SAINT-VALENTIN|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Valentine/Meshes/DekkerValentine.DekkerValentine||1|0.60,0.20,0.30|Dekker
+Skin=SOLDAT D'ORIGINE|Soldat||1||
 
 ; Taille du corps (1 = taille du pack)
 Echelle=1.0
 
-; Son fusil : le fusil de Wraith remplace l'arme du soldat a l'ecran (3e et 1re personne).
+; L'arme du heros remplace l'arme du soldat a l'ecran (3e et 1re personne).
 ; Les armes de corps a corps (couteau, epee) et les grenades ne sont pas remplacees.
 ArmeWraith=Oui
-; Reglage du fusil vu en 1re personne (console : Chelles.Wraith Arme X Y Z / ArmeRot P Y R / ArmeEchelle E)
+; Reglage de l'arme vue en 1re personne (console : Chelles.Wraith Arme X Y Z / ArmeRot P Y R / ArmeEchelle E)
 ArmeFPP.Decalage=0,0,0
 ArmeFPP.Rotation=0,0,0
 ArmeFPP.Echelle=0.8
 
-; Effets du fusil de Wraith a chaque tir (eclair au bout du canon)
+; Eclair au bout de l'arme a chaque tir
 EffetsTir=Oui
-EffetBouche=/Game/ParagonWraith/FX/Particles/Abilities/ScopedShot/FX/P_Wraith_Sniper_MuzzleFlash.P_Wraith_Sniper_MuzzleFlash
 
-; Bras et jambes vus en 1re personne teintes de la couleur du skin
+; Bras et jambes vus en 1re personne teintes de la couleur de l'apparence
 BrasCouleur=Oui
 
-; Voix de Wraith (anglais, celles du pack) : 0 = muet, 1 = fort
+; Voix du heros (anglais, celles du pack) : 0 = muet, 1 = fort
 Voix=0.8

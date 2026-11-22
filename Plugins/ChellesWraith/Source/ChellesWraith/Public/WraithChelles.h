@@ -29,6 +29,23 @@ class USkeletalMeshComponent;
 class UAudioComponent;
 class USoundBase;
 
+/** Un heros Paragon (ligne Heros= de Wraith.txt) : ses animations, sa voix, son arme. */
+struct FHerosWraith
+{
+	FString Nom;
+	FString DossierVoix;            // dossier des SoundCue, ex. /Game/ParagonWraith/Audio/Cues/
+	FString Prefixe;                // debut du nom des repliques, ex. Wraith
+	TArray<FString> MotsArme;       // materiaux de l'arme (pour ne montrer qu'elle en 1re personne)
+	FName OsPoignee = TEXT("weapon_r");
+	FName OsArriere;
+	FName OsAvant;
+	FName OsHaut;
+	UClass* ClasseAnim = nullptr;
+	UAnimMontage* MontageTir = nullptr;
+	UAnimSequenceBase* AnimMort = nullptr;
+	UParticleSystem* EffetBouche = nullptr;
+};
+
 /** Une ligne Skin= de Wraith.txt */
 struct FSkinWraith
 {
@@ -40,6 +57,8 @@ struct FSkinWraith
 	float Assombrir = 1.f;
 	bool bBras = false;
 	FLinearColor Bras = FLinearColor(0.3f, 0.3f, 0.3f);
+	FString NomHeros;              // Wraith, Dekker...
+	int32 Heros = 0;
 };
 
 /** Un composant du soldat qu'on a cache (remis comme avant a la fin). */
@@ -69,6 +88,7 @@ struct FSoldatWraith
 	TWeakObjectPtr<AActor> ArmeSuivie;
 	TWeakObjectPtr<UMeshComponent> MaillageFPPSuivi;
 	int32 Skin = -1;
+	int32 Heros = -1;
 	int32 SkinBras = -1;
 	bool bIntroJouee = false;
 
@@ -109,10 +129,8 @@ private:
 	bool bActif = true;
 	FKey Touche;
 	TArray<FSkinWraith> Skins;
-	FString CheminAnimations;
-	FString CheminMontageTir;
-	FString CheminAnimMort;
-	FString CheminEffetBouche;
+	TArray<FHerosWraith> Heros;
+	const FHerosWraith* HerosDe(const FSoldatWraith& S) const;
 	float Echelle = 1.f;
 	bool bArmeWraith = true;
 	FVector ArmeDecalage = FVector::ZeroVector;
@@ -143,8 +161,8 @@ private:
 	void TeindreBras(FSoldatWraith& S, const FSkinWraith& Skin, int32 Index);
 	void RemettreBras(FSoldatWraith& S);
 	void Recolorer(USkeletalMeshComponent* C, const FSkinWraith& Skin, bool bJournal);
-	static void MontrerFusilSeul(USkeletalMeshComponent* C);
-	FTransform PlacementArme(USkeletalMesh* Corps, UMeshComponent* MaillageFPP, AActor* Arme) const;
+	static void MontrerFusilSeul(USkeletalMeshComponent* C, const TArray<FString>& MotsArme);
+	FTransform PlacementArme(const FHerosWraith& H, USkeletalMesh* Corps, UMeshComponent* MaillageFPP, AActor* Arme) const;
 
 	static void Cacher(TArray<FCacheWraith>& Liste, UPrimitiveComponent* C);
 	static void Remettre(TArray<FCacheWraith>& Liste);
@@ -168,17 +186,9 @@ private:
 	float ProchaineRecherche = 0.f;
 	bool bAvisPack = false;
 
+	/** Animations, montages, effets des heros : gardes en memoire. */
 	UPROPERTY()
-	UClass* ClasseAnim = nullptr;
-
-	UPROPERTY()
-	UAnimMontage* MontageTir = nullptr;
-
-	UPROPERTY()
-	UAnimSequenceBase* AnimMort = nullptr;
-
-	UPROPERTY()
-	UParticleSystem* EffetBouche = nullptr;
+	TArray<UObject*> Gardes;
 
 	UPROPERTY()
 	TArray<USkeletalMesh*> CorpsCharges;

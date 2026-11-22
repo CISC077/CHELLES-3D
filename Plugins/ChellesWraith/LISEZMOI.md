@@ -1,7 +1,8 @@
-# ChellesWraith : Wraith (Paragon) à la place du SOLDAT
+# ChellesWraith : Wraith et Dekker (Paragon) à la place du SOLDAT
 
 Le joueur **SOLDAT** (FPS_Game, case "Soldat" de la roue TAB / F1) prend l'apparence de
-**Wraith** du pack gratuit *Paragon: Wraith* (déjà dans `Content/ParagonWraith`).
+**Wraith** (*Paragon: Wraith*, `Content/ParagonWraith`) ou de **Dekker** (*Paragon: Dekker*,
+`Content/ParagonDekker`), au choix avec la touche **K**.
 
 ## Ce que fait le plugin
 - **Corps** : le soldat n'est plus dessiné, Wraith est posé à sa place avec ses propres
@@ -13,15 +14,24 @@ Le joueur **SOLDAT** (FPS_Game, case "Soldat" de la roue TAB / F1) prend l'appar
 - **Sa voix** (anglais, celle du pack) : saut, atterrissage, douleur, santé basse, soin, mort,
   arrivée en jeu, changement de skin.
 - **Touche K** : skin suivant. Le nom du skin s'affiche en haut de l'écran. Le choix est gardé
-  (GameUserSettings.ini, section `[ChellesWraith]`). En multijoueur, tout le monde voit le même skin.
+  (GameUserSettings.ini, section `[ChellesWraith]`). En multijoueur, chaque joueur
+  choisit le sien avec K et les autres le voient.
 
-| Skin | D'où il vient |
+Chaque héros (ligne `Heros=` de Wraith.txt) a ses animations, sa voix, son arme et son éclair de tir.
+Chaque skin (ligne `Skin=`) dit à quel héros il appartient.
+
+| Skin (ordre de K) | D'où il vient |
 |---|---|
-| VERT MILITAIRE | skin ODGreen du pack |
-| ROUGE ET NOIR | skin LunarOps recoloré en rouge par le plugin |
-| BLANC ET CYAN | skin LunarOps du pack |
+| WRAITH VERT MILITAIRE | skin ODGreen du pack |
+| WRAITH ROUGE ET NOIR | skin LunarOps recoloré en rouge par le plugin |
+| WRAITH BLANC ET CYAN | skin LunarOps du pack |
 | WRAITH CLASSIQUE | Wraith de base du pack |
-| SOLDAT D'ORIGINE | le soldat sans Wraith |
+| DEKKER | Dekker de base du pack (son bâton-arme, sa voix) |
+| DEKKER ENERGIE | skin Energized (noir et cyan) |
+| DEKKER GLACE | skin Arctic Frost (blanc et bleu) |
+| DEKKER MAGMA | skin Magma (rouge et noir) |
+| DEKKER SAINT-VALENTIN | skin Valentine (rose) |
+| SOLDAT D'ORIGINE | le soldat sans héros |
 
 Pas actif en Spider-Male / Spider-Femelle / PANTERA (la roue TAB habille déjà le soldat).
 
@@ -33,9 +43,10 @@ Pas actif en Spider-Male / Spider-Femelle / PANTERA (la roue TAB habille déjà 
 ## Réglages (Wraith.txt)
 Bloc-notes, puis relancer le jeu ou console (touche ²) `Chelles.Wraith Relire`.
 - `Actif=Non` : plugin coupé.
-- `Skin=…` : ajouter / enlever / renommer des skins, changer la teinte (R,G,B).
+- `Skin=…` : ajouter / enlever / renommer des skins, changer la teinte (R,G,B), choisir le héros.
+- `Heros=…` : ajouter un autre héros Paragon (son Animation Blueprint, ses voix, son arme).
 - `ArmeWraith=Non` : garder les armes du soldat.
-- `Voix=0` : Wraith muet.
+- `Voix=0` : héros muets.
 
 ## Console (touche ²)
 - `Chelles.Wraith` : état.
