@@ -4,6 +4,7 @@
 #include "Engine/DataTable.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
+#include "GameFramework/GameUserSettings.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Framework/Application/SlateApplication.h"
@@ -24,11 +25,11 @@
 
 namespace
 {
-	/** Touches par defaut (si Raccourcis.txt manque) : les 11 modes de la roue, F12 reservee. */
+	/** Touches par defaut (si Raccourcis.txt manque). F11 reste au PLEIN ECRAN (22/11/2026) : HORSE passe sur F12. */
 	const TCHAR* const ActionsParDefaut[12] = {
 		TEXT("Soldat"), TEXT("Spider-Male"), TEXT("Spider-Femelle"), TEXT("PANTERA"),
-		TEXT("Motoneige"), TEXT("POLICE"), TEXT("FLASH ECLAIR"), TEXT("FLAMME FIRE"),
-		TEXT("SuperPowers"), TEXT("DYNAMIC COMBAT"), TEXT("HORSE"), TEXT("Reserve")
+		TEXT("Motoneige"), TEXT("VOITURE"), TEXT("FLASH ECLAIR"), TEXT("FLAMME FIRE"),
+		TEXT("SuperPowers"), TEXT("DYNAMIC COMBAT"), TEXT("Reserve"), TEXT("HORSE")
 	};
 
 	const FLinearColor CouleurNeon(0.f, 0.94f, 1.f);
@@ -276,6 +277,7 @@ void ARaccourcisF::ChargerReglages()
 		}
 	}
 	ChargerTableau();
+	LibererF11();
 	FString Liste;
 	for (const FRaccourciF& R : Raccourcis)
 	{
@@ -288,6 +290,42 @@ void ARaccourcisF::ChargerReglages()
 		AffichageMenu == 2 ? TEXT("toujours") : (AffichageMenu == 0 ? TEXT("jamais") : TEXT("deroulant")),
 		*Liste);
 	RemplirMenu();
+}
+
+void ARaccourcisF::LibererF11()
+{
+	// F11 = plein ecran d'Unreal (bF11TogglesFullscreen, DefaultInput.ini) : jamais une touche de mode.
+	// Le mode qui y etait (HORSE dans l'ancien tableau) passe sur F12 si F12 est libre.
+	const int32 i11 = Raccourcis.IndexOfByPredicate([](const FRaccourciF& R) { return R.Touche == EKeys::F11; });
+	if (i11 == INDEX_NONE)
+	{
+		return;
+	}
+	const FRaccourciF Ancien = Raccourcis[i11];
+	Raccourcis.RemoveAt(i11);
+	if (EstReserve(Ancien.Action))
+	{
+		return;
+	}
+	const int32 i12 = Raccourcis.IndexOfByPredicate([](const FRaccourciF& R) { return R.Touche == EKeys::F12; });
+	if (i12 == INDEX_NONE)
+	{
+		FRaccourciF R = Ancien;
+		R.Touche = EKeys::F12;
+		Raccourcis.Add(R);
+	}
+	else if (EstReserve(Raccourcis[i12].Action))
+	{
+		Raccourcis[i12].Action = Ancien.Action;
+		Raccourcis[i12].NomAffiche = Ancien.NomAffiche;
+		Raccourcis[i12].Couleur = Ancien.Couleur;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Raccourcis] F11 = plein ecran : %s n'a plus de touche (F12 deja prise par %s)."), *Ancien.Action, *Raccourcis[i12].Action);
+		return;
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Raccourcis] F11 rendue au plein ecran, %s passe sur F12."), *Ancien.Action);
 }
 
 void ARaccourcisF::ChargerTableau()
@@ -374,6 +412,7 @@ void ARaccourcisF::Tick(float DeltaSeconds)
 		return;
 	}
 	RetirerTouchesDebogage(PC);
+	PleinEcranF11(PC);
 	for (int32 i = 0; i < Raccourcis.Num(); ++i)
 	{
 		const FKey& Touche = Raccourcis[i].Touche;
@@ -381,6 +420,25 @@ void ARaccourcisF::Tick(float DeltaSeconds)
 		{
 			Appuyer(i);
 		}
+	}
+}
+
+void ARaccourcisF::PleinEcranF11(APlayerController* PC)
+{
+	// F11 = plein ecran / fenetre. Unreal le fait deja (bF11TogglesFullscreen=True dans DefaultInput.ini) et garde
+	// alors la touche pour lui : le jeu ne la voit pas. Si un jour elle arrive quand meme jusqu'au joueur,
+	// on bascule nous-memes. Pas dans l'editeur (Play) : la, F11 = mode immersif de l'editeur.
+	if (GIsEditor || !PC || !PC->WasInputKeyJustPressed(EKeys::F11) || !GEngine)
+	{
+		return;
+	}
+	if (UGameUserSettings* Reglages = GEngine->GetGameUserSettings())
+	{
+		const EWindowMode::Type Mode = Reglages->GetFullscreenMode() == EWindowMode::Windowed ? EWindowMode::WindowedFullscreen : EWindowMode::Windowed;
+		Reglages->SetFullscreenMode(Mode);
+		Reglages->ApplyResolutionSettings(false);
+		Reglages->SaveSettings();
+		UE_LOG(LogTemp, Log, TEXT("[Raccourcis] F11 : %s."), Mode == EWindowMode::Windowed ? TEXT("fenetre") : TEXT("plein ecran"));
 	}
 }
 

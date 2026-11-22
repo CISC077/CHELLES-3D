@@ -61,5 +61,5 @@ F7=FLASH ECLAIR
 F8=FLAMME FIRE
 F9=SuperPowers
 F10=DYNAMIC COMBAT
-F11=HORSE
-F12=Reserve
+# F11 = plein ecran (touche d'Unreal) : jamais un mode
+F12=HORSE

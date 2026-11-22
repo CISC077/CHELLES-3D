@@ -95,6 +95,10 @@ private:
 	/** Vrai si les touches viennent du tableau (faux = secours Raccourcis.txt). */
 	bool bDepuisTableau = false;
 	void ChargerTableau();
+	/** F11 reste au plein ecran : le mode qui y etait passe sur F12. */
+	void LibererF11();
+	/** F11 = plein ecran / fenetre (au cas ou Unreal ne l'aurait pas fait). */
+	void PleinEcranF11(APlayerController* PC);
 	float DureeMenu = 3.f;
 	TArray<FRaccourciF> Raccourcis;
 
