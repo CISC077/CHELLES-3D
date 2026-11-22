@@ -13,6 +13,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/IAssetRegistry.h"
 #include "BrainComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -29,6 +30,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Misc/App.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Misc/PackageName.h"
 #include "GameFramework/PlayerState.h"
 #include "Sound/SoundBase.h"
@@ -132,6 +135,7 @@ void APouvoirsChelles::Message(const FString& Texte)
 void APouvoirsChelles::BeginPlay()
 {
 	Super::BeginPlay();
+	ChargerReglages();
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		Charger();
@@ -538,7 +542,12 @@ void APouvoirsChelles::Changer()
 
 void APouvoirsChelles::Utiliser()
 {
-	if (!EnJeu())
+	Demander(Selection);
+}
+
+void APouvoirsChelles::Demander(int32 Quel)
+{
+	if (!EnJeu() || Quel < 0 || Quel >= NombrePouvoirs)
 	{
 		return;
 	}
@@ -549,18 +558,24 @@ void APouvoirsChelles::Utiliser()
 		Message(TEXT("Les pouvoirs se pr\u00E9parent, r\u00E9essaie dans une seconde."));
 		return;
 	}
-	const FInfoPouvoir& P = Pouvoir(Selection);
-	if (!EstDebloque(Selection, XPLocale))
+	const FInfoPouvoir& P = Pouvoir(Quel);
+	if (!EstDebloque(Quel, XPLocale))
 	{
 		Message(FString::Printf(TEXT("%s s'ouvre au niveau %d, dans %s de jeu."), P.Nom, P.Niveau,
 			*TempsDeJeuAvant(Paliers()[P.Niveau - 1].XP, XPLocale)));
 		return;
 	}
-	if (R->EffetActif(Selection) && Selection != Cameleon)
+	if (Quel == Envol && R->EffetActif(Envol))
+	{
+		// 2026-11-22 : J pendant le vol = atterrir (le vol peut etre sans limite)
+		R->ServeurFinEnvol();
+		return;
+	}
+	if (R->EffetActif(Quel) && Quel != Cameleon)
 	{
 		return;
 	}
-	const float Attente = R->RestantRecharge(Selection);
+	const float Attente = R->RestantRecharge(Quel);
 	if (Attente > 0.f)
 	{
 		Message(FString::Printf(TEXT("%s se recharge : encore %d s"), P.Nom, FMath::CeilToInt(Attente)));
@@ -573,7 +588,140 @@ void APouvoirsChelles::Utiliser()
 	FVector Origine;
 	FRotator Visee;
 	PC->GetPlayerViewPoint(Origine, Visee);
-	R->ServeurPouvoir(uint8(Selection), Origine, Visee);
+	R->ServeurPouvoir(uint8(Quel), Origine, Visee);
+}
+
+// ---------------------------------------------------------------------------
+// Tout le monde vole (2026-11-22, demande MERIDJA) : sauter puis ESPACE en l'air = ENVOL.
+// Le soldat garde ses armes en volant. Spider-Male / Spider-Femelle / PANTERA gardent leur
+// propre vol (plugin ChellesRoue) : on ne touche pas a ces personnages-la.
+// ---------------------------------------------------------------------------
+
+void APouvoirsChelles::ChargerReglages()
+{
+	FReglagesPouvoirs& Reg = Reglages();
+	Reg = FReglagesPouvoirs(); // valeurs par defaut si le fichier manque
+	const FString Chemin = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesPouvoirs"), TEXT("Pouvoirs.txt"));
+	TArray<FString> Lignes;
+	if (!FFileHelper::LoadFileToStringArray(Lignes, *Chemin))
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Pouvoirs] %s absent : tous les pouvoirs et le vol pour tous (reglages par defaut)."), *Chemin);
+		return;
+	}
+	auto Oui = [](const FString& V)
+	{
+		return V.Equals(TEXT("Oui"), ESearchCase::IgnoreCase) || V.Equals(TEXT("True"), ESearchCase::IgnoreCase) || V == TEXT("1");
+	};
+	for (const FString& Brute : Lignes)
+	{
+		const FString Ligne = Brute.TrimStartAndEnd();
+		FString Cle, Valeur;
+		if (Ligne.IsEmpty() || Ligne.StartsWith(TEXT("#")) || !Ligne.Split(TEXT("="), &Cle, &Valeur))
+		{
+			continue;
+		}
+		Cle.TrimStartAndEndInline();
+		Valeur.TrimStartAndEndInline();
+		if (Cle.Equals(TEXT("TousLesPouvoirs"), ESearchCase::IgnoreCase))
+		{
+			Reg.bTousLesPouvoirs = Oui(Valeur);
+		}
+		else if (Cle.Equals(TEXT("VolPourTous"), ESearchCase::IgnoreCase))
+		{
+			Reg.bVolPourTous = Oui(Valeur);
+		}
+		else if (Cle.Equals(TEXT("DureeVol"), ESearchCase::IgnoreCase))
+		{
+			Reg.DureeEnvol = FMath::Max(0.f, FCString::Atof(*Valeur));
+		}
+		else if (Cle.Equals(TEXT("RechargeVol"), ESearchCase::IgnoreCase))
+		{
+			Reg.RechargeEnvol = FMath::Max(0.f, FCString::Atof(*Valeur));
+		}
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Pouvoirs] Reglages : TousLesPouvoirs=%d VolPourTous=%d DureeVol=%.0f RechargeVol=%.0f"),
+		Reg.bTousLesPouvoirs, Reg.bVolPourTous, Reg.DureeEnvol, Reg.RechargeEnvol);
+}
+
+bool APouvoirsChelles::AUnVolAPart(APawn* Pion)
+{
+	if (!Pion)
+	{
+		return true;
+	}
+	// Soldat habille en Spider-Male / Spider-Femelle / PANTERA par la roue : ESPACE en l'air = leur vol a eux
+	if (Pion->Tags.Contains(FName(TEXT("ChellesSansHabillage"))))
+	{
+		return true;
+	}
+	// Personnage du pack SuperheroFlight (le volant de Spider-Male...) : il vole deja tout seul
+	for (UActorComponent* C : Pion->GetComponents())
+	{
+		if (C && C->GetClass()->GetName().Contains(TEXT("SuperheroFlight")))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void APouvoirsChelles::SuivreVolPourTous(float DeltaSeconds)
+{
+	APlayerController* PC = GetPC();
+	ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+	APouvoirsRelais* R = MonRelais();
+	UCharacterMovementComponent* Mouvement = Perso ? Perso->GetCharacterMovement() : nullptr;
+	if (!Mouvement || !R || !EnJeu())
+	{
+		TempsAuSol = 0.f;
+		return;
+	}
+
+	if (R->EffetActif(Envol))
+	{
+		// En vol : on se pose en descendant (CTRL / C) jusqu'a toucher le sol
+		const bool bDescend = PC->IsInputKeyDown(EKeys::LeftControl) || PC->IsInputKeyDown(EKeys::C) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Right);
+		bool bSolProche = false;
+		if (bDescend && Perso->GetCapsuleComponent())
+		{
+			const float DemiHauteur = Perso->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+			const FVector Pieds = Perso->GetActorLocation();
+			FHitResult Sol;
+			FCollisionQueryParams Requete(SCENE_QUERY_STAT(AtterrirChelles), false, Perso);
+			bSolProche = GetWorld()->LineTraceSingleByChannel(Sol, Pieds, Pieds - FVector(0.f, 0.f, DemiHauteur + 40.f), ECC_Visibility, Requete);
+		}
+		TempsAuSol = bSolProche ? TempsAuSol + DeltaSeconds : 0.f;
+		if (TempsAuSol >= 0.15f)
+		{
+			TempsAuSol = 0.f;
+			R->ServeurFinEnvol();
+		}
+		return;
+	}
+	TempsAuSol = 0.f;
+
+	if (!Reglages().bVolPourTous || !PC->WasInputKeyJustPressed(EKeys::SpaceBar))
+	{
+		return;
+	}
+	// ESPACE au sol = le saut normal. ESPACE en l'air (apres un saut ou une chute) = s'envoler.
+	if (!Mouvement->IsFalling() || AUnVolAPart(Perso))
+	{
+		return;
+	}
+	Demander(Envol);
+}
+
+void APouvoirsChelles::FinirEnvol(APouvoirsRelais* Relais)
+{
+	if (!Relais || !Relais->EffetActif(Envol))
+	{
+		return;
+	}
+	const float Maintenant = Relais->Maintenant();
+	Relais->FinEffet[Envol] = Maintenant;
+	Relais->FinRecharge[Envol] = Maintenant + Pouvoir(Envol).Recharge;
+	Relais->ForceNetUpdate();
 }
 
 // ---------------------------------------------------------------------------
@@ -619,6 +767,7 @@ void APouvoirsChelles::GererRelais()
 		APawn* Actuel = PC->GetPawn();
 		if (R->Pion != Actuel)
 		{
+			FinirEnvol(R); // nouveau personnage (roue, mort, vehicule) : il ne s'envole pas tout seul
 			R->Pion = Actuel;
 			R->ForceNetUpdate();
 		}
@@ -1361,6 +1510,7 @@ void APouvoirsChelles::Tick(float DeltaSeconds)
 
 	if (!W->IsPaused())
 	{
+		SuivreVolPourTous(DeltaSeconds);
 		AppliquerEffets(DeltaSeconds);
 	}
 	MajHud();

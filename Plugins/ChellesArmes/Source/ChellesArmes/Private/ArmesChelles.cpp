@@ -1036,11 +1036,12 @@ void AArmesChelles::FlashElectrique()
 	bool bHeros = false;
 	for (const FString& H : Reglages.HerosFlash)
 	{
-		bHeros = bHeros || Corps.Contains(H);
+		// 2026-11-22 (demande MERIDJA) : HerosFlash=Tous = tous les personnages, soldat compris
+		bHeros = bHeros || EstTous(H) || Corps.Contains(H);
 	}
 	if (!bHeros)
 	{
-		Message(TEXT("FLASH ELECTRIQUE : reserve a Spider-Male, Spider-Femelle et PANTERA (roue TAB)."));
+		Message(TEXT("FLASH ELECTRIQUE : pas pour ce personnage (HerosFlash= dans Armes.txt, mettre Tous pour tout le monde)."));
 		return;
 	}
 	const float Instant = Monde->GetTimeSeconds();
@@ -1231,6 +1232,11 @@ void AArmesChelles::TirerDepuis(uint8 Tir, const FVector& Origine, APlayerContro
 //  Heros sans arme (PANTERA, 2026-11-11) : tirs speciaux depuis les mains
 // =====================================================================================
 
+bool AArmesChelles::EstTous(const FString& Nom)
+{
+	return Nom.Equals(TEXT("Tous"), ESearchCase::IgnoreCase) || Nom == TEXT("*");
+}
+
 bool AArmesChelles::EstHeros(APawn* Pion) const
 {
 	const ACharacter* Perso = Cast<ACharacter>(Pion);
@@ -1242,6 +1248,12 @@ bool AArmesChelles::EstHeros(APawn* Pion) const
 	const FString Nom = Corps->SkeletalMesh->GetName();
 	for (const FString& H : Reglages.Heros)
 	{
+		// 2026-11-22 : Heros=Tous = tout personnage sans arme en main tire depuis ses mains
+		// (mais pas le soldat qui tient une arme, meme si elle est habillee autrement : Wraith...)
+		if (EstTous(H) && LireObjet(Pion, TEXT("EquippedWeapon")) == nullptr)
+		{
+			return true;
+		}
 		if (Nom.Contains(H))
 		{
 			return true;

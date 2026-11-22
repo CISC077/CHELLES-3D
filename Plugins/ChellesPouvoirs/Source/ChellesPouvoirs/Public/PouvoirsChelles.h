@@ -60,6 +60,9 @@ public:
 	/** Serveur : un joueur demande un pouvoir. */
 	void ExecuterServeur(APouvoirsRelais* Relais, int32 Quel, FVector Origine, FRotator Visee);
 
+	/** Serveur : arrete le vol ENVOL du joueur (pose au sol, J pendant le vol, changement de personnage). */
+	void FinirEnvol(APouvoirsRelais* Relais);
+
 	/** Pour tester : ajoute (ou retire) de l'XP au joueur de cette machine. Console : Chelles.XP 500 */
 	void AjouterXPTest(int32 Quantite);
 
@@ -93,6 +96,14 @@ private:
 	void LierClavier();
 	void Utiliser();
 	void Changer();
+	/** Demande un pouvoir au serveur (J = le pouvoir choisi, ESPACE en l'air = ENVOL). */
+	void Demander(int32 Quel);
+
+	// Tout le monde vole (2026-11-22) : reglages de Pouvoirs.txt, ESPACE en l'air, atterrissage
+	void ChargerReglages();
+	void SuivreVolPourTous(float DeltaSeconds);
+	static bool AUnVolAPart(APawn* Pion);
+	float TempsAuSol = 0.f;
 
 	// XP du joueur de cette machine
 	void Charger();

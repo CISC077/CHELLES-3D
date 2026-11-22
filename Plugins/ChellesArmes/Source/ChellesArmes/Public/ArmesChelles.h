@@ -123,6 +123,8 @@ private:
 
 	// ---- Heros sans arme (PANTERA) : tirs speciaux depuis les mains ----
 	bool EstHeros(APawn* Pion) const;
+	/** "Tous" (ou *) dans Heros= / HerosFlash= : tous les personnages (2026-11-22). */
+	static bool EstTous(const FString& Nom);
 	uint8 TirDuHeros();
 	void ChoisirTirHeros(uint8 Tir);
 	void TirerMains(uint8 Tir, APlayerController* PC, APawn* Pion);

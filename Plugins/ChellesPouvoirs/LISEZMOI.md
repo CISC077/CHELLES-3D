@@ -1,6 +1,10 @@
 # Chelles Pouvoirs et XP
 
-Le joueur gagne de l'XP en jouant et débloque des pouvoirs. Rien à poser dans la carte : le plugin s'ajoute tout seul au lancement (solo et multijoueur).
+Le joueur gagne de l'XP en jouant et débloque des pouvoirs.
+
+**Depuis le 22/11/2026 : tous les joueurs (soldat compris) ont TOUS les pouvoirs dès le départ et TOUT LE MONDE PEUT VOLER** (sauter puis rappuyer sur ESPACE en l'air). Réglages dans `Pouvoirs.txt` (Bloc-notes, pas besoin de recompiler) : `TousLesPouvoirs=Non` remet le déblocage par l'XP, `VolPourTous=Non` coupe le vol avec ESPACE, `DureeVol` / `RechargeVol` règlent le vol.
+
+Rien à poser dans la carte : le plugin s'ajoute tout seul au lancement (solo et multijoueur).
 
 ## Installer
 

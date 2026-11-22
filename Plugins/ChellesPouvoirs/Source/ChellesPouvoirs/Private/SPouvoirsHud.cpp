@@ -205,7 +205,7 @@ int32 SPouvoirsHud::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FS
 	for (int32 i = 0; i < NombrePouvoirs; ++i)
 	{
 		const FInfoPouvoir& P = Pouvoir(i);
-		const bool bDebloque = Niveau >= P.Niveau;
+		const bool bDebloque = EstDebloque(i, Etat.XP); // 2026-11-22 : tout ouvert si TousLesPouvoirs=Oui
 		const FVector2D Case = Coin + FVector2D(14.f + i * (TailleCase + Ecart), 44.f);
 		const FVector2D Milieu = Case + FVector2D(TailleCase * 0.5f, TailleCase * 0.5f - 4.f);
 
@@ -223,7 +223,9 @@ int32 SPouvoirsHud::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FS
 		}
 		if (Etat.Effet[i] > 0.f)
 		{
-			Ecrire(Sortie, Couche + 6, G, Milieu, HudDuree(Etat.Effet[i]), PoliceTitre, HudOr, 0.5f);
+			// Vol sans limite : pas de compte a rebours, juste "VOL"
+			const bool bSansFin = Etat.Effet[i] > DureeVolSansLimite * 0.5f;
+			Ecrire(Sortie, Couche + 6, G, Milieu, bSansFin ? FString(TEXT("VOL")) : HudDuree(Etat.Effet[i]), PoliceTitre, HudOr, 0.5f);
 		}
 		if (!bDebloque)
 		{

@@ -87,6 +87,14 @@ void APouvoirsRelais::ServeurPouvoir_Implementation(uint8 Quel, FVector Origine,
 	}
 }
 
+void APouvoirsRelais::ServeurFinEnvol_Implementation()
+{
+	if (APouvoirsChelles* Gestionnaire = TrouverGestionnaire())
+	{
+		Gestionnaire->FinirEnvol(this);
+	}
+}
+
 void APouvoirsRelais::ClientXPCombat_Implementation(int32 Quantite, bool bTue)
 {
 	if (APouvoirsChelles* Gestionnaire = TrouverGestionnaire())

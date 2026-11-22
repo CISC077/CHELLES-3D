@@ -107,3 +107,7 @@ l'XP vaut 0. Réglages dans `Arsenal.txt` (section ARMES LOURDES). Pour tester e
 
 Journal : lignes `[Armes]` dans `Saved\Logs\FPS_Chelles.log`.
 Pour tout enlever : supprimer le dossier `Plugins\ChellesArmes` (rien d'autre n'est modifié).
+
+## Mêmes armes pour tous (22/11/2026)
+
+Dans `Armes.txt`, `Heros=Tous` et `HerosFlash=Tous` : tous les personnages (soldat, Spider-Male, Spider-Femelle, PANTERA, persos des packs) ont le FLASH ÉLECTRIQUE (touche X) et, sans arme en main, tirent depuis leurs mains (clic gauche, O = changer de tir). Les armes du soldat restent celles de la roue TAB. Remettre les anciennes listes (en commentaire juste au-dessus) pour revenir en arrière.

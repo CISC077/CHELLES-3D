@@ -8,6 +8,41 @@
 #include "Rendering/DrawElements.h"
 #include "Rendering/SlateRenderer.h"
 #include "Styling/CoreStyle.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+
+namespace
+{
+	/**
+	 * 2026-11-22 (demande MERIDJA) : TousLesPouvoirs=Oui dans Plugins\ChellesPouvoirs\Pouvoirs.txt
+	 * = tous les pouvoirs ouverts des le depart pour tout le monde. Lu une fois (absent = Oui).
+	 */
+	bool TousLesPouvoirsOuverts()
+	{
+		static int32 Lu = -1;
+		if (Lu < 0)
+		{
+			Lu = 1;
+			TArray<FString> Lignes;
+			const FString Chemin = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesPouvoirs"), TEXT("Pouvoirs.txt"));
+			if (FFileHelper::LoadFileToStringArray(Lignes, *Chemin))
+			{
+				for (const FString& Brute : Lignes)
+				{
+					FString Cle, Valeur;
+					const FString Ligne = Brute.TrimStartAndEnd();
+					if (!Ligne.StartsWith(TEXT("#")) && Ligne.Split(TEXT("="), &Cle, &Valeur)
+						&& Cle.TrimStartAndEnd().Equals(TEXT("TousLesPouvoirs"), ESearchCase::IgnoreCase))
+					{
+						const FString V = Valeur.TrimStartAndEnd();
+						Lu = (V.Equals(TEXT("Oui"), ESearchCase::IgnoreCase) || V.Equals(TEXT("True"), ESearchCase::IgnoreCase) || V == TEXT("1")) ? 1 : 0;
+					}
+				}
+			}
+		}
+		return Lu == 1;
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Paliers et pouvoirs (copie de PouvoirsTypes.h : a changer aux deux endroits)
@@ -601,7 +636,7 @@ int32 SHudChelles::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 			{
 				for (int32 i = 0; i < NombrePouvoirs; ++i)
 				{
-					if (Niveau >= Pouvoir(i).Niveau)
+					if (TousLesPouvoirsOuverts() || Niveau >= Pouvoir(i).Niveau)
 					{
 						Quel = i;
 					}
@@ -622,7 +657,7 @@ int32 SHudChelles::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 		else
 		{
 			const FPouvoirHud& P = Pouvoir(Quel);
-			const bool bDebloque = Niveau >= P.Niveau;
+			const bool bDebloque = TousLesPouvoirsOuverts() || Niveau >= P.Niveau;
 			// pastille de couleur
 			Boite(Sortie, Couche + 4, G, FVector2D(XNom, YP - 5.f), FVector2D(10.f, 10.f), bDebloque ? P.Couleur : HudTerne);
 			Ecrire(Sortie, Couche + 4, G, FVector2D(XNom + 16.f, YP), P.Nom, PoliceTitre, bDebloque ? P.Couleur : HudTerne, 0.f);
@@ -636,7 +671,8 @@ int32 SHudChelles::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSl
 			}
 			else if (Etat.Effet[Quel] > 0.f)
 			{
-				Etiquette = FString::Printf(TEXT("ACTIF  %s"), *TexteDuree(Etat.Effet[Quel]));
+				// Vol sans limite (ENVOL d'une heure) : pas de compte a rebours
+				Etiquette = Etat.Effet[Quel] > 1800.f ? FString(TEXT("EN VOL")) : FString::Printf(TEXT("ACTIF  %s"), *TexteDuree(Etat.Effet[Quel]));
 				CouleurEtiquette = HudDore;
 			}
 			else if (Etat.Recharge[Quel] > 0.f)
