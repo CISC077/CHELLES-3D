@@ -6,6 +6,7 @@
 //  - en 1re personne, le fusil de Wraith remplace l'arme du soldat a l'ecran
 //  - voix de Wraith (saut, douleur, mort...) et eclair du fusil de Wraith a chaque tir
 //  - touche K : skin suivant (Wraith.txt). En multijoueur, le skin passe par AWraithRelais.
+//  - heros "pose soldat" (Sci-Fi Soldier, squelette mannequin) : copie les mouvements du soldat, garde ses armes
 #pragma once
 
 #include "CoreMinimal.h"
@@ -41,6 +42,7 @@ struct FHerosWraith
 	FName OsAvant;
 	FName OsHaut;
 	UClass* ClasseAnim = nullptr;
+	bool bPoseSoldat = false;       // AnimBP "Soldat" : le corps copie les mouvements du soldat (squelette mannequin)
 	UAnimMontage* MontageTir = nullptr;
 	UAnimSequenceBase* AnimMort = nullptr;
 	UParticleSystem* EffetBouche = nullptr;
@@ -57,7 +59,8 @@ struct FSkinWraith
 	float Assombrir = 1.f;
 	bool bBras = false;
 	FLinearColor Bras = FLinearColor(0.3f, 0.3f, 0.3f);
-	FString NomHeros;              // Wraith, Dekker...
+	FString NomHeros;              // Wraith, Dekker, SciFi...
+	UMaterialInterface* Materiau = nullptr; // tenue : materiau pose sur tout le corps (facultatif)
 	int32 Heros = 0;
 };
 

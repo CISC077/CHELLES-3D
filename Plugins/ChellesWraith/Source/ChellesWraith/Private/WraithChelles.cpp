@@ -277,6 +277,13 @@ void AWraithChelles::LireReglages()
 	SkinsDefaut.Add(TEXT("Skin=DEKKER GLACE|") + D + TEXT("/Skins/Tier_1/Dekker_Frost/Meshes/DekkerArctic.DekkerArctic||1|0.70,0.80,0.90|Dekker"));
 	SkinsDefaut.Add(TEXT("Skin=DEKKER MAGMA|") + D + TEXT("/Skins/Tier_1/Dekker_Magma/Meshes/DekkerMagma.DekkerMagma||1|0.15,0.05,0.03|Dekker"));
 	SkinsDefaut.Add(TEXT("Skin=DEKKER SAINT-VALENTIN|") + D + TEXT("/Skins/Tier_1/Dekker_Valentine/Meshes/DekkerValentine.DekkerValentine||1|0.60,0.20,0.30|Dekker"));
+	const FString SF = TEXT("/Game/SciFiSoldier");
+	HerosDefaut.Add(TEXT("Heros=SciFi|Soldat|||||||"));
+	SkinsDefaut.Add(TEXT("Skin=SCI-FI NOIR|") + SF + TEXT("/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.08,0.08,0.08|SciFi|") + SF + TEXT("/Materials/MI_SciFiSoldier.MI_SciFiSoldier"));
+	SkinsDefaut.Add(TEXT("Skin=SCI-FI ROUGE|") + SF + TEXT("/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.33,0.01,0.00|SciFi|") + SF + TEXT("/Materials/MI_SciFiSoldier_2.MI_SciFiSoldier_2"));
+	SkinsDefaut.Add(TEXT("Skin=SCI-FI DORE|") + SF + TEXT("/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.33,0.14,0.00|SciFi|") + SF + TEXT("/Materials/MI_SciFiSoldier_3.MI_SciFiSoldier_3"));
+	SkinsDefaut.Add(TEXT("Skin=SCI-FI BLEU|") + SF + TEXT("/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.00,0.09,0.40|SciFi|") + SF + TEXT("/Materials/MI_SciFiSoldier_4.MI_SciFiSoldier_4"));
+	SkinsDefaut.Add(TEXT("Skin=SCI-FI VERT|") + SF + TEXT("/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.07,0.08,0.04|SciFi|") + SF + TEXT("/Materials/MI_SciFiSoldier_5.MI_SciFiSoldier_5"));
 	SkinsDefaut.Add(TEXT("Skin=SOLDAT D'ORIGINE|Soldat||1||"));
 
 	bActif = true;
@@ -345,7 +352,8 @@ void AWraithChelles::LireReglages()
 			}
 			FHerosWraith H;
 			H.Nom = M[0];
-			H.ClasseAnim = LoadObject<UClass>(nullptr, *M[1]);
+			H.bPoseSoldat = M[1].Equals(TEXT("Soldat"), ESearchCase::IgnoreCase);
+			H.ClasseAnim = H.bPoseSoldat ? nullptr : LoadObject<UClass>(nullptr, *M[1]);
 			H.MontageTir = M[2].IsEmpty() ? nullptr : LoadObject<UAnimMontage>(nullptr, *M[2]);
 			H.AnimMort = M[3].IsEmpty() ? nullptr : LoadObject<UAnimSequenceBase>(nullptr, *M[3]);
 			H.DossierVoix = M[4];
@@ -370,7 +378,7 @@ void AWraithChelles::LireReglages()
 					Gardes.Add(O);
 				}
 			}
-			if (!H.ClasseAnim)
+			if (!H.ClasseAnim && !H.bPoseSoldat)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : Animation Blueprint introuvable (%s)"), *H.Nom, *M[1]);
 			}
@@ -403,6 +411,18 @@ void AWraithChelles::LireReglages()
 				Skin.Bras = FLinearColor(A, B, C);
 			}
 			Skin.NomHeros = M.IsValidIndex(5) ? M[5].TrimStartAndEnd() : FString();
+			if (M.IsValidIndex(6) && !M[6].TrimStartAndEnd().IsEmpty())
+			{
+				Skin.Materiau = LoadObject<UMaterialInterface>(nullptr, *M[6].TrimStartAndEnd());
+				if (Skin.Materiau)
+				{
+					Gardes.Add(Skin.Materiau);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : materiau introuvable (%s)"), *Skin.Nom, *M[6]);
+				}
+			}
 			Skins.Add(Skin);
 		}
 		else if (Cle.Equals(TEXT("Echelle"), ESearchCase::IgnoreCase))
@@ -706,7 +726,11 @@ void AWraithChelles::Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 
 		W->SetRelativeScale3D(FVector(Echelle));
 		W->SetSkeletalMesh(Corps);
 		W->RegisterComponent();
-		if (H.ClasseAnim)
+		if (H.bPoseSoldat)
+		{
+			W->SetMasterPoseComponent(Mesh); // memes os que le soldat : il fait exactement ses gestes
+		}
+		else if (H.ClasseAnim)
 		{
 			W->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 			W->SetAnimInstanceClass(H.ClasseAnim);
@@ -723,6 +747,13 @@ void AWraithChelles::Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 
 			W->SetSkeletalMesh(Corps, false);
 		}
 		W->EmptyOverrideMaterials();
+		if (Skin.Materiau)
+		{
+			for (int32 i = 0; i < W->GetNumMaterials(); ++i)
+			{
+				W->SetMaterial(i, Skin.Materiau);
+			}
+		}
 		if (Skin.bRecolorer || Skin.Assombrir < 0.999f)
 		{
 			Recolorer(W, Skin, false);
@@ -747,9 +778,13 @@ void AWraithChelles::Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 
 
 	if (C->IsLocallyControlled())
 	{
-		if (bArmeWraith)
+		if (bArmeWraith && H.MotsArme.Num() > 0)
 		{
 			SuivreArme(S, Corps);
+		}
+		else if (S.ArmeFPP.IsValid() || S.CachesArme.Num() > 0)
+		{
+			RetirerArme(S); // heros sans arme a lui : il garde celles du soldat
 		}
 		if (bBrasCouleur && Skin.bBras && S.SkinBras != Index)
 		{
@@ -820,7 +855,8 @@ void AWraithChelles::CacherCorpsSoldat(FSoldatWraith& S)
 	}
 
 	// Arme 3e personne du soldat : Wraith tient son propre fusil
-	if (!bArmeWraith)
+	const FHerosWraith* H = HerosDe(S);
+	if (!bArmeWraith || !H || H->MotsArme.Num() == 0)
 	{
 		return;
 	}
@@ -1375,10 +1411,11 @@ void AWraithChelles::SuivreVoix(FSoldatWraith& S, float Dt)
 	{
 		S.bMort = true;
 		Dire(S, TEXT("Effort_Death,Death"), 1.f, true);
-		if (Corps)
+		const FHerosWraith* HM = HerosDe(S);
+		if (Corps && !(HM && HM->bPoseSoldat)) // "pose soldat" : il tombe avec le soldat
 		{
 			Corps->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-			const FHerosWraith* H = HerosDe(S);
+			const FHerosWraith* H = HM;
 			if (H && H->AnimMort)
 			{
 				Corps->PlayAnimation(H->AnimMort, false);
@@ -1388,7 +1425,8 @@ void AWraithChelles::SuivreVoix(FSoldatWraith& S, float Dt)
 	else if (!bMort && S.bMort)
 	{
 		S.bMort = false;
-		if (Corps && C->GetMesh())
+		const FHerosWraith* HV = HerosDe(S);
+		if (Corps && C->GetMesh() && !(HV && HV->bPoseSoldat))
 		{
 			Corps->AttachToComponent(C->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 			Corps->SetRelativeTransform(FTransform(FQuat::Identity, FVector::ZeroVector, FVector(Echelle)));

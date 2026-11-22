@@ -1,5 +1,5 @@
 ; =====================================================================
-;  CHELLES 3D - Heros Paragon (Wraith, Dekker) a la place du SOLDAT
+;  CHELLES 3D - Wraith, Dekker, Sci-Fi Soldier a la place du SOLDAT
 ;  Plugin ChellesWraith. Modifiez ce fichier avec le Bloc-notes, puis
 ;  relancez le jeu (ou tapez  Chelles.Wraith Relire  dans la console, touche 2).
 ;  Oui / Non pour activer ou couper une option. Pas d'accents dans ce fichier.
@@ -12,18 +12,20 @@ Touche=K
 
 ; ---------------------------------------------------------------------
 ;  Les heros. Une ligne par heros :
-;  Heros=Nom|Animation Blueprint|montage de tir|animation de mort|dossier des voix|debut du nom des voix|materiaux de l'arme (;)|os poignee;arriere;avant;haut|eclair du tir
+;  Heros=Nom|Animation Blueprint ("Soldat" = copie les gestes du soldat, garde ses armes)|montage de tir|animation de mort|dossier des voix|debut du nom des voix|materiaux de l'arme (;)|os poignee;arriere;avant;haut|eclair du tir
 ; ---------------------------------------------------------------------
 Heros=Wraith|/Game/ParagonWraith/Characters/Heroes/Wraith/Wraith_AnimBlueprint.Wraith_AnimBlueprint_C|/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Fire_A_Slow_Montage.Fire_A_Slow_Montage|/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Death_Backward.Death_Backward|/Game/ParagonWraith/Audio/Cues/|Wraith|Gun|weapon_r;gun_stock_bott;gun_barrel;gun_scope|/Game/ParagonWraith/FX/Particles/Abilities/ScopedShot/FX/P_Wraith_Sniper_MuzzleFlash.P_Wraith_Sniper_MuzzleFlash
 Heros=Dekker|/Game/ParagonDekker/Characters/Heroes/Dekker/Dekker_AnimBlueprint.Dekker_AnimBlueprint_C|/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Fire_Med_V2_Montage.Fire_Med_V2_Montage|/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Death_Bwd.Death_Bwd|/Game/ParagonDekker/Characters/Heroes/Dekker/Sounds/SoundCues/|Dekker|Weapon;Wapen|weapon;staff_bottom;staff_top;|/Game/ParagonDekker/FX/Particles/Abilities/Primary/FX/P_Dekker_PrimaryFire.P_Dekker_PrimaryFire
+Heros=SciFi|Soldat|||||||
 
 ; ---------------------------------------------------------------------
 ;  Les apparences, dans l'ordre de la touche K. Une ligne par apparence :
-;  Skin=NOM AFFICHE|corps|recolorer|assombrir|couleur des bras en 1re personne|heros
+;  Skin=NOM AFFICHE|corps|recolorer|assombrir|couleur des bras en 1re personne|heros|tenue
 ;   - corps : le modele du pack ("Soldat" = garder le soldat d'origine)
 ;   - recolorer : vide = couleurs du pack, sinon R,G,B (0 a 1) = nouvelle teinte
 ;   - assombrir : 1 = rien, 0.2 = les parties grises/blanches deviennent presque noires
-;   - heros : Wraith ou Dekker (ses animations, sa voix, son arme)
+;   - heros : Wraith, Dekker ou SciFi (ses animations, sa voix, son arme)
+;   - tenue : facultatif, materiau pose sur tout le corps (couleurs du Sci-Fi Soldier)
 ; ---------------------------------------------------------------------
 Skin=WRAITH VERT MILITAIRE|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/ODGreen/Meshes/Wraith_ODGreen.Wraith_ODGreen||1|0.10,0.13,0.07|Wraith
 Skin=WRAITH ROUGE ET NOIR|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/LunarOps/Meshes/Wraith_LunarOps.Wraith_LunarOps|0.85,0.03,0.02|0.12|0.30,0.02,0.02|Wraith
@@ -34,6 +36,11 @@ Skin=DEKKER ENERGIE|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/De
 Skin=DEKKER GLACE|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Frost/Meshes/DekkerArctic.DekkerArctic||1|0.70,0.80,0.90|Dekker
 Skin=DEKKER MAGMA|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Magma/Meshes/DekkerMagma.DekkerMagma||1|0.15,0.05,0.03|Dekker
 Skin=DEKKER SAINT-VALENTIN|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Valentine/Meshes/DekkerValentine.DekkerValentine||1|0.60,0.20,0.30|Dekker
+Skin=SCI-FI NOIR|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.08,0.08,0.08|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier.MI_SciFiSoldier
+Skin=SCI-FI ROUGE|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.33,0.01,0.00|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_2.MI_SciFiSoldier_2
+Skin=SCI-FI DORE|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.33,0.14,0.00|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_3.MI_SciFiSoldier_3
+Skin=SCI-FI BLEU|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.00,0.09,0.40|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_4.MI_SciFiSoldier_4
+Skin=SCI-FI VERT|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.07,0.08,0.04|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_5.MI_SciFiSoldier_5
 Skin=SOLDAT D'ORIGINE|Soldat||1||
 
 ; Taille du corps (1 = taille du pack)

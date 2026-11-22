@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0",
 	"FriendlyName": "Chelles Wraith",
-	"Description": "Le joueur SOLDAT prend l'apparence de Wraith ou de Dekker (packs Paragon) avec son arme, ses effets de tir et sa voix. Touche K = apparence suivante (4 Wraith, 5 Dekker, soldat d'origine). Aucun fichier du jeu n'est modifie : tout se fait pendant la partie. Reglages dans Wraith.txt.",
+	"Description": "Le joueur SOLDAT prend l'apparence de Wraith, de Dekker (packs Paragon) ou du Sci-Fi Soldier avec son arme, ses effets de tir et sa voix. Touche K = apparence suivante (4 Wraith, 5 Dekker, 5 Sci-Fi, soldat d'origine). Aucun fichier du jeu n'est modifie : tout se fait pendant la partie. Reglages dans Wraith.txt.",
 	"Category": "Chelles 3D",
 	"CreatedBy": "CHELLES 3D",
 	"EnabledByDefault": true,

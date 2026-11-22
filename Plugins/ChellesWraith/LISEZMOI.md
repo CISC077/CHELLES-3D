@@ -1,8 +1,8 @@
-# ChellesWraith : Wraith et Dekker (Paragon) à la place du SOLDAT
+# ChellesWraith : Wraith, Dekker et Sci-Fi Soldier à la place du SOLDAT
 
 Le joueur **SOLDAT** (FPS_Game, case "Soldat" de la roue TAB / F1) prend l'apparence de
 **Wraith** (*Paragon: Wraith*, `Content/ParagonWraith`) ou de **Dekker** (*Paragon: Dekker*,
-`Content/ParagonDekker`), au choix avec la touche **K**.
+`Content/ParagonDekker`) ou du **Sci-Fi Soldier** (`Content/SciFiSoldier`, 5 tenues), au choix avec la touche **K**.
 
 ## Ce que fait le plugin
 - **Corps** : le soldat n'est plus dessiné, Wraith est posé à sa place avec ses propres
@@ -20,6 +20,9 @@ Le joueur **SOLDAT** (FPS_Game, case "Soldat" de la roue TAB / F1) prend l'appar
 Chaque héros (ligne `Heros=` de Wraith.txt) a ses animations, sa voix, son arme et son éclair de tir.
 Chaque skin (ligne `Skin=`) dit à quel héros il appartient.
 
+Le **Sci-Fi Soldier** est sur le squelette mannequin du soldat : il copie exactement ses gestes
+(`Heros=SciFi|Soldat|…`) et garde les armes du soldat (le pack n'a ni arme, ni voix, ni animation).
+
 | Skin (ordre de K) | D'où il vient |
 |---|---|
 | WRAITH VERT MILITAIRE | skin ODGreen du pack |
@@ -31,6 +34,7 @@ Chaque skin (ligne `Skin=`) dit à quel héros il appartient.
 | DEKKER GLACE | skin Arctic Frost (blanc et bleu) |
 | DEKKER MAGMA | skin Magma (rouge et noir) |
 | DEKKER SAINT-VALENTIN | skin Valentine (rose) |
+| SCI-FI NOIR / ROUGE / DORE / BLEU / VERT | Sci-Fi Soldier, ses 5 tenues (MI_SciFiSoldier 1 à 5) |
 | SOLDAT D'ORIGINE | le soldat sans héros |
 
 Pas actif en Spider-Male / Spider-Femelle / PANTERA (la roue TAB habille déjà le soldat).
