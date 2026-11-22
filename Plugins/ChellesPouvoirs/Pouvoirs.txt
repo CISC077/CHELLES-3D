@@ -1,0 +1,20 @@
+# CHELLES 3D - Reglages des pouvoirs (plugin ChellesPouvoirs)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = tous les joueurs (soldat compris) ont les 5 pouvoirs des le depart :
+#       ENVOL, BOULE DE FEU, EFFET VERRE, CAMELEON, GEL  (J = utiliser, Y = changer)
+# Non = il faut gagner de l'XP pour les debloquer (ancien fonctionnement, 2 h de jeu)
+TousLesPouvoirs=Oui
+
+# Oui = tout le monde peut voler : sauter puis rappuyer sur ESPACE en l'air.
+#       En vol : ESPACE monte, CTRL (ou C) descend, se poser au sol ou J = atterrir.
+#       Le soldat garde ses armes en volant.
+#       Spider-Male, Spider-Femelle et PANTERA gardent leur propre vol (PANTERA : 20 s max).
+VolPourTous=Oui
+
+# Secondes de vol (0 = sans limite, on vole jusqu'a se poser)
+DureeVol=0
+
+# Secondes d'attente apres un vol avant de pouvoir revoler
+RechargeVol=2

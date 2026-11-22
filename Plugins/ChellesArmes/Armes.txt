@@ -20,26 +20,25 @@ ToucheChanger=O
 # viseur et tir du Blueprint ne changent pas. Taille et sens sont calcules tout seuls,
 # a corriger si besoin en jeu avec la console : Chelles.Arme Roulis 180, Chelles.Arme Avant 3...
 # ---------------------------------------------------------------------------
-# Fusil d'assaut principal -> fusil du pack FPS_Assault_Pack
-Arme.BPC_WeaponRifle=/Game/FPS_Assault_Pack/Meshes/Rifle/SK_Rifle.SK_Rifle | /Game/FPS_Weapon_Bundle/Weapons/Meshes/AR4/SK_AR4.SK_AR4
-# Fusil a recul -> RU74 du pack FPS_Assault_Pack
-Arme.BPC_WeaponRecoil=/Game/FPS_Assault_Pack/Meshes/RU74/SK_RU74.SK_RU74 | /Game/FPS_Weapon_Bundle/Weapons/Meshes/KA74U/SK_KA74U_X.SK_KA74U_X
-# Sniper -> KA Val (FPS_Weapon_Bundle)
-Arme.BPC_WeaponSniper=/Game/FPS_Weapon_Bundle/Weapons/Meshes/KA_Val/SK_KA_Val_X.SK_KA_Val_X
-# Pistolet automatique -> pistolet-mitrailleur SMG11 (FPS_Weapon_Bundle)
-Arme.BPC_WeaponPistolAuto=/Game/FPS_Weapon_Bundle/Weapons/Meshes/SMG11/SK_SMG11_X.SK_SMG11_X
-# Machette -> couteau M9 (FPS_Weapon_Bundle)
+# PACK AAAFantasticWeapons (2026-11-18) : 3 armes reparties sur les fusils.
+#   SKWeapSMG = bullpup orange a viseur reflex | SKWeapShotgun = fusil bronze a crosse epaisse
+#   SKWeapRL = long fusil rouge/gris a arceau
+# Apres le "|" = ancienne apparence, utilisee si le pack est retire.
+Arme.BPC_WeaponRifle=/Game/AAAFantasticWeapons/Meshes/SKWeapSMG.SKWeapSMG | /Game/FPS_Assault_Pack/Meshes/Rifle/SK_Rifle.SK_Rifle
+Arme.BPC_WeaponRecoil=/Game/AAAFantasticWeapons/Meshes/SKWeapSMG.SKWeapSMG | /Game/FPS_Assault_Pack/Meshes/RU74/SK_RU74.SK_RU74
+Arme.BPC_WeaponUE4=/Game/AAAFantasticWeapons/Meshes/SKWeapSMG.SKWeapSMG | /Game/FPSAssets/Weapon/SM_M4A1.SM_M4A1
+Arme.BPC_WeaponTemplate=/Game/AAAFantasticWeapons/Meshes/SKWeapShotgun.SKWeapShotgun | /Game/FPSAssets/Weapon/SM_AK.SM_AK
+Arme.BPC_WeaponShotgun=/Game/AAAFantasticWeapons/Meshes/SKWeapShotgun.SKWeapShotgun
+Arme.BPC_WeaponBeam=/Game/AAAFantasticWeapons/Meshes/SKWeapShotgun.SKWeapShotgun
+Arme.BPC_WeaponSniper=/Game/AAAFantasticWeapons/Meshes/SKWeapRL.SKWeapRL | /Game/FPS_Weapon_Bundle/Weapons/Meshes/KA_Val/SK_KA_Val_X.SK_KA_Val_X
+Arme.BPC_WeaponLauncher=/Game/AAAFantasticWeapons/Meshes/SKWeapRL.SKWeapRL
+Arme.BPC_WeaponLaser_New=/Game/AAAFantasticWeapons/Meshes/SKWeapRL.SKWeapRL
+# Les 2 pistolets -> pistolet du pack Bandit_Sport (le plus realiste trouve dans les packs du projet)
+# Autre choix possible : /Game/AssetsvilleTown/Meshes/Weapons/SM_Pistol_01.SM_Pistol_01 (style dessin anime)
+Arme.BPC_WeaponPistol=/Game/Bandit_Sport/Mesh/SM_HandGun.SM_HandGun
+Arme.BPC_WeaponPistolAuto=/Game/Bandit_Sport/Mesh/SM_HandGun.SM_HandGun | /Game/FPS_Weapon_Bundle/Weapons/Meshes/SMG11/SK_SMG11_X.SK_SMG11_X
+# Machette -> couteau M9 (FPS_Weapon_Bundle), pas de couteau dans le nouveau pack
 Arme.BPC_WeaponSword=/Game/FPS_Weapon_Bundle/Weapons/Meshes/M9_Knife/SK_M9_Knife.SK_M9_Knife
-# Armes "UE4" et "Template" -> M4A1 et AK du pack FPSAssets (a importer une fois avec
-# Tools\Armes\importer_armes_fpsassets.py), sinon AR4 et KA47 du FPS_Weapon_Bundle
-Arme.BPC_WeaponUE4=/Game/FPSAssets/Weapon/SM_M4A1.SM_M4A1 | /Game/FPS_Weapon_Bundle/Weapons/Meshes/AR4/SK_AR4.SK_AR4
-Arme.BPC_WeaponTemplate=/Game/FPSAssets/Weapon/SM_AK.SM_AK | /Game/FPS_Weapon_Bundle/Weapons/Meshes/Ka47/SK_KA47.SK_KA47
-# Pas d'equivalent dans les packs : ces armes gardent leur apparence et recoivent un tir special
-Arme.BPC_WeaponPistol=Aucune
-Arme.BPC_WeaponShotgun=Aucune
-Arme.BPC_WeaponLauncher=Aucune
-Arme.BPC_WeaponLaser_New=Aucune
-Arme.BPC_WeaponBeam=Aucune
 
 # Reglages a la main (ecrits tout seuls par la console Chelles.Arme ...) :
 # Reglage.<nom>=avant,haut,cote (cm), tangage,lacet,roulis (degres), echelle
@@ -81,3 +80,26 @@ Foudre.Rebonds=3
 Foudre.Rayon=700
 Foudre.Cadence=0.5
 Foudre.Vitesse=18000
+
+# ---------------------------------------------------------------------------
+# HEROS SANS ARME (PANTERA, 2026-11-11)
+# Clic gauche = tir special lance depuis les mains (une main puis l'autre), touche O = changer.
+# Heros= noms des corps reconnus (separes par |). TirHeros= tir de depart : Laser, Feu, Glace ou Foudre.
+# SK_SpiderMan_Vol = Spider-Male PENDANT LE VOL (au sol il a les armes du soldat), ajoute le 2026-11-11.
+# ---------------------------------------------------------------------------
+# 2026-11-22 (demande MERIDJA : tous les joueurs ont les memes armes) : Tous = tout personnage sans arme
+# en main tire depuis ses mains (soldat sans arme, heros en vol, persos des packs). Ancienne liste :
+# Heros=SK_Pantera | SK_SpiderMan_Vol | SK_SpiderFemelle_Vol
+Heros=Tous
+TirHeros=Laser
+
+# ---------------------------------------------------------------------------
+# FLASH ELECTRIQUE (2026-11-11) : Spider-Male, Spider-Femelle et PANTERA
+# ToucheFlash = double eclair depuis les mains (a pied avec les armes, ou en vol).
+# Il saute sur les ennemis voisins comme le tir Foudre (reglages Foudre.* plus haut).
+# HerosFlash = noms des corps qui ont ce pouvoir (separes par |).
+# ---------------------------------------------------------------------------
+ToucheFlash=X
+# 2026-11-22 : Tous = tout le monde a le FLASH ELECTRIQUE (soldat compris). Ancienne liste :
+# HerosFlash=SK_SpiderMan_Vol | SK_SpiderMan_UE4 | SK_SpiderFemelle | SK_Pantera
+HerosFlash=Tous

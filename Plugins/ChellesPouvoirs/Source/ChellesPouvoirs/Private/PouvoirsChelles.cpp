@@ -4,12 +4,16 @@
 #include "PouvoirsTypes.h"
 #include "BouleDeFeuChelles.h"
 #include "XPSauvegarde.h"
+#include "SauvegardeJoueur.h"
 #include "SPouvoirsHud.h"
+
+#include <initializer_list>
 
 #include "AIController.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/IAssetRegistry.h"
 #include "BrainComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -26,6 +30,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Misc/App.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Misc/PackageName.h"
 #include "GameFramework/PlayerState.h"
 #include "Sound/SoundBase.h"
@@ -129,6 +135,7 @@ void APouvoirsChelles::Message(const FString& Texte)
 void APouvoirsChelles::BeginPlay()
 {
 	Super::BeginPlay();
+	ChargerReglages();
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		Charger();
@@ -182,22 +189,29 @@ void APouvoirsChelles::LierClavier()
 
 void APouvoirsChelles::Charger()
 {
-	if (UGameplayStatics::DoesSaveGameExist(EmplacementXP, 0))
+	NomSauvegarde = ChellesSauvegarde::Emplacement(this, EmplacementXP);
+	if (UXPSauvegarde* S = ChellesSauvegarde::Lire<UXPSauvegarde>(NomSauvegarde))
 	{
-		if (UXPSauvegarde* S = Cast<UXPSauvegarde>(UGameplayStatics::LoadGameFromSlot(EmplacementXP, 0)))
-		{
-			XPLocale = FMath::Max(0, S->XP);
-			SecondesJouees = FMath::Max(0.0, S->SecondesJouees);
-			Selection = FMath::Clamp(S->Selection, 0, int32(NombrePouvoirs) - 1);
-		}
+		XPLocale = FMath::Max(0, S->XP);
+		SecondesJouees = FMath::Max(0.0, S->SecondesJouees);
+		Selection = FMath::Clamp(S->Selection, 0, int32(NombrePouvoirs) - 1);
 	}
 	NiveauAnnonce = NiveauPourXP(XPLocale);
 	bCharge = true;
-	UE_LOG(LogTemp, Log, TEXT("[Pouvoirs] XP chargee : %d (niveau %d, %.0f min de jeu)."), XPLocale, NiveauAnnonce, SecondesJouees / 60.0);
+	UE_LOG(LogTemp, Log, TEXT("[Pouvoirs] XP chargee depuis %s.sav : %d (niveau %d, %.0f min de jeu)."),
+		*NomSauvegarde, XPLocale, NiveauAnnonce, SecondesJouees / 60.0);
+	if (XPLocale > 0)
+	{
+		Message(FString::Printf(TEXT("Progression retrouv\u00E9e : niveau %d, %d XP"), NiveauAnnonce, XPLocale));
+	}
 }
 
 void APouvoirsChelles::Sauvegarder()
 {
+	if (!bCharge)
+	{
+		return; // jamais ecraser la sauvegarde avant de l'avoir lue
+	}
 	UXPSauvegarde* S = Cast<UXPSauvegarde>(UGameplayStatics::CreateSaveGameObject(UXPSauvegarde::StaticClass()));
 	if (!S)
 	{
@@ -206,7 +220,7 @@ void APouvoirsChelles::Sauvegarder()
 	S->XP = XPLocale;
 	S->SecondesJouees = SecondesJouees;
 	S->Selection = Selection;
-	UGameplayStatics::SaveGameToSlot(S, EmplacementXP, 0);
+	ChellesSauvegarde::Ecrire(S, NomSauvegarde);
 }
 
 bool APouvoirsChelles::EnJeu() const
@@ -264,6 +278,233 @@ void APouvoirsChelles::DonnerXP(int32 Quantite, bool bTempsDeJeu)
 	Sauvegarder();
 }
 
+void APouvoirsChelles::GagnerXPBonus(int32 Quantite, const FString& Raison)
+{
+	if (!bCharge || Quantite == 0)
+	{
+		return;
+	}
+	DonnerXP(Quantite, false); // sauvegarde tout de suite ; le serveur recoit la nouvelle XP au Tick
+	if (!Raison.IsEmpty())
+	{
+		Message(FString::Printf(TEXT("+%d XP : %s"), Quantite, *Raison));
+	}
+}
+
+// ---------------------------------------------------------------------------
+// XP de combat (2026-11-18) : toucher / eliminer un ennemi
+//  - le serveur branche chaque ennemi (bandits, soldats, chargers, zombies FPS_Game, ennemis du plugin
+//    ChellesEnnemis, zombies de l'invasion) sur EnnemiBlesse ;
+//  - il retient le dernier joueur qui l'a touche, et voit quand l'ennemi meurt (isDead, detruit...) ;
+//  - l'XP part sur la machine du tireur (elle y est sauvegardee, comme l'XP du temps de jeu).
+// ---------------------------------------------------------------------------
+
+namespace
+{
+	const FName MarqueSuiviXP(TEXT("ChellesXPSuivi"));
+	const FName MarqueMortXP(TEXT("ChellesXPMort"));
+
+	bool LireBooleenXP(UObject* Objet, std::initializer_list<const TCHAR*> Noms, bool& Valeur)
+	{
+		if (!Objet)
+		{
+			return false;
+		}
+		for (const TCHAR* Nom : Noms)
+		{
+			if (FBoolProperty* P = FindFProperty<FBoolProperty>(Objet->GetClass(), Nom))
+			{
+				Valeur = P->GetPropertyValue_InContainer(Objet);
+				return true;
+			}
+		}
+		return false;
+	}
+}
+
+bool APouvoirsChelles::EstEnnemi(AActor* Acteur) const
+{
+	const ACharacter* Perso = Cast<ACharacter>(Acteur);
+	if (!Perso || Perso->IsPlayerControlled())
+	{
+		return false;
+	}
+	static const FName MarqueZombie(TEXT("ChellesZombie"));
+	static const FName MarqueEnnemi(TEXT("ChellesEnnemiAuto"));
+	if (Perso->Tags.Contains(MarqueZombie) || Perso->Tags.Contains(MarqueEnnemi))
+	{
+		return true;
+	}
+	// Les Blueprints d'ennemis FPS_Game (et leurs enfants) sont ranges dans Blueprints/Bonus/AI
+	for (const UClass* C = Perso->GetClass(); C; C = C->GetSuperClass())
+	{
+		if (C->GetPathName().Contains(TEXT("/FPS_Game/Blueprints/Bonus/AI/")))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool APouvoirsChelles::EstMort(AActor* Acteur)
+{
+	if (!IsValid(Acteur) || Acteur->IsPendingKillPending() || Acteur->Tags.Contains(MarqueMortXP))
+	{
+		return true;
+	}
+	bool bMort = false;
+	if (LireBooleenXP(Acteur, { TEXT("isDead"), TEXT("IsDead"), TEXT("bIsDead"), TEXT("Dead") }, bMort) && bMort)
+	{
+		return true;
+	}
+	// Les plugins Zombies / Ennemis (et beaucoup de Blueprints) donnent une duree de vie au corps qui tombe
+	return Acteur->GetLifeSpan() > 0.f;
+}
+
+void APouvoirsChelles::SuivreEnnemis()
+{
+	UWorld* W = GetWorld();
+	if (!W)
+	{
+		return;
+	}
+	for (TActorIterator<ACharacter> It(W); It; ++It)
+	{
+		ACharacter* E = *It;
+		if (!IsValid(E) || E->Tags.Contains(MarqueSuiviXP) || !EstEnnemi(E) || EstMort(E))
+		{
+			continue;
+		}
+		E->Tags.AddUnique(MarqueSuiviXP);
+		E->OnTakeAnyDamage.AddUniqueDynamic(this, &APouvoirsChelles::EnnemiBlesse);
+	}
+}
+
+void APouvoirsChelles::EnnemiBlesse(AActor* Touche, float Degats, const UDamageType* TypeDegats, AController* Auteur, AActor* Causeur)
+{
+	if (!Touche || Degats <= 0.f || Touche->Tags.Contains(MarqueMortXP))
+	{
+		return;
+	}
+	// Qui a tire ? (meme logique que les plugins Zombies et Ennemis)
+	AController* Tireur = Auteur;
+	if (!Tireur && Causeur)
+	{
+		Tireur = Causeur->GetInstigatorController();
+		if (!Tireur)
+		{
+			if (APawn* PionCauseur = Cast<APawn>(Causeur->GetOwner()))
+			{
+				Tireur = PionCauseur->GetController();
+			}
+		}
+	}
+	if (!Tireur || !Tireur->IsPlayerController())
+	{
+		return; // un ennemi qui en touche un autre, un baril, le feu... : pas d'XP
+	}
+	UWorld* W = GetWorld();
+	const float Maintenant = W ? W->GetTimeSeconds() : 0.f;
+
+	FCibleXP& Cible = CiblesTouchees.FindOrAdd(Touche);
+	Cible.Tireur = Tireur;
+	Cible.Heure = Maintenant;
+
+	// Le coup qui tue : l'ennemi est deja marque mort pendant ce meme appel (plugins Zombies / Ennemis)
+	if (EstMort(Touche))
+	{
+		VerifierMorts(Maintenant);
+		return;
+	}
+
+	// Petite XP par coup, au plus 4 fois par seconde (une rafale ne rapporte pas une fortune)
+	float& Dernier = DernierXPTouche.FindOrAdd(Tireur);
+	if (Maintenant - Dernier >= 0.25f)
+	{
+		Dernier = Maintenant;
+		EnvoyerXPCombat(Tireur, XPParTouche, false);
+	}
+}
+
+void APouvoirsChelles::VerifierMorts(float Maintenant)
+{
+	for (auto It = CiblesTouchees.CreateIterator(); It; ++It)
+	{
+		AActor* E = It.Key().Get();
+		const FCibleXP& C = It.Value();
+		if (EstMort(E))
+		{
+			// Tue (ou disparu) peu apres un coup d'un joueur : il gagne l'elimination
+			if (Maintenant - C.Heure <= 4.f && C.Tireur.IsValid())
+			{
+				EnvoyerXPCombat(C.Tireur.Get(), XPParEnnemiTue, true);
+			}
+			if (IsValid(E))
+			{
+				E->Tags.AddUnique(MarqueMortXP);
+				E->OnTakeAnyDamage.RemoveDynamic(this, &APouvoirsChelles::EnnemiBlesse);
+			}
+			It.RemoveCurrent();
+		}
+		else if (Maintenant - C.Heure > 60.f)
+		{
+			It.RemoveCurrent(); // touche il y a longtemps et toujours vivant : on oublie
+		}
+	}
+	for (auto It = DernierXPTouche.CreateIterator(); It; ++It)
+	{
+		if (!It.Key().IsValid())
+		{
+			It.RemoveCurrent();
+		}
+	}
+}
+
+void APouvoirsChelles::EnvoyerXPCombat(AController* Tireur, int32 Quantite, bool bTue)
+{
+	APlayerController* PC = Cast<APlayerController>(Tireur);
+	if (!PC || Quantite <= 0)
+	{
+		return;
+	}
+	if (PC->IsLocalController())
+	{
+		GagnerXPCombat(Quantite, bTue); // solo ou joueur qui heberge
+		return;
+	}
+	// Joueur distant : son XP est sauvegardee sur son PC, on la lui envoie par son relais
+	for (TActorIterator<APouvoirsRelais> It(GetWorld()); It; ++It)
+	{
+		if (It->GetOwner() == PC)
+		{
+			It->ClientXPCombat(Quantite, bTue);
+			return;
+		}
+	}
+}
+
+void APouvoirsChelles::GagnerXPCombat(int32 Quantite, bool bTue)
+{
+	if (!bCharge || Quantite <= 0)
+	{
+		return;
+	}
+	XPCombatEnAttente += Quantite;
+	if (bTue)
+	{
+		// Elimination : tout de suite, avec un message
+		const int32 Total = XPCombatEnAttente;
+		XPCombatEnAttente = 0;
+		DonnerXP(Total, false);
+		Message(FString::Printf(TEXT("+%d XP : ennemi éliminé !"), Total));
+		if (UWorld* W = GetWorld())
+		{
+			ProchainBilanCombat = W->GetRealTimeSeconds() + 2.f; // le message reste lisible
+		}
+	}
+	// Sinon les coups sont cumules et comptes toutes les 2 s (voir Tick) : pas une sauvegarde par balle
+}
+
 void APouvoirsChelles::AjouterXPTest(int32 Quantite)
 {
 	DonnerXP(Quantite, false);
@@ -291,6 +532,7 @@ void APouvoirsChelles::Changer()
 		{
 			Selection = Suivant;
 			Message(FString::Printf(TEXT("%s : %s"), Pouvoir(Selection).Nom, Pouvoir(Selection).Aide));
+			Sauvegarder(); // le pouvoir choisi est retrouve a la prochaine partie
 			return;
 		}
 	}
@@ -300,7 +542,12 @@ void APouvoirsChelles::Changer()
 
 void APouvoirsChelles::Utiliser()
 {
-	if (!EnJeu())
+	Demander(Selection);
+}
+
+void APouvoirsChelles::Demander(int32 Quel)
+{
+	if (!EnJeu() || Quel < 0 || Quel >= NombrePouvoirs)
 	{
 		return;
 	}
@@ -311,18 +558,24 @@ void APouvoirsChelles::Utiliser()
 		Message(TEXT("Les pouvoirs se pr\u00E9parent, r\u00E9essaie dans une seconde."));
 		return;
 	}
-	const FInfoPouvoir& P = Pouvoir(Selection);
-	if (!EstDebloque(Selection, XPLocale))
+	const FInfoPouvoir& P = Pouvoir(Quel);
+	if (!EstDebloque(Quel, XPLocale))
 	{
 		Message(FString::Printf(TEXT("%s s'ouvre au niveau %d, dans %s de jeu."), P.Nom, P.Niveau,
 			*TempsDeJeuAvant(Paliers()[P.Niveau - 1].XP, XPLocale)));
 		return;
 	}
-	if (R->EffetActif(Selection) && Selection != Cameleon)
+	if (Quel == Envol && R->EffetActif(Envol))
+	{
+		// 2026-11-22 : J pendant le vol = atterrir (le vol peut etre sans limite)
+		R->ServeurFinEnvol();
+		return;
+	}
+	if (R->EffetActif(Quel) && Quel != Cameleon)
 	{
 		return;
 	}
-	const float Attente = R->RestantRecharge(Selection);
+	const float Attente = R->RestantRecharge(Quel);
 	if (Attente > 0.f)
 	{
 		Message(FString::Printf(TEXT("%s se recharge : encore %d s"), P.Nom, FMath::CeilToInt(Attente)));
@@ -335,7 +588,140 @@ void APouvoirsChelles::Utiliser()
 	FVector Origine;
 	FRotator Visee;
 	PC->GetPlayerViewPoint(Origine, Visee);
-	R->ServeurPouvoir(uint8(Selection), Origine, Visee);
+	R->ServeurPouvoir(uint8(Quel), Origine, Visee);
+}
+
+// ---------------------------------------------------------------------------
+// Tout le monde vole (2026-11-22, demande MERIDJA) : sauter puis ESPACE en l'air = ENVOL.
+// Le soldat garde ses armes en volant. Spider-Male / Spider-Femelle / PANTERA gardent leur
+// propre vol (plugin ChellesRoue) : on ne touche pas a ces personnages-la.
+// ---------------------------------------------------------------------------
+
+void APouvoirsChelles::ChargerReglages()
+{
+	FReglagesPouvoirs& Reg = Reglages();
+	Reg = FReglagesPouvoirs(); // valeurs par defaut si le fichier manque
+	const FString Chemin = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesPouvoirs"), TEXT("Pouvoirs.txt"));
+	TArray<FString> Lignes;
+	if (!FFileHelper::LoadFileToStringArray(Lignes, *Chemin))
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Pouvoirs] %s absent : tous les pouvoirs et le vol pour tous (reglages par defaut)."), *Chemin);
+		return;
+	}
+	auto Oui = [](const FString& V)
+	{
+		return V.Equals(TEXT("Oui"), ESearchCase::IgnoreCase) || V.Equals(TEXT("True"), ESearchCase::IgnoreCase) || V == TEXT("1");
+	};
+	for (const FString& Brute : Lignes)
+	{
+		const FString Ligne = Brute.TrimStartAndEnd();
+		FString Cle, Valeur;
+		if (Ligne.IsEmpty() || Ligne.StartsWith(TEXT("#")) || !Ligne.Split(TEXT("="), &Cle, &Valeur))
+		{
+			continue;
+		}
+		Cle.TrimStartAndEndInline();
+		Valeur.TrimStartAndEndInline();
+		if (Cle.Equals(TEXT("TousLesPouvoirs"), ESearchCase::IgnoreCase))
+		{
+			Reg.bTousLesPouvoirs = Oui(Valeur);
+		}
+		else if (Cle.Equals(TEXT("VolPourTous"), ESearchCase::IgnoreCase))
+		{
+			Reg.bVolPourTous = Oui(Valeur);
+		}
+		else if (Cle.Equals(TEXT("DureeVol"), ESearchCase::IgnoreCase))
+		{
+			Reg.DureeEnvol = FMath::Max(0.f, FCString::Atof(*Valeur));
+		}
+		else if (Cle.Equals(TEXT("RechargeVol"), ESearchCase::IgnoreCase))
+		{
+			Reg.RechargeEnvol = FMath::Max(0.f, FCString::Atof(*Valeur));
+		}
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Pouvoirs] Reglages : TousLesPouvoirs=%d VolPourTous=%d DureeVol=%.0f RechargeVol=%.0f"),
+		Reg.bTousLesPouvoirs, Reg.bVolPourTous, Reg.DureeEnvol, Reg.RechargeEnvol);
+}
+
+bool APouvoirsChelles::AUnVolAPart(APawn* Pion)
+{
+	if (!Pion)
+	{
+		return true;
+	}
+	// Soldat habille en Spider-Male / Spider-Femelle / PANTERA par la roue : ESPACE en l'air = leur vol a eux
+	if (Pion->Tags.Contains(FName(TEXT("ChellesSansHabillage"))))
+	{
+		return true;
+	}
+	// Personnage du pack SuperheroFlight (le volant de Spider-Male...) : il vole deja tout seul
+	for (UActorComponent* C : Pion->GetComponents())
+	{
+		if (C && C->GetClass()->GetName().Contains(TEXT("SuperheroFlight")))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void APouvoirsChelles::SuivreVolPourTous(float DeltaSeconds)
+{
+	APlayerController* PC = GetPC();
+	ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+	APouvoirsRelais* R = MonRelais();
+	UCharacterMovementComponent* Mouvement = Perso ? Perso->GetCharacterMovement() : nullptr;
+	if (!Mouvement || !R || !EnJeu())
+	{
+		TempsAuSol = 0.f;
+		return;
+	}
+
+	if (R->EffetActif(Envol))
+	{
+		// En vol : on se pose en descendant (CTRL / C) jusqu'a toucher le sol
+		const bool bDescend = PC->IsInputKeyDown(EKeys::LeftControl) || PC->IsInputKeyDown(EKeys::C) || PC->IsInputKeyDown(EKeys::Gamepad_FaceButton_Right);
+		bool bSolProche = false;
+		if (bDescend && Perso->GetCapsuleComponent())
+		{
+			const float DemiHauteur = Perso->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+			const FVector Pieds = Perso->GetActorLocation();
+			FHitResult Sol;
+			FCollisionQueryParams Requete(SCENE_QUERY_STAT(AtterrirChelles), false, Perso);
+			bSolProche = GetWorld()->LineTraceSingleByChannel(Sol, Pieds, Pieds - FVector(0.f, 0.f, DemiHauteur + 40.f), ECC_Visibility, Requete);
+		}
+		TempsAuSol = bSolProche ? TempsAuSol + DeltaSeconds : 0.f;
+		if (TempsAuSol >= 0.15f)
+		{
+			TempsAuSol = 0.f;
+			R->ServeurFinEnvol();
+		}
+		return;
+	}
+	TempsAuSol = 0.f;
+
+	if (!Reglages().bVolPourTous || !PC->WasInputKeyJustPressed(EKeys::SpaceBar))
+	{
+		return;
+	}
+	// ESPACE au sol = le saut normal. ESPACE en l'air (apres un saut ou une chute) = s'envoler.
+	if (!Mouvement->IsFalling() || AUnVolAPart(Perso))
+	{
+		return;
+	}
+	Demander(Envol);
+}
+
+void APouvoirsChelles::FinirEnvol(APouvoirsRelais* Relais)
+{
+	if (!Relais || !Relais->EffetActif(Envol))
+	{
+		return;
+	}
+	const float Maintenant = Relais->Maintenant();
+	Relais->FinEffet[Envol] = Maintenant;
+	Relais->FinRecharge[Envol] = Maintenant + Pouvoir(Envol).Recharge;
+	Relais->ForceNetUpdate();
 }
 
 // ---------------------------------------------------------------------------
@@ -381,6 +767,7 @@ void APouvoirsChelles::GererRelais()
 		APawn* Actuel = PC->GetPawn();
 		if (R->Pion != Actuel)
 		{
+			FinirEnvol(R); // nouveau personnage (roue, mort, vehicule) : il ne s'envole pas tout seul
 			R->Pion = Actuel;
 			R->ForceNetUpdate();
 		}
@@ -1083,6 +1470,30 @@ void APouvoirsChelles::Tick(float DeltaSeconds)
 		GererRelais();
 	}
 
+	// XP de combat : le serveur suit les ennemis (nouveaux chaque seconde) et regarde qui est mort
+	if (EstServeur())
+	{
+		if (Horloge >= ProchainSuivi)
+		{
+			ProchainSuivi = Horloge + 1.f;
+			SuivreEnnemis();
+		}
+		if (Horloge >= ProchaineVerif && CiblesTouchees.Num() > 0)
+		{
+			ProchaineVerif = Horloge + 0.2f;
+			VerifierMorts(W->GetTimeSeconds());
+		}
+	}
+	// Coups qui ont touche : comptes toutes les 2 s
+	if (XPCombatEnAttente > 0 && Horloge >= ProchainBilanCombat)
+	{
+		ProchainBilanCombat = Horloge + 2.f;
+		const int32 Gain = XPCombatEnAttente;
+		XPCombatEnAttente = 0;
+		DonnerXP(Gain, false);
+		Message(FString::Printf(TEXT("+%d XP : ennemi touché"), Gain));
+	}
+
 	if (bCharge && GetPC())
 	{
 		if (EnJeu())
@@ -1099,6 +1510,7 @@ void APouvoirsChelles::Tick(float DeltaSeconds)
 
 	if (!W->IsPaused())
 	{
+		SuivreVolPourTous(DeltaSeconds);
 		AppliquerEffets(DeltaSeconds);
 	}
 	MajHud();
