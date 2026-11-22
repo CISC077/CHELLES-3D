@@ -36,6 +36,10 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientAvis(const FString& Texte);
 
+	/** Le serveur donne au joueur l'XP gagnee en combat (ennemi touche ou elimine). */
+	UFUNCTION(Client, Reliable)
+	void ClientXPCombat(int32 Quantite, bool bTue);
+
 	/** XP du joueur (connue de tous, pour afficher son niveau). */
 	UPROPERTY(Replicated)
 	int32 XP = 0;

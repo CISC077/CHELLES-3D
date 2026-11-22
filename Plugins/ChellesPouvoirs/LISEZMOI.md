@@ -11,7 +11,9 @@ Le joueur gagne de l'XP en jouant et débloque des pouvoirs. Rien à poser dans 
 ## XP (rythme rapide)
 
 10 XP par minute de jeu (pas en pause, pas dans le menu ni le chat), +50 XP à chaque heure complète.
-L'XP est sauvegardée sur le PC du joueur : `Saved\SaveGames\ChellesXP.sav`.
+L'XP, le temps de jeu et le pouvoir choisi sont sauvegardés sur le PC du joueur : `Saved\SaveGames\ChellesXP.sav` (+ une copie de secours `ChellesXP_Secours.sav`, utilisée si le jeu a planté pendant l'écriture). Sauvegarde chaque minute, à chaque niveau, à chaque changement de pouvoir et en quittant.
+
+Une sauvegarde par joueur : en multi chaque joueur garde sa progression sur son propre PC. Pour tester à deux sur le même PC, la 2e fenêtre de l'éditeur utilise `ChellesXP_PIE2.sav`, et un jeu lancé avec `-Joueur=Karim` utilise `ChellesXP_Karim.sav`.
 
 | Niveau | Titre | XP | Temps de jeu | Pouvoir débloqué |
 |---|---|---|---|---|

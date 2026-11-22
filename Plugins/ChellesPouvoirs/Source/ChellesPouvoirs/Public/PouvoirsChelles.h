@@ -6,8 +6,10 @@
 #include "InputCoreTypes.h"
 #include "PouvoirsChelles.generated.h"
 
+class AController;
 class APawn;
 class APlayerController;
+class UDamageType;
 class APouvoirsRelais;
 class UPrimitiveComponent;
 class UPointLightComponent;
@@ -61,6 +63,24 @@ public:
 	/** Pour tester : ajoute (ou retire) de l'XP au joueur de cette machine. Console : Chelles.XP 500 */
 	void AjouterXPTest(int32 Quantite);
 
+	/**
+	 * XP gagnee autrement qu'en jouant (ex. cadeau de Noel ramasse, plugin ChellesNoel).
+	 * UFUNCTION : appelee par son nom depuis les autres plugins, sans dependance de compilation.
+	 * A appeler seulement sur la machine du joueur.
+	 */
+	UFUNCTION()
+	void GagnerXPBonus(int32 Quantite, const FString& Raison);
+
+	/**
+	 * XP de combat (2026-11-18), sur la machine du joueur : envoyee par le serveur quand il touche
+	 * (Quantite petite, cumulee puis sauvegardee toutes les 2 s) ou elimine un ennemi (bTue).
+	 */
+	void GagnerXPCombat(int32 Quantite, bool bTue);
+
+	/** Serveur : un ennemi suivi a pris des degats (branche sur son OnTakeAnyDamage). */
+	UFUNCTION()
+	void EnnemiBlesse(AActor* Touche, float Degats, const UDamageType* TypeDegats, AController* Auteur, AActor* Causeur);
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type Raison) override;
@@ -80,6 +100,27 @@ private:
 	void CompterTemps(float Secondes);
 	void DonnerXP(int32 Quantite, bool bTempsDeJeu);
 	bool EnJeu() const;
+
+	// XP de combat (serveur) : on suit les ennemis, on retient qui les a touches, on voit quand ils meurent
+	void SuivreEnnemis();
+	void VerifierMorts(float Horloge);
+	bool EstEnnemi(AActor* Acteur) const;
+	static bool EstMort(AActor* Acteur);
+	void EnvoyerXPCombat(AController* Tireur, int32 Quantite, bool bTue);
+
+	struct FCibleXP
+	{
+		TWeakObjectPtr<AController> Tireur;
+		float Heure = 0.f;
+	};
+	TMap<TWeakObjectPtr<AActor>, FCibleXP> CiblesTouchees;
+	TMap<TWeakObjectPtr<AController>, float> DernierXPTouche;
+	float ProchainSuivi = 0.f;
+	float ProchaineVerif = 0.f;
+
+	// XP de combat (machine du joueur) : les petits gains sont cumules puis sauvegardes d'un coup
+	int32 XPCombatEnAttente = 0;
+	float ProchainBilanCombat = 0.f;
 
 	// Serveur
 	void GererRelais();
@@ -112,6 +153,8 @@ private:
 	int32 NiveauAnnonce = 0;
 	float ProchainEnvoi = 0.f;
 	bool bCharge = false;
+	/** Nom du fichier de sauvegarde de ce joueur (ChellesXP, ChellesXP_PIE2, ChellesXP_Karim...). */
+	FString NomSauvegarde;
 	bool bLieClavier = false;
 	float ProchaineGestion = 0.f;
 	float ProchaineSauvegarde = 0.f;

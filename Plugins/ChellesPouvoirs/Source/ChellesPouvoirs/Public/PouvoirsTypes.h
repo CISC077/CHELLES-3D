@@ -20,6 +20,10 @@ namespace ChellesPouvoirs
 	static constexpr int32 XPParMinute = 10;
 	/** Bonus a chaque heure de jeu complete. */
 	static constexpr int32 BonusParHeure = 50;
+	/** XP de combat (2026-11-18) : chaque coup qui touche un ennemi (bandit, soldat, zombie...). */
+	static constexpr int32 XPParTouche = 1;
+	/** XP de combat : ennemi elimine (le dernier joueur qui l'a touche la recoit). */
+	static constexpr int32 XPParEnnemiTue = 10;
 
 	struct FPalier
 	{

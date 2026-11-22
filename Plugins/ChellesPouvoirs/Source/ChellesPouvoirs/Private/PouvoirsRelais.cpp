@@ -87,6 +87,14 @@ void APouvoirsRelais::ServeurPouvoir_Implementation(uint8 Quel, FVector Origine,
 	}
 }
 
+void APouvoirsRelais::ClientXPCombat_Implementation(int32 Quantite, bool bTue)
+{
+	if (APouvoirsChelles* Gestionnaire = TrouverGestionnaire())
+	{
+		Gestionnaire->GagnerXPCombat(FMath::Clamp(Quantite, 0, 1000), bTue);
+	}
+}
+
 void APouvoirsRelais::ClientAvis_Implementation(const FString& Texte)
 {
 	if (APouvoirsChelles* Gestionnaire = TrouverGestionnaire())
