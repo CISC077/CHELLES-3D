@@ -1373,15 +1373,18 @@ int32 ARoueArmes::Donner(APawn* Pion, UClass* Classe)
 	}
 	uint8* Parametres = static_cast<uint8*>(FMemory_Alloca(FMath::Max<int32>(1, F->ParmsSize)));
 	FMemory::Memzero(Parametres, FMath::Max<int32>(1, F->ParmsSize));
+	FString Signature;
 	for (TFieldIterator<FProperty> It(F); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
 	{
 		It->InitializeValue_InContainer(Parametres);
+		Signature += FString::Printf(TEXT(" %s %s(flags %llx),"), *It->GetCPPType(), *It->GetName(), uint64(It->PropertyFlags));
 	}
 	bool bRempli = false;
 	AActor* Neuve = nullptr;
 	for (TFieldIterator<FProperty> It(F); It && It->HasAnyPropertyFlags(CPF_Parm) && !bRempli; ++It)
 	{
-		if (It->HasAnyPropertyFlags(CPF_ReturnParm | CPF_OutParm))
+		// Les entrees "par reference" des Blueprints ont aussi CPF_OutParm : on ne saute que les vraies sorties.
+		if (It->HasAnyPropertyFlags(CPF_ReturnParm) || (It->HasAnyPropertyFlags(CPF_OutParm) && !It->HasAnyPropertyFlags(CPF_ReferenceParm)))
 		{
 			continue;
 		}
@@ -1412,6 +1415,22 @@ int32 ARoueArmes::Donner(APawn* Pion, UClass* Classe)
 	}
 	if (bRempli)
 	{
+		// Inventaire plein (EquippedSlotLimit du kit, 4 cases) : on lache l'arme en main, comme en ramassant une arme au sol.
+		{
+			int64 Limite = 0;
+			int32 Pleines = 0;
+			for (UObject* R : ArmesDuSoldat(Pion))
+			{
+				Pleines += R ? 1 : 0;
+			}
+			if (LireNombre(Pion, TEXT("EquippedSlotLimit"), Limite) && Limite > 0 && Pleines >= Limite)
+			{
+				if (AppelerSansParametre(Pion, TEXT("DropCurrentWeapon")))
+				{
+					UE_LOG(LogTemp, Log, TEXT("[RoueArmes] Inventaire plein (%d/%lld) : arme en main lachee au sol."), Pleines, Limite);
+				}
+			}
+		}
 		Pion->ProcessEvent(F, Parametres);
 	}
 	for (TFieldIterator<FProperty> It(F); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
@@ -1421,7 +1440,7 @@ int32 ARoueArmes::Donner(APawn* Pion, UClass* Classe)
 	if (!bRempli)
 	{
 		Message(FString::Printf(TEXT("Impossible de donner %s"), *Classe->GetName()));
-		UE_LOG(LogTemp, Warning, TEXT("[RoueArmes] %s : aucun parametre de %s n'accepte %s."), *Pion->GetClass()->GetName(), *F->GetName(), *Classe->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("[RoueArmes] %s : aucun parametre de %s n'accepte %s. Parametres :%s"), *Pion->GetClass()->GetName(), *F->GetName(), *Classe->GetName(), *Signature);
 		return INDEX_NONE;
 	}
 	const TArray<UObject*> Ramassees = ArmesDuSoldat(Pion);
