@@ -33,13 +33,17 @@ CSV_PACKS = os.path.join(ICI, "Armes_Packs.csv")
 CSV_COMPLET = os.path.join(ICI, "Armes_complet.csv")
 TABLE = "/Game/Chelles/Donnees/DT_Armes"
 COPIE = "/Game/Chelles/Donnees/DT_Armes_avant_packs"
-MAX_ARMES = 240  # 20 pages de 12 cases
+MAX_ARMES = 300  # 25 pages de 12 cases
+ORDRE = ["Pistolet", "Fusil", "Pompe", "Precision", "Lourde", "Energie", "Melee"]
+VERSION = "# ChellesArmesPacks v2"
 
 # Packs d'armes connus du projet + tout dossier de /Game dont le nom fait penser a des armes
 PACKS = ["AAAFantasticWeapons", "FPS_Assault_Pack", "FPS_Weapon_Bundle", "FPSAssets", "InfinityBladeWeapons",
          "MilitaryWeapDark", "MilitaryWeapSilver", "Weapon", "Weapon_Pack", "Weapons"]
 MOTS_PACK = re.compile(r"weap|gun|arme|sword|blade|rifle|pistol|military", re.I)
 PAS_UN_PACK = {"fps_game", "chelles", "tps_game", "_quarantaine"}
+# Dossiers d'effets speciaux (InfinityBladeEffects...) : pas des armes, meme si le nom contient "Blade"
+PACK_ECARTE = re.compile(r"effect|fx|particle|sound|audio|anim", re.I)
 
 # Morceaux d'arme ou objets qui ne sont pas une arme entiere
 ECARTES = {
@@ -51,20 +55,24 @@ ECARTES = {
     "grenade", "sheath", "scabbard", "target", "dummy", "floor", "wall", "skeleton", "physics", "phys", "pa",
     "handguard", "bipod", "laserpointer", "optic", "optics", "acog", "eotech", "rocketammo", "missile", "arrow",
     "quiver", "pickup", "socket", "dot", "lens", "cylinder", "hammerpart", "spring", "pin", "screw",
+    "vertgrip", "empty", "thrown", "banner", "bench", "bowl", "chair", "holder", "window", "frame", "door", "candle",
+    "blood", "rod", "carry", "g67", "chest", "torch", "lamp", "rock", "tree", "column", "pillar", "stairs", "roof", "carryhandle",
 }
-DOSSIERS_ECARTES = re.compile(r"/(animations?|anims?|materials?|textures?|fx|particles?|characters?|mannequin|"
-                              r"hands?|arms|attachments?|ammo|maps?|levels?|blueprints?|sounds?|audio|ui)/", re.I)
+DOSSIERS_ECARTES = re.compile(r"/(animations?|anims?|materials?|textures?|fx|fx_meshes|effects?|particles?|characters?|"
+                              r"mannequin|hands?|arms|attachments?|accessories|ammo|ammunition|maps?|levels?|blueprints?|"
+                              r"sounds?|audio|ui|props?|set|sets|interior|exterior|environment|decor|buildings?)/", re.I)
 
 FAMILLES = [
     ("Melee", {"sword", "blade", "katana", "axe", "knife", "dagger", "mace", "hammer", "club", "spear", "scythe",
-               "machete", "saber", "sabre", "staff", "halberd", "bat", "claymore", "longsword", "greatsword", "cleaver"}),
+               "machete", "saber", "sabre", "staff", "halberd", "bat", "claymore", "longsword", "greatsword", "cleaver",
+               "sickle", "shield", "h2h", "throwing", "flail", "trident", "lance", "pike", "warhammer", "glaive"}),
     ("Pistolet", {"pistol", "handgun", "revolver", "glock", "deagle", "deserteagle", "colt", "1911", "m1911", "m9",
                   "beretta", "p226", "usp", "magnum", "luger", "makarov", "p250", "fiveseven"}),
     ("Pompe", {"shotgun", "pump", "spas", "spas12", "benelli", "m870", "870", "aa12", "saiga", "m1014", "doublebarrel"}),
     ("Precision", {"sniper", "awp", "barrett", "m82", "m24", "svd", "dragunov", "l96", "m40", "kar98", "kar98k",
                    "mosin", "intervention", "m107", "marksman", "dmr"}),
     ("Lourde", {"rpg", "rpg7", "launcher", "rocket", "bazooka", "minigun", "lmg", "m249", "pkm", "m60", "gatling",
-                "mg42", "javelin", "stinger", "m32", "gl"}),
+                "mg42", "javelin", "stinger", "m32", "gl", "rl"}),
     ("Energie", {"laser", "plasma", "blaster", "ray", "raygun", "scifi", "phaser", "railgun", "energy"}),
 ]
 
@@ -107,7 +115,7 @@ def dossiers_de_packs(registre):
     for d in registre.get_sub_paths("/Game", False):
         d = str(d)
         court = d.rsplit("/", 1)[-1]
-        if court.lower() in PAS_UN_PACK:
+        if court.lower() in PAS_UN_PACK or PACK_ECARTE.search(court):
             continue
         if court in PACKS or MOTS_PACK.search(court):
             trouves.append(d)
@@ -129,7 +137,7 @@ def chercher():
             paquet = str(a.package_path) + "/"
             if DOSSIERS_ECARTES.search(paquet):
                 continue
-            m = set(mots(nom))
+            m = set(mots(nom)) | set(re.sub(r"\d+$", "", x) for x in mots(nom))
             if m & ECARTES or nom.lower().startswith(("phys", "pa_")) or len(nom) < 3:
                 continue
             simple = re.sub(r"^(skm|sk|sm|s)_", "", nom.lower())
@@ -142,7 +150,7 @@ def chercher():
                 "Nom": nom_affiche(nom), "Maillage": chemin, "Categorie": fam, "Pack": dossier.rsplit("/", 1)[-1]})
         log("%s : %d arme(s)." % (dossier, len(armes) - n_avant))
     liste = [v[1] for v in armes.values()]
-    liste.sort(key=lambda l: (l["Categorie"], l["Pack"], l["Nom"]))
+    liste.sort(key=lambda l: (ORDRE.index(l["Categorie"]) if l["Categorie"] in ORDRE else 99, l["Pack"], l["Nom"]))
     if len(liste) > MAX_ARMES:
         log("%d armes trouvees : seules les %d premieres sont gardees (retirez des lignes dans Armes_Packs.csv)." % (len(liste), MAX_ARMES))
         liste = liste[:MAX_ARMES]
@@ -151,6 +159,7 @@ def chercher():
 
 def ecrire_csv_packs(liste):
     with open(CSV_PACKS, "w", encoding="utf-8", newline="") as f:
+        f.write(VERSION + "\n")
         w = csv.writer(f)
         w.writerow(["Pack", "Nom", "Categorie", "Maillage"])
         for l in liste:
@@ -160,7 +169,15 @@ def ecrire_csv_packs(liste):
 
 def lire_csv_packs():
     with open(CSV_PACKS, encoding="utf-8-sig", newline="") as f:
-        return [l for l in csv.DictReader(f) if (l.get("Maillage") or "").strip()]
+        return [l for l in csv.DictReader(ligne for ligne in f if not ligne.startswith("#"))
+                if (l.get("Maillage") or "").strip()]
+
+
+def csv_a_jour():
+    if not os.path.exists(CSV_PACKS):
+        return False
+    with open(CSV_PACKS, encoding="utf-8-sig") as f:
+        return f.readline().strip() == VERSION
 
 
 def ecrire_complet(packs):
@@ -225,10 +242,13 @@ def remplir_table():
 
 try:
     log("Debut.")
-    if os.path.exists(CSV_PACKS) and os.environ.get("CHELLES_RESCANNER") != "1":
+    if csv_a_jour() and os.environ.get("CHELLES_RESCANNER") != "1":
         packs = lire_csv_packs()
         log("Armes_Packs.csv relu (%d armes). Pour tout rechercher a nouveau : supprimez-le ou CHELLES_RESCANNER=1." % len(packs))
     else:
+        if os.path.exists(CSV_PACKS):
+            os.replace(CSV_PACKS, CSV_PACKS + ".ancien")
+            log("Ancienne liste gardee : Armes_Packs.csv.ancien")
         packs = chercher()
         ecrire_csv_packs(packs)
     nb_jeu, nb_packs = ecrire_complet(packs)
