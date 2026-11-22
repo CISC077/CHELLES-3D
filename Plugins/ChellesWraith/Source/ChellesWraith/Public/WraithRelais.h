@@ -25,6 +25,10 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServeurSkin(int32 NouveauSkin);
 
+	/** Tenue choisie avec K pour le heros de la roue (Spider-Male, PANTERA...). */
+	UFUNCTION(Server, Reliable)
+	void ServeurTenue(int32 NouvelleTenue);
+
 	/** Joueur a qui appartient ce relais (pour retrouver son personnage sur chaque machine). */
 	UPROPERTY(Replicated)
 	APlayerState* Joueur = nullptr;
@@ -32,4 +36,8 @@ public:
 	/** Numero du skin choisi (ligne Skin= de Wraith.txt, -1 = pas encore choisi). */
 	UPROPERTY(Replicated)
 	int32 Skin = -1;
+
+	/** Numero de la tenue du heros joue (ligne Tenue= de Wraith.txt, -1 = tenue d'origine). */
+	UPROPERTY(Replicated)
+	int32 Tenue = -1;
 };

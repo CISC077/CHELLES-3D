@@ -240,6 +240,18 @@ void AWraithChelles::BeginPlay()
 	{
 		SkinLocal = Skins.Num() > 0 ? FMath::Clamp(Garde, 0, Skins.Num() - 1) : 0;
 	}
+	if (GConfig)
+	{
+		for (const FTenueHeros& T : Tenues)
+		{
+			int32 Choix = -1;
+			if (!TenueLocale.Contains(T.Mot) && GConfig->GetInt(Section, *(TEXT("Tenue_") + T.Mot), Choix, GGameUserSettingsIni))
+			{
+				TenueLocale.Add(T.Mot, Tenues.IsValidIndex(Choix) && Tenues[Choix].Mot == T.Mot ? Choix : -1);
+			}
+		}
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Wraith] %d tenues pour les heros de la roue."), Tenues.Num());
 	UE_LOG(LogTemp, Log, TEXT("[Wraith] %s, %d skins, skin choisi : %s, touche %s"),
 		bActif ? TEXT("actif") : TEXT("coupe"), Skins.Num(), Skins.IsValidIndex(SkinLocal) ? *Skins[SkinLocal].Nom : TEXT("?"), *Touche.ToString());
 }
@@ -251,6 +263,7 @@ void AWraithChelles::EndPlay(const EEndPlayReason::Type Raison)
 		Retirer(S);
 	}
 	Soldats.Reset();
+	RetirerTenues();
 	RetirerAnnonce();
 	Super::EndPlay(Raison);
 }
@@ -286,8 +299,26 @@ void AWraithChelles::LireReglages()
 	SkinsDefaut.Add(TEXT("Skin=SCI-FI VERT|") + SF + TEXT("/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.07,0.08,0.04|SciFi|") + SF + TEXT("/Materials/MI_SciFiSoldier_5.MI_SciFiSoldier_5"));
 	SkinsDefaut.Add(TEXT("Skin=SOLDAT D'ORIGINE|Soldat||1||"));
 
+	// Tenues des heros de la roue : Tenue=mot du corps|NOM|teinte|couleur unie|melange|materiaux
+	TArray<FString> TenuesDefaut;
+	TenuesDefaut.Add(TEXT("Tenue=SK_SpiderMan|SPIDER-MALE|0||0|"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_SpiderMan|SPIDER-MALE VERT|0.33||0|"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_SpiderMan|SPIDER-MALE BLEU ET VERT|0.66||0|"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_SpiderMan|SPIDER-MALE DORE|0.10||0|"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_SpiderMan|SPIDER-MALE NOIR|0|0.03,0.03,0.035|0.85|"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_SpiderFemelle|SPIDER-FEMELLE|0||0|"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_SpiderFemelle|SPIDER-FEMELLE VIOLETTE|0.85||0|"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_SpiderFemelle|SPIDER-FEMELLE VERTE|0.40||0|"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_SpiderFemelle|SPIDER-FEMELLE ORANGE|0.10||0|"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_Pantera|PANTERA|0||0|"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_Pantera|PANTERA ROUGE|0|0.55,0.02,0.02|1|Costume"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_Pantera|PANTERA BLEUE|0|0.02,0.08,0.60|1|Costume"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_Pantera|PANTERA DOREE|0|0.80,0.45,0.06|1|Costume;Accent"));
+	TenuesDefaut.Add(TEXT("Tenue=SK_Pantera|PANTERA BLANCHE|0|0.85,0.85,0.90|1|Costume"));
+
 	bActif = true;
 	Touche = EKeys::K;
+	Tenues.Reset();
 	Skins.Reset();
 	Heros.Reset();
 	Gardes.Reset();
@@ -306,6 +337,10 @@ void AWraithChelles::LireReglages()
 	if (!bSkinsFichier)
 	{
 		Lignes.Append(SkinsDefaut);
+	}
+	if (!Lignes.ContainsByPredicate([](const FString& L) { return L.TrimStart().StartsWith(TEXT("Tenue="), ESearchCase::IgnoreCase); }))
+	{
+		Lignes.Append(TenuesDefaut);
 	}
 
 	for (FString Ligne : Lignes)
@@ -424,6 +459,34 @@ void AWraithChelles::LireReglages()
 				}
 			}
 			Skins.Add(Skin);
+		}
+		else if (Cle.Equals(TEXT("Tenue"), ESearchCase::IgnoreCase))
+		{
+			TArray<FString> M;
+			Valeur.ParseIntoArray(M, TEXT("|"), false);
+			if (M.Num() < 2 || M[0].TrimStartAndEnd().IsEmpty())
+			{
+				continue;
+			}
+			while (M.Num() < 6)
+			{
+				M.Add(FString());
+			}
+			FTenueHeros T;
+			T.Mot = M[0].TrimStartAndEnd();
+			T.Nom = M[1].TrimStartAndEnd();
+			T.Teinte = FCString::Atof(*M[2].TrimStartAndEnd());
+			if (LireTrois(M[3], A, B, C))
+			{
+				T.Unie = FLinearColor(A, B, C);
+			}
+			T.Melange = FMath::Clamp(FCString::Atof(*M[4].TrimStartAndEnd()), 0.f, 1.f);
+			M[5].ParseIntoArray(T.Materiaux, TEXT(";"), true);
+			for (FString& Mat : T.Materiaux)
+			{
+				Mat = Mat.TrimStartAndEnd();
+			}
+			Tenues.Add(T);
 		}
 		else if (Cle.Equals(TEXT("Echelle"), ESearchCase::IgnoreCase))
 		{
@@ -545,6 +608,10 @@ void AWraithChelles::Tick(float DeltaSeconds)
 		{
 			ChangerSkin(SkinLocal + 1, true);
 		}
+		else if (Moi)
+		{
+			TenueSuivante(Moi); // Spider-Male, Spider-Femelle, PANTERA...
+		}
 	}
 
 	// Multijoueur : on donne notre skin au serveur (les autres le voient)
@@ -557,7 +624,38 @@ void AWraithChelles::Tick(float DeltaSeconds)
 				ProchainEnvoi = Maintenant + 1.f;
 				R->ServeurSkin(SkinLocal);
 			}
+			// Tenue du heros joue en ce moment
+			int32 MaTenue = -1;
+			if (ACharacter* Moi = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr)
+			{
+				TArray<USkeletalMeshComponent*> Corps;
+				Moi->GetComponents<USkeletalMeshComponent>(Corps);
+				for (USkeletalMeshComponent* K : Corps)
+				{
+					const FString Mot = MotTenue(K);
+					if (!Mot.IsEmpty())
+					{
+						MaTenue = TenueDe(Moi, Mot);
+						break;
+					}
+				}
+			}
+			if (R->Tenue != MaTenue)
+			{
+				ProchainEnvoi = Maintenant + 1.f;
+				R->ServeurTenue(MaTenue);
+			}
 		}
+	}
+
+	if (bActif && Tenues.Num() > 0 && Maintenant > ProchainesTenues)
+	{
+		ProchainesTenues = Maintenant + 0.25f;
+		SuivreTenues();
+	}
+	else if (!bActif && Colores.Num() > 0)
+	{
+		RetirerTenues();
 	}
 
 	if (Maintenant > ProchaineRecherche)
@@ -1535,6 +1633,257 @@ void AWraithChelles::Tir(FSoldatWraith& S)
 //  Message a l'ecran (nom du skin)
 // ======================================================================
 
+// ======================================================================
+//  Tenues des heros de la roue (Spider-Male, Spider-Femelle, PANTERA)
+//  Leurs materiaux recoivent ChellesTeinte / ChellesUnie / ChellesMelange
+//  (Tools\TenuesHeros\preparer_tenues_heros.py, une seule fois dans l'editeur).
+// ======================================================================
+
+FString AWraithChelles::MotTenue(const USkeletalMeshComponent* C) const
+{
+	if (!C || !C->SkeletalMesh || C->ComponentHasTag(TagWraith))
+	{
+		return FString();
+	}
+	const FString Nom = C->SkeletalMesh->GetName();
+	for (const FTenueHeros& T : Tenues)
+	{
+		if (Nom.Contains(T.Mot))
+		{
+			return T.Mot;
+		}
+	}
+	return FString();
+}
+
+int32 AWraithChelles::TenueDe(ACharacter* C, const FString& Mot) const
+{
+	int32 Index = -1;
+	UWorld* W = GetWorld();
+	if (!C || C->IsLocallyControlled() || !W || W->GetNetMode() == NM_Standalone)
+	{
+		if (const int32* Choix = TenueLocale.Find(Mot))
+		{
+			Index = *Choix;
+		}
+	}
+	else
+	{
+		APlayerState* PS = C->GetPlayerState();
+		for (TActorIterator<AWraithRelais> It(W); It; ++It)
+		{
+			if (PS && It->Joueur == PS)
+			{
+				Index = It->Tenue;
+				break;
+			}
+		}
+	}
+	return Tenues.IsValidIndex(Index) && Tenues[Index].Mot == Mot ? Index : -1;
+}
+
+void AWraithChelles::TenueSuivante(ACharacter* Moi)
+{
+	TArray<USkeletalMeshComponent*> Corps;
+	Moi->GetComponents<USkeletalMeshComponent>(Corps);
+	FString Mot;
+	for (USkeletalMeshComponent* K : Corps)
+	{
+		Mot = MotTenue(K);
+		if (!Mot.IsEmpty())
+		{
+			break;
+		}
+	}
+	if (Mot.IsEmpty())
+	{
+		return; // vehicule, cheval... : pas de tenue
+	}
+	TArray<int32> Liste;
+	for (int32 i = 0; i < Tenues.Num(); ++i)
+	{
+		if (Tenues[i].Mot == Mot)
+		{
+			Liste.Add(i);
+		}
+	}
+	if (Liste.Num() == 0)
+	{
+		return;
+	}
+	const int32 Actuelle = TenueDe(Moi, Mot);
+	const int32 Pos = Liste.Find(Actuelle); // -1 (origine) -> 0 = premiere tenue
+	const int32 Nouvelle = Liste[(Pos == INDEX_NONE ? (Liste.Num() > 1 ? 1 : 0) : Pos + 1) % Liste.Num()];
+	TenueLocale.Add(Mot, Nouvelle);
+	if (GConfig)
+	{
+		GConfig->SetInt(Section, *(TEXT("Tenue_") + Mot), Nouvelle, GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+	if (AWraithRelais* R = MonRelais())
+	{
+		R->ServeurTenue(Nouvelle);
+	}
+	ProchainesTenues = 0.f; // tout de suite
+	SuivreTenues();
+	Annonce(FString::Printf(TEXT("%s      (%s = tenue suivante)"), *Tenues[Nouvelle].Nom, *Touche.GetDisplayName().ToString()));
+	UE_LOG(LogTemp, Log, TEXT("[Wraith] Tenue : %s"), *Tenues[Nouvelle].Nom);
+}
+
+void AWraithChelles::SuivreTenues()
+{
+	UWorld* W = GetWorld();
+	if (!W)
+	{
+		return;
+	}
+	TSet<USkeletalMeshComponent*> Vus;
+	for (TActorIterator<ACharacter> It(W); It; ++It)
+	{
+		ACharacter* C = *It;
+		if (!IsValid(C) || !C->GetPlayerState())
+		{
+			continue; // seulement les joueurs
+		}
+		TArray<USkeletalMeshComponent*> Corps;
+		C->GetComponents<USkeletalMeshComponent>(Corps);
+		for (USkeletalMeshComponent* K : Corps)
+		{
+			const FString Mot = MotTenue(K);
+			if (Mot.IsEmpty())
+			{
+				continue;
+			}
+			Vus.Add(K);
+			const int32 Index = TenueDe(C, Mot);
+			FTenueComposant* T = Colores.FindByPredicate([K](const FTenueComposant& X) { return X.Composant.Get() == K; });
+			if (!T)
+			{
+				FTenueComposant Nouveau;
+				Nouveau.Composant = K;
+				Nouveau.Maillage = K->SkeletalMesh;
+				T = &Colores.Add_GetRef(Nouveau);
+			}
+			if (T->Maillage.Get() != K->SkeletalMesh)
+			{
+				RemettreTenue(*T); // autre corps (la roue a change de heros)
+				T->Maillage = K->SkeletalMesh;
+				T->Tenue = -2;
+			}
+			bool bAJour = T->Tenue == Index;
+			for (int32 i = 0; bAJour && i < T->Poses.Num(); ++i)
+			{
+				bAJour = !T->Poses[i].IsValid() || K->GetMaterial(i) == T->Poses[i].Get();
+			}
+			if (!bAJour)
+			{
+				PoserTenue(*T, Index);
+			}
+		}
+	}
+	// Corps disparus ou qui ne sont plus des heros : remis comme avant
+	for (int32 i = Colores.Num() - 1; i >= 0; --i)
+	{
+		USkeletalMeshComponent* K = Colores[i].Composant.Get();
+		if (!K || !Vus.Contains(K))
+		{
+			RemettreTenue(Colores[i]);
+			Colores.RemoveAt(i);
+		}
+	}
+}
+
+bool AWraithChelles::PoserTenue(FTenueComposant& T, int32 Index)
+{
+	RemettreTenue(T);
+	T.Tenue = Index;
+	USkeletalMeshComponent* K = T.Composant.Get();
+	if (!K || !Tenues.IsValidIndex(Index))
+	{
+		return false;
+	}
+	const FTenueHeros& Tenue = Tenues[Index];
+	if (FMath::IsNearlyZero(FMath::Frac(Tenue.Teinte)) && Tenue.Melange <= 0.f)
+	{
+		return true; // couleurs d'origine
+	}
+	static const FName PTeinte(TEXT("ChellesTeinte"));
+	static const FName PUnie(TEXT("ChellesUnie"));
+	static const FName PMelange(TEXT("ChellesMelange"));
+	const int32 N = K->GetNumMaterials();
+	T.Avant.SetNum(N);
+	T.Poses.SetNum(N);
+	bool bUn = false;
+	for (int32 i = 0; i < N; ++i)
+	{
+		UMaterialInterface* M = K->GetMaterial(i);
+		if (!M)
+		{
+			continue;
+		}
+		float Essai = 0.f;
+		if (!M->GetScalarParameterValue(FHashedMaterialParameterInfo(PTeinte), Essai))
+		{
+			continue; // materiau pas prepare (yeux...)
+		}
+		UMaterialInterface* Base = M;
+		if (UMaterialInstanceDynamic* D = Cast<UMaterialInstanceDynamic>(M))
+		{
+			Base = D->Parent ? D->Parent : M;
+		}
+		bool bUnie = Tenue.Materiaux.Num() == 0;
+		for (const FString& Mot : Tenue.Materiaux)
+		{
+			bUnie = bUnie || Base->GetName().Contains(Mot);
+		}
+		UMaterialInstanceDynamic* D = UMaterialInstanceDynamic::Create(Base, K);
+		D->SetScalarParameterValue(PTeinte, FMath::Frac(Tenue.Teinte));
+		D->SetVectorParameterValue(PUnie, Tenue.Unie);
+		D->SetScalarParameterValue(PMelange, bUnie ? Tenue.Melange : 0.f);
+		T.Avant[i] = K->OverrideMaterials.IsValidIndex(i) ? K->OverrideMaterials[i] : nullptr;
+		K->SetMaterial(i, D);
+		T.Poses[i] = D;
+		bUn = true;
+	}
+	if (!bUn && !bAvisTenues)
+	{
+		bAvisTenues = true;
+		const FString Texte = TEXT("Tenues des heros pas preparees : lancez Tools\\TenuesHeros\\preparer_tenues_heros.py dans Unreal.");
+		UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s (%s)"), *Texte, *GetNameSafe(K->SkeletalMesh));
+		APlayerController* PC = GetPC();
+		if (PC && K->GetOwner() == PC->GetPawn())
+		{
+			Annonce(Texte);
+		}
+	}
+	return bUn;
+}
+
+void AWraithChelles::RemettreTenue(FTenueComposant& T)
+{
+	USkeletalMeshComponent* K = T.Composant.Get();
+	for (int32 i = 0; K && i < T.Poses.Num(); ++i)
+	{
+		// seulement si c'est encore notre materiau (la roue a pu en poser un autre)
+		if (T.Poses[i].IsValid() && K->GetMaterial(i) == T.Poses[i].Get())
+		{
+			K->SetMaterial(i, T.Avant.IsValidIndex(i) ? T.Avant[i].Get() : nullptr);
+		}
+	}
+	T.Poses.Reset();
+	T.Avant.Reset();
+	T.Tenue = -2;
+}
+
+void AWraithChelles::RetirerTenues()
+{
+	for (FTenueComposant& T : Colores)
+	{
+		RemettreTenue(T);
+	}
+	Colores.Reset();
+}
+
 void AWraithChelles::Annonce(const FString& Texte)
 {
 	if (!GEngine || !GEngine->GameViewport || !GetWorld())
@@ -1598,8 +1947,9 @@ void AWraithChelles::Commande(const TArray<FString>& Arguments)
 		{
 			Retirer(S);
 		}
+		RetirerTenues();
 		LireReglages();
-		Reponse = FString::Printf(TEXT("Wraith.txt relu : %d skins."), Skins.Num());
+		Reponse = FString::Printf(TEXT("Wraith.txt relu : %d skins, %d tenues de heros."), Skins.Num(), Tenues.Num());
 	}
 	else if (Quoi.Equals(TEXT("Arme"), ESearchCase::IgnoreCase))
 	{

@@ -18,10 +18,17 @@ void AWraithRelais::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AWraithRelais, Joueur);
 	DOREPLIFETIME(AWraithRelais, Skin);
+	DOREPLIFETIME(AWraithRelais, Tenue);
 }
 
 void AWraithRelais::ServeurSkin_Implementation(int32 NouveauSkin)
 {
 	Skin = FMath::Clamp(NouveauSkin, -1, 63);
+	ForceNetUpdate();
+}
+
+void AWraithRelais::ServeurTenue_Implementation(int32 NouvelleTenue)
+{
+	Tenue = FMath::Clamp(NouvelleTenue, -1, 255);
 	ForceNetUpdate();
 }

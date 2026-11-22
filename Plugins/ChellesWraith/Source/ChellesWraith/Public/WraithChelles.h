@@ -64,6 +64,27 @@ struct FSkinWraith
 	int32 Heros = 0;
 };
 
+/** Une ligne Tenue= de Wraith.txt : couleur d'un heros de la roue (Spider-Male, Spider-Femelle, PANTERA). */
+struct FTenueHeros
+{
+	FString Mot;                   // morceau du nom du corps, ex. SK_SpiderMan
+	FString Nom;                   // nom affiche
+	float Teinte = 0.f;            // decalage de couleur (0 a 1 = tour du cercle des couleurs)
+	FLinearColor Unie = FLinearColor::Black;
+	float Melange = 0.f;           // 0 = couleurs du costume, 1 = couleur unie
+	TArray<FString> Materiaux;     // materiaux qui prennent la couleur unie (vide = tous)
+};
+
+/** Un corps de heros qu'on a colore (pour le remettre comme avant). */
+struct FTenueComposant
+{
+	TWeakObjectPtr<USkeletalMeshComponent> Composant;
+	TWeakObjectPtr<USkeletalMesh> Maillage;
+	int32 Tenue = -2;
+	TArray<TWeakObjectPtr<UMaterialInterface>> Avant;   // surcharges d'origine (par emplacement)
+	TArray<TWeakObjectPtr<UMaterialInterface>> Poses;   // nos materiaux (par emplacement, vide = pas touche)
+};
+
 /** Un composant du soldat qu'on a cache (remis comme avant a la fin). */
 struct FCacheWraith
 {
@@ -175,6 +196,20 @@ private:
 	void SuivreTirs(FSoldatWraith& S);
 	void Tir(FSoldatWraith& S);
 	void Dire(FSoldatWraith& S, const TCHAR* Repliques, float Chance = 1.f, bool bForcer = false);
+
+	// ---- Tenues des heros de la roue (touche K) ----
+	TArray<FTenueHeros> Tenues;
+	TMap<FString, int32> TenueLocale;              // mot du heros -> tenue choisie (-1 = origine)
+	TArray<FTenueComposant> Colores;
+	float ProchainesTenues = 0.f;
+	bool bAvisTenues = false;
+	FString MotTenue(const USkeletalMeshComponent* C) const;
+	int32 TenueDe(ACharacter* C, const FString& Mot) const;
+	void TenueSuivante(ACharacter* Moi);
+	void SuivreTenues();
+	bool PoserTenue(FTenueComposant& T, int32 Index);
+	static void RemettreTenue(FTenueComposant& T);
+	void RetirerTenues();
 
 	// ---- Message a l'ecran ----
 	void Annonce(const FString& Texte);

@@ -37,7 +37,19 @@ Le **Sci-Fi Soldier** est sur le squelette mannequin du soldat : il copie exacte
 | SCI-FI NOIR / ROUGE / DORE / BLEU / VERT | Sci-Fi Soldier, ses 5 tenues (MI_SciFiSoldier 1 à 5) |
 | SOLDAT D'ORIGINE | le soldat sans héros |
 
-Pas actif en Spider-Male / Spider-Femelle / PANTERA (la roue TAB habille déjà le soldat).
+En Spider-Male / Spider-Femelle / PANTERA (roue TAB / F2-F4), le soldat garde le héros choisi
+et **K change la couleur de sa tenue** (lignes `Tenue=` de Wraith.txt) :
+
+| Héros | Tenues (ordre de K) |
+|---|---|
+| Spider-Male | d'origine, VERT, BLEU ET VERT, DORE, NOIR |
+| Spider-Femelle | d'origine, VIOLETTE, VERTE, ORANGE |
+| PANTERA | d'origine, ROUGE, BLEUE, DOREE, BLANCHE |
+
+À préparer **une fois** : dans Unreal, *Fichier > Exécuter un script Python…* >
+`Tools\TenuesHeros\preparer_tenues_heros.py`. Il ajoute 3 réglages (`ChellesTeinte`, `ChellesUnie`,
+`ChellesMelange`) aux matériaux de ces héros, sans rien changer à leur image par défaut
+(copies dans `/Game/Personnages/Sauvegarde/TenuesHeros`). En multijoueur, la tenue passe par le relais.
 
 ## Installer
 1. Fermez Unreal.

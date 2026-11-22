@@ -1,5 +1,5 @@
 ; =====================================================================
-;  CHELLES 3D - Wraith, Dekker, Sci-Fi Soldier a la place du SOLDAT
+;  CHELLES 3D - Wraith, Dekker, Sci-Fi Soldier a la place du SOLDAT + tenues des heros
 ;  Plugin ChellesWraith. Modifiez ce fichier avec le Bloc-notes, puis
 ;  relancez le jeu (ou tapez  Chelles.Wraith Relire  dans la console, touche 2).
 ;  Oui / Non pour activer ou couper une option. Pas d'accents dans ce fichier.
@@ -42,6 +42,29 @@ Skin=SCI-FI DORE|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.
 Skin=SCI-FI BLEU|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.00,0.09,0.40|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_4.MI_SciFiSoldier_4
 Skin=SCI-FI VERT|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.07,0.08,0.04|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_5.MI_SciFiSoldier_5
 Skin=SOLDAT D'ORIGINE|Soldat||1||
+
+; ---------------------------------------------------------------------
+;  Tenues des heros de la roue (Spider-Male, Spider-Femelle, PANTERA) : K quand on les joue.
+;  A preparer une fois : Tools\TenuesHeros\preparer_tenues_heros.py dans Unreal.
+;  Tenue=morceau du nom du corps|NOM AFFICHE|teinte|couleur unie R,G,B|melange|materiaux
+;   - teinte : 0 = couleurs d'origine, 0.33 = rouge devient vert, 0.66 = rouge devient bleu
+;   - couleur unie + melange (0 a 1) : repeint le costume d'une couleur (PANTERA)
+;   - materiaux : ceux qui prennent la couleur unie (ex. Costume;Accent), vide = tous
+; ---------------------------------------------------------------------
+Tenue=SK_SpiderMan|SPIDER-MALE|0||0|
+Tenue=SK_SpiderMan|SPIDER-MALE VERT|0.33||0|
+Tenue=SK_SpiderMan|SPIDER-MALE BLEU ET VERT|0.66||0|
+Tenue=SK_SpiderMan|SPIDER-MALE DORE|0.10||0|
+Tenue=SK_SpiderMan|SPIDER-MALE NOIR|0|0.03,0.03,0.035|0.85|
+Tenue=SK_SpiderFemelle|SPIDER-FEMELLE|0||0|
+Tenue=SK_SpiderFemelle|SPIDER-FEMELLE VIOLETTE|0.85||0|
+Tenue=SK_SpiderFemelle|SPIDER-FEMELLE VERTE|0.40||0|
+Tenue=SK_SpiderFemelle|SPIDER-FEMELLE ORANGE|0.10||0|
+Tenue=SK_Pantera|PANTERA|0||0|
+Tenue=SK_Pantera|PANTERA ROUGE|0|0.55,0.02,0.02|1|Costume
+Tenue=SK_Pantera|PANTERA BLEUE|0|0.02,0.08,0.60|1|Costume
+Tenue=SK_Pantera|PANTERA DOREE|0|0.80,0.45,0.06|1|Costume;Accent
+Tenue=SK_Pantera|PANTERA BLANCHE|0|0.85,0.85,0.90|1|Costume
 
 ; Taille du corps (1 = taille du pack)
 Echelle=1.0
