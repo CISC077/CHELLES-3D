@@ -1,4 +1,4 @@
-# ChellesWraith : Wraith, Dekker et Sci-Fi Soldier à la place du SOLDAT
+# ChellesWraith : Wraith, Dekker, Sci-Fi Soldier, Aurora et Boris à la place du SOLDAT
 
 Le joueur **SOLDAT** (FPS_Game, case "Soldat" de la roue TAB / F1) prend l'apparence de
 **Wraith** (*Paragon: Wraith*, `Content/ParagonWraith`) ou de **Dekker** (*Paragon: Dekker*,
@@ -20,6 +20,10 @@ Le joueur **SOLDAT** (FPS_Game, case "Soldat" de la roue TAB / F1) prend l'appar
 Chaque héros (ligne `Heros=` de Wraith.txt) a ses animations, sa voix, son arme et son éclair de tir.
 Chaque skin (ligne `Skin=`) dit à quel héros il appartient.
 
+**Aurora** et **Boris** ont leurs animations, leur voix (anglais) et leur animation de mort, mais pas
+d'arme à feu dans leur pack : en 1re personne ils gardent les armes du soldat. Comme tous les persos,
+ils ont tous les pouvoirs (J / Y), le vol (ESPACE en l'air) et le flash X (plugin ChellesPouvoirs / ChellesArmes).
+
 Le **Sci-Fi Soldier** est sur le squelette mannequin du soldat : il copie exactement ses gestes
 (`Heros=SciFi|Soldat|…`) et garde les armes du soldat (le pack n'a ni arme, ni voix, ni animation).
 
@@ -35,6 +39,9 @@ Le **Sci-Fi Soldier** est sur le squelette mannequin du soldat : il copie exacte
 | DEKKER MAGMA | skin Magma (rouge et noir) |
 | DEKKER SAINT-VALENTIN | skin Valentine (rose) |
 | SCI-FI NOIR / ROUGE / DORE / BLEU / VERT | Sci-Fi Soldier, ses 5 tenues (MI_SciFiSoldier 1 à 5) |
+| AURORA | Aurora de base (*Paragon: Aurora*, `Content/ParagonAurora`) |
+| AURORA COEUR GIVRE / IMPERATRICE GLACIALE / CRISTAL DE LUNE / PRINTEMPS | les 4 skins du pack Aurora (FrozenHearth, GlacialEmpress, MoonCrystal, SpringCeremony) |
+| BORIS | Boris (*Paragon: Boris*, `Content/ParagonBoris`) |
 | SOLDAT D'ORIGINE | le soldat sans héros |
 
 En Spider-Male / Spider-Femelle / PANTERA (roue TAB / F2-F4), le soldat garde le héros choisi

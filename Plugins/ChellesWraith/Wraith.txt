@@ -1,5 +1,5 @@
 ; =====================================================================
-;  CHELLES 3D - Wraith, Dekker, Sci-Fi Soldier a la place du SOLDAT + tenues des heros
+;  CHELLES 3D - Wraith, Dekker, Sci-Fi Soldier, Aurora, Boris a la place du SOLDAT + tenues des heros
 ;  Plugin ChellesWraith. Modifiez ce fichier avec le Bloc-notes, puis
 ;  relancez le jeu (ou tapez  Chelles.Wraith Relire  dans la console, touche 2).
 ;  Oui / Non pour activer ou couper une option. Pas d'accents dans ce fichier.
@@ -17,6 +17,9 @@ Touche=K
 Heros=Wraith|/Game/ParagonWraith/Characters/Heroes/Wraith/Wraith_AnimBlueprint.Wraith_AnimBlueprint_C|/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Fire_A_Slow_Montage.Fire_A_Slow_Montage|/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Death_Backward.Death_Backward|/Game/ParagonWraith/Audio/Cues/|Wraith|Gun|weapon_r;gun_stock_bott;gun_barrel;gun_scope|/Game/ParagonWraith/FX/Particles/Abilities/ScopedShot/FX/P_Wraith_Sniper_MuzzleFlash.P_Wraith_Sniper_MuzzleFlash
 Heros=Dekker|/Game/ParagonDekker/Characters/Heroes/Dekker/Dekker_AnimBlueprint.Dekker_AnimBlueprint_C|/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Fire_Med_V2_Montage.Fire_Med_V2_Montage|/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Death_Bwd.Death_Bwd|/Game/ParagonDekker/Characters/Heroes/Dekker/Sounds/SoundCues/|Dekker|Weapon;Wapen|weapon;staff_bottom;staff_top;|/Game/ParagonDekker/FX/Particles/Abilities/Primary/FX/P_Dekker_PrimaryFire.P_Dekker_PrimaryFire
 Heros=SciFi|Soldat|||||||
+; Aurora et Boris (collection Paragon) : ils gardent les armes du soldat en 1re personne (pas d'arme a feu dans leur pack)
+Heros=Aurora|/Game/ParagonAurora/Characters/Heroes/Aurora/Aurora_AnimBlueprint.Aurora_AnimBlueprint_C|/Game/ParagonAurora/Characters/Heroes/Aurora/Animations/Primary_Attack_A_Montage.Primary_Attack_A_Montage|/Game/ParagonAurora/Characters/Heroes/Aurora/Animations/Death.Death|/Game/ParagonAurora/Audio/Cues/|Aurora|||
+Heros=Boris|/Game/ParagonBoris/Characters/Heroes/Boris/Boris_AnimBlueprint.Boris_AnimBlueprint_C|/Game/ParagonBoris/Characters/Heroes/Boris/Animations/Primary_A_Montage.Primary_A_Montage|/Game/ParagonBoris/Characters/Heroes/Boris/Animations/Death.Death|/Game/ParagonBoris/Audio/Cues/|Boris|||
 
 ; ---------------------------------------------------------------------
 ;  Les apparences, dans l'ordre de la touche K. Une ligne par apparence :
@@ -24,7 +27,7 @@ Heros=SciFi|Soldat|||||||
 ;   - corps : le modele du pack ("Soldat" = garder le soldat d'origine)
 ;   - recolorer : vide = couleurs du pack, sinon R,G,B (0 a 1) = nouvelle teinte
 ;   - assombrir : 1 = rien, 0.2 = les parties grises/blanches deviennent presque noires
-;   - heros : Wraith, Dekker ou SciFi (ses animations, sa voix, son arme)
+;   - heros : Wraith, Dekker, SciFi, Aurora ou Boris (ses animations, sa voix, son arme)
 ;   - tenue : facultatif, materiau pose sur tout le corps (couleurs du Sci-Fi Soldier)
 ; ---------------------------------------------------------------------
 Skin=WRAITH VERT MILITAIRE|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/ODGreen/Meshes/Wraith_ODGreen.Wraith_ODGreen||1|0.10,0.13,0.07|Wraith
@@ -41,6 +44,12 @@ Skin=SCI-FI ROUGE|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0
 Skin=SCI-FI DORE|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.33,0.14,0.00|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_3.MI_SciFiSoldier_3
 Skin=SCI-FI BLEU|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.00,0.09,0.40|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_4.MI_SciFiSoldier_4
 Skin=SCI-FI VERT|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.07,0.08,0.04|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_5.MI_SciFiSoldier_5
+Skin=AURORA|/Game/ParagonAurora/Characters/Heroes/Aurora/Meshes/Aurora.Aurora||1|0.55,0.70,0.85|Aurora
+Skin=AURORA COEUR GIVRE|/Game/ParagonAurora/Characters/Heroes/Aurora/Skins/FrozenHearth/Meshes/Aurora_FrozenHearth.Aurora_FrozenHearth||1|0.70,0.75,0.80|Aurora
+Skin=AURORA IMPERATRICE GLACIALE|/Game/ParagonAurora/Characters/Heroes/Aurora/Skins/GlacialEmpress/Meshes/Aurora_GlacialEmpress.Aurora_GlacialEmpress||1|0.60,0.75,0.90|Aurora
+Skin=AURORA CRISTAL DE LUNE|/Game/ParagonAurora/Characters/Heroes/Aurora/Skins/MoonCrystal/Meshes/Aurora_MoonCrystal.Aurora_MoonCrystal||1|0.45,0.40,0.70|Aurora
+Skin=AURORA PRINTEMPS|/Game/ParagonAurora/Characters/Heroes/Aurora/Skins/SpringCeremony/Meshes/Aurora_SpringCeremony.Aurora_SpringCeremony||1|0.80,0.55,0.65|Aurora
+Skin=BORIS|/Game/ParagonBoris/Characters/Heroes/Boris/Meshes/Boris.Boris||1|0.25,0.17,0.10|Boris
 Skin=SOLDAT D'ORIGINE|Soldat||1||
 
 ; ---------------------------------------------------------------------
