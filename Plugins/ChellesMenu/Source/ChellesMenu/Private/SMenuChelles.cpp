@@ -59,13 +59,17 @@ namespace
 
 namespace
 {
-	const FLinearColor Cyan(FColor(0, 240, 255));
-	const FLinearColor Magenta(FColor(255, 0, 170));
-	const FLinearColor Violet(FColor(120, 40, 255));
-	const FLinearColor Or(FColor(255, 196, 64));
-	const FLinearColor Blanc(FColor(235, 250, 255));
-	const FLinearColor Gris(FColor(90, 110, 125));
-	const FLinearColor Fond(FColor(5, 7, 18, 225));
+	// Theme "lobby" bleu facon Fortnite (24/11 : le theme cyberpunk est abandonne).
+	// Les anciens noms sont gardes pour ne rien casser : Cyan = bleu clair, Magenta = jaune d'accent,
+	// Violet = bleu roi, Or = jaune, Fond = bleu nuit.
+	const FLinearColor Cyan(FColor(150, 205, 255));
+	const FLinearColor Magenta(FColor(255, 225, 15));
+	const FLinearColor Violet(FColor(30, 75, 210));
+	const FLinearColor Or(FColor(255, 225, 15));
+	const FLinearColor Blanc(FColor(245, 248, 255));
+	const FLinearColor Gris(FColor(110, 125, 170));
+	const FLinearColor Fond(FColor(6, 20, 78, 235));
+	const FLinearColor BleuNuit(FColor(4, 8, 40));
 
 	FLinearColor Alpha(const FLinearColor& C, float A)
 	{
@@ -75,8 +79,9 @@ namespace
 	FSlateFontInfo Police(int32 Taille, const FLinearColor& Halo, const TCHAR* Graisse = TEXT("Black"))
 	{
 		FSlateFontInfo P = FCoreStyle::GetDefaultFontStyle(Graisse, Taille);
-		P.OutlineSettings.OutlineSize = FMath::Max(1, Taille / 22);
-		P.OutlineSettings.OutlineColor = Alpha(Halo, 0.75f);
+		// Contour bleu nuit (plus de halo neon)
+		P.OutlineSettings.OutlineSize = FMath::Max(1, Taille / 28);
+		P.OutlineSettings.OutlineColor = FLinearColor(0.01f, 0.02f, 0.12f, 0.85f);
 		return P;
 	}
 
@@ -910,95 +915,51 @@ void SDecorCyber::Construct(const FArguments& InArgs)
 int32 SDecorCyber::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSlateRect& Clip,
 	FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const
 {
+	// Decor "lobby" bleu (theme Fortnite, sans neon) : degrade de gauche a droite,
+	// colonne sombre a gauche, bandes de lumiere horizontales qui glissent doucement.
 	const FVector2D T = G.GetLocalSize();
 	const float Temps = Horloge();
-	TArray<FVector2D> P;
-	P.SetNum(2);
-
-	// Grille neon
-	const float Pas = 64.f;
-	for (float X = FMath::Fmod(T.X * 0.5f, Pas); X < T.X; X += Pas)
-	{
-		P[0] = FVector2D(X, 0.f);
-		P[1] = FVector2D(X, T.Y);
-		Ligne(Sortie, Couche, G, P, Alpha(Cyan, 0.045f), 1.f);
-	}
-	for (float Y = FMath::Fmod(T.Y * 0.5f, Pas); Y < T.Y; Y += Pas)
-	{
-		P[0] = FVector2D(0.f, Y);
-		P[1] = FVector2D(T.X, Y);
-		Ligne(Sortie, Couche, G, P, Alpha(Cyan, 0.045f), 1.f);
-	}
-
-	// Lignes de balayage (effet ecran)
-	for (float Y = 0.f; Y < T.Y; Y += 4.f)
-	{
-		P[0] = FVector2D(0.f, Y);
-		P[1] = FVector2D(T.X, Y);
-		Ligne(Sortie, Couche, G, P, FLinearColor(0.f, 0.f, 0.f, 0.12f), 1.f);
-	}
-
-	// Bande lumineuse qui descend
-	const float Bande = FMath::Fmod(Temps * 140.f, T.Y + 200.f) - 100.f;
-	for (int32 i = 0; i < 12; ++i)
-	{
-		P[0] = FVector2D(0.f, Bande + i * 2.f);
-		P[1] = FVector2D(T.X, Bande + i * 2.f);
-		Ligne(Sortie, Couche + 1, G, P, Alpha(Cyan, 0.025f), 2.f);
-	}
-
-	// Cadre de l'interface
-	const float M = 36.f;
-	const float Pulse = 0.55f + 0.25f * FMath::Sin(Temps * 2.f);
-	TArray<FVector2D> Haut;
-	Haut.Add(FVector2D(M, M + 30.f));
-	Haut.Add(FVector2D(M + 30.f, M));
-	Haut.Add(FVector2D(T.X * 0.35f, M));
-	Ligne(Sortie, Couche + 1, G, Haut, Alpha(Magenta, Pulse), 2.f);
-	TArray<FVector2D> HautDroit;
-	HautDroit.Add(FVector2D(T.X * 0.65f, M));
-	HautDroit.Add(FVector2D(T.X - M, M));
-	HautDroit.Add(FVector2D(T.X - M, M + 60.f));
-	Ligne(Sortie, Couche + 1, G, HautDroit, Alpha(Cyan, Pulse), 2.f);
-	TArray<FVector2D> Bas;
-	Bas.Add(FVector2D(T.X - M, T.Y - M - 30.f));
-	Bas.Add(FVector2D(T.X - M - 30.f, T.Y - M));
-	Bas.Add(FVector2D(T.X * 0.65f, T.Y - M));
-	Ligne(Sortie, Couche + 1, G, Bas, Alpha(Magenta, Pulse), 2.f);
-	TArray<FVector2D> BasGauche;
-	BasGauche.Add(FVector2D(T.X * 0.35f, T.Y - M));
-	BasGauche.Add(FVector2D(M, T.Y - M));
-	BasGauche.Add(FVector2D(M, T.Y - M - 60.f));
-	Ligne(Sortie, Couche + 1, G, BasGauche, Alpha(Cyan, Pulse), 2.f);
-
-	const FSlateFontInfo Mini = FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 10);
-	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(M + 40.f, M + 8.f), FVector2D(400.f, 20.f)),
-		FString(TEXT("CHELLES//3D  -  SYS.MENU v1.0")), Mini, ESlateDrawEffect::None, Alpha(Cyan, 0.6f));
-	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(M + 40.f, T.Y - M - 26.f), FVector2D(400.f, 20.f)),
-		FString(TEXT("\u00C9CHAP / B = RETOUR  //  A = VALIDER")), Mini, ESlateDrawEffect::None, Alpha(Magenta, 0.6f));
-
-	// Numero de version en bas a droite
-	const FSlateFontInfo PoliceVersion = FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 14);
-	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(T.X - M - 110.f, T.Y - M - 30.f), FVector2D(100.f, 24.f)),
-		ChellesOptions::Version(), PoliceVersion, ESlateDrawEffect::None, Alpha(Cyan, 0.85f));
-
-	// Etincelles neon et dorees qui montent derriere les boutons
 	const FSlateBrush* Pinceau = FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
-	for (int32 i = 0; i < 100; ++i)
+
+	TArray<FSlateGradientStop> Degrade;
+	Degrade.Add(FSlateGradientStop(FVector2D(0.f, 0.f), FLinearColor(0.012f, 0.03f, 0.16f, 1.f)));
+	Degrade.Add(FSlateGradientStop(FVector2D(T.X * 0.55f, 0.f), FLinearColor(0.05f, 0.17f, 0.55f, 1.f)));
+	Degrade.Add(FSlateGradientStop(FVector2D(T.X, 0.f), FLinearColor(0.02f, 0.07f, 0.28f, 1.f)));
+	FSlateDrawElement::MakeGradient(Sortie, Couche, G.ToPaintGeometry(), Degrade, Orient_Vertical);
+
+	// Colonne sombre a gauche + trait jaune (rappel des onglets en colonne)
+	FSlateDrawElement::MakeBox(Sortie, Couche + 1, G.ToPaintGeometry(FVector2D::ZeroVector, FVector2D(26.f, T.Y)),
+		Pinceau, ESlateDrawEffect::None, FLinearColor(0.f, 0.01f, 0.06f, 0.6f));
+	FSlateDrawElement::MakeBox(Sortie, Couche + 1, G.ToPaintGeometry(FVector2D(26.f, 0.f), FVector2D(4.f, T.Y)),
+		Pinceau, ESlateDrawEffect::None, Alpha(Or, 0.85f));
+
+	// Bandes de lumiere horizontales
+	for (int32 k = 0; k < 4; ++k)
 	{
-		const float Graine = FMath::Frac(FMath::Sin(i * 12.9898f) * 43758.5453f);
-		const float Vitesse = 0.04f + 0.08f * FMath::Frac(Graine * 7.31f);
-		const float Vie = FMath::Frac(Temps * Vitesse + Graine);
-		const float X = T.X * (0.15f + 0.7f * FMath::Frac(Graine * 3.17f)) + FMath::Sin(Temps * 1.3f + i) * 18.f;
-		const float Y = T.Y * (1.05f - Vie * 1.1f);
-		const float Taille = 2.f + 3.f * FMath::Frac(Graine * 5.71f);
-		const float Eclat = FMath::Sin(Vie * PI) * (0.35f + 0.4f * FMath::Frac(Graine * 9.13f));
-		const FLinearColor Couleur = (i % 3 == 0) ? Or : ((i % 3 == 1) ? Cyan : Magenta);
-		FSlateDrawElement::MakeBox(Sortie, Couche + 1, G.ToPaintGeometry(FVector2D(X - Taille * 1.5f, Y - Taille * 1.5f), FVector2D(Taille * 3.f, Taille * 3.f)),
-			Pinceau, ESlateDrawEffect::None, Alpha(Couleur, Eclat * 0.15f));
-		FSlateDrawElement::MakeBox(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(X - Taille * 0.5f, Y - Taille * 0.5f), FVector2D(Taille, Taille)),
-			Pinceau, ESlateDrawEffect::None, Alpha(Couleur, Eclat));
+		const float Y = FMath::Fmod(T.Y * (0.15f + 0.23f * k) + Temps * (8.f + 3.f * k), T.Y + 120.f) - 60.f;
+		const float H = 30.f + 22.f * (k % 2);
+		FSlateDrawElement::MakeBox(Sortie, Couche + 1, G.ToPaintGeometry(FVector2D(30.f, Y), FVector2D(T.X, H)),
+			Pinceau, ESlateDrawEffect::None, FLinearColor(1.f, 1.f, 1.f, 0.03f));
 	}
+
+	// Vignette en haut et en bas
+	TArray<FSlateGradientStop> Haut;
+	Haut.Add(FSlateGradientStop(FVector2D(0.f, 0.f), FLinearColor(0.f, 0.f, 0.06f, 0.45f)));
+	Haut.Add(FSlateGradientStop(FVector2D(0.f, 140.f), FLinearColor(0.f, 0.f, 0.06f, 0.f)));
+	FSlateDrawElement::MakeGradient(Sortie, Couche + 1, G.ToPaintGeometry(FVector2D::ZeroVector, FVector2D(T.X, 140.f)), Haut, Orient_Horizontal);
+	TArray<FSlateGradientStop> Bas;
+	Bas.Add(FSlateGradientStop(FVector2D(0.f, 0.f), FLinearColor(0.f, 0.f, 0.06f, 0.f)));
+	Bas.Add(FSlateGradientStop(FVector2D(0.f, 160.f), FLinearColor(0.f, 0.f, 0.06f, 0.5f)));
+	FSlateDrawElement::MakeGradient(Sortie, Couche + 1, G.ToPaintGeometry(FVector2D(0.f, T.Y - 160.f), FVector2D(T.X, 160.f)), Bas, Orient_Horizontal);
+
+	// Aide et numero de version
+	const float M = 46.f;
+	const FSlateFontInfo Mini = FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 11);
+	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(M, T.Y - 40.f), FVector2D(600.f, 20.f)),
+		FString(TEXT("\u00C9CHAP / B = RETOUR    A / ENTR\u00C9E = VALIDER    FL\u00C8CHES = CHOISIR")), Mini, ESlateDrawEffect::None, Alpha(Cyan, 0.75f));
+	const FSlateFontInfo PoliceVersion = FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 14);
+	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(FVector2D(T.X - 150.f, T.Y - 42.f), FVector2D(120.f, 24.f)),
+		ChellesOptions::Version(), PoliceVersion, ESlateDrawEffect::None, Alpha(Blanc, 0.85f));
 
 	return Couche + 3;
 }
@@ -1039,7 +1000,8 @@ void SBoutonMenu::Construct(const FArguments& InArgs)
 		{
 			return FSlateColor(Gris);
 		}
-		return FSlateColor((IsHovered() || bSelectionne || bOnglet) ? Blanc : Cyan);
+		// Plaque blanche sous la souris / onglet choisi : texte bleu nuit dessus, sinon texte blanc
+		return FSlateColor((IsHovered() || bSelectionne || bOnglet) ? BleuNuit : Blanc);
 	};
 
 	// "NOM   < VALEUR >" ou "NOM   [ TOUCHE ]" : deux colonnes alignees a gauche
@@ -1131,38 +1093,22 @@ void SBoutonMenu::OnMouseEnter(const FGeometry& Geometrie, const FPointerEvent& 
 int32 SBoutonMenu::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSlateRect& Clip,
 	FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const
 {
-	if (bActif && (IsHovered() || bSelectionne))
+	// Theme lobby : plaque blanche legerement penchee + barre jaune a gauche (plus de neon)
+	const FSlateBrush* Pinceau = FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
+	const FVector2D T = G.GetLocalSize();
+	if ((bActif && (IsHovered() || bSelectionne)) || bOnglet)
 	{
-		const FVector2D T = G.GetLocalSize();
-		const float Pulse = 0.7f + 0.3f * FMath::Sin(Horloge() * 7.f);
-
-		TArray<FSlateGradientStop> Degrade;
-		Degrade.Add(FSlateGradientStop(FVector2D(0.f, 0.f), Alpha(Magenta, 0.45f)));
-		Degrade.Add(FSlateGradientStop(FVector2D(T.X * 0.5f, 0.f), Alpha(Violet, 0.30f)));
-		Degrade.Add(FSlateGradientStop(FVector2D(T.X, 0.f), Alpha(Cyan, 0.20f)));
-		FSlateDrawElement::MakeGradient(Sortie, Couche, G.ToPaintGeometry(), Degrade, Orient_Vertical);
-
-		const float Coin = FMath::Min(T.Y * 0.35f, 22.f);
-		const TArray<FVector2D> Contour = Chanfrein(T, Coin);
-		Ligne(Sortie, Couche + 1, G, Contour, Alpha(Cyan, 0.25f * Pulse), 8.f); // halo
-		Ligne(Sortie, Couche + 2, G, Contour, Alpha(Cyan, Pulse), 2.5f);
-
-		// Petits marqueurs magenta sur les cotes
-		TArray<FVector2D> Marque;
-		Marque.Add(FVector2D(-14.f, T.Y * 0.3f));
-		Marque.Add(FVector2D(-14.f, T.Y * 0.7f));
-		Ligne(Sortie, Couche + 2, G, Marque, Magenta, 4.f);
-		Marque[0].X = Marque[1].X = T.X + 14.f;
-		Ligne(Sortie, Couche + 2, G, Marque, Magenta, 4.f);
+		const float Pulse = 0.85f + 0.15f * FMath::Sin(Horloge() * 5.f);
+		const FSlateRenderTransform Penche(FShear2D(-0.12f, 0.f));
+		const FGeometry GP = G.MakeChild(T, FSlateLayoutTransform(), Penche, FVector2D(0.5f, 0.5f));
+		FSlateDrawElement::MakeBox(Sortie, Couche, GP.ToPaintGeometry(), Pinceau, ESlateDrawEffect::None,
+			bOnglet && !(IsHovered() || bSelectionne) ? FLinearColor(0.93f, 0.95f, 1.f, 0.95f) : FLinearColor(1.f, 1.f, 1.f, Pulse));
+		FSlateDrawElement::MakeBox(Sortie, Couche + 1, GP.ToPaintGeometry(FVector2D::ZeroVector, FVector2D(6.f, T.Y)), Pinceau, ESlateDrawEffect::None, Or);
 	}
-	if (bOnglet)
+	else if (bActif)
 	{
-		const FVector2D T = G.GetLocalSize();
-		TArray<FVector2D> Trait;
-		Trait.Add(FVector2D(T.X * 0.15f, T.Y - 2.f));
-		Trait.Add(FVector2D(T.X * 0.85f, T.Y - 2.f));
-		Ligne(Sortie, Couche + 2, G, Trait, Alpha(Magenta, 0.35f), 9.f);
-		Ligne(Sortie, Couche + 2, G, Trait, Magenta, 3.f);
+		// Fond discret pour que chaque bouton se voie comme une carte
+		FSlateDrawElement::MakeBox(Sortie, Couche, G.ToPaintGeometry(), Pinceau, ESlateDrawEffect::None, FLinearColor(0.02f, 0.06f, 0.25f, 0.45f));
 	}
 	return SCompoundWidget::OnPaint(Args, G, Clip, Sortie, Couche + 3, Style, bParentEnabled);
 }
@@ -1614,9 +1560,11 @@ TSharedRef<SWidget> SMenuChelles::Titre(const FText& Texte, const FText& SousTit
 			SNew(STextBlock)
 			.Text(Texte)
 			.Font(Police(72, Cyan))
-			.ColorAndOpacity(Magenta)
+			.ColorAndOpacity(Blanc)
 			.ShadowOffset(FVector2D(4.f, 4.f))
-			.ShadowColorAndOpacity(Alpha(Violet, 0.6f))
+			.ShadowColorAndOpacity(FLinearColor(0.f, 0.f, 0.1f, 0.6f))
+			.RenderTransform(FSlateRenderTransform(FShear2D(-0.18f, 0.f)))
+			.RenderTransformPivot(FVector2D(0.5f, 0.5f))
 		]
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -1626,7 +1574,7 @@ TSharedRef<SWidget> SMenuChelles::Titre(const FText& Texte, const FText& SousTit
 			SNew(STextBlock)
 			.Text(SousTitre)
 			.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 16))
-			.ColorAndOpacity(Alpha(Cyan, 0.8f))
+			.ColorAndOpacity(Alpha(Cyan, 0.9f))
 		];
 }
 

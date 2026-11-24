@@ -24,11 +24,12 @@
 
 namespace
 {
-	const FLinearColor CCyan(FColor(0, 240, 255));
-	const FLinearColor CMagenta(FColor(255, 0, 170));
-	const FLinearColor COr(FColor(255, 196, 64));
-	const FLinearColor CBlanc(FColor(235, 250, 255));
-	const FLinearColor CFond(FColor(5, 7, 18, 200));
+	// Theme lobby bleu (24/11 : plus de cyberpunk) : CCyan = bleu clair, CMagenta / COr = jaune
+	const FLinearColor CCyan(FColor(150, 205, 255));
+	const FLinearColor CMagenta(FColor(255, 225, 15));
+	const FLinearColor COr(FColor(255, 225, 15));
+	const FLinearColor CBlanc(FColor(245, 248, 255));
+	const FLinearColor CFond(FColor(6, 20, 78, 215));
 
 	struct FLigneChat
 	{
