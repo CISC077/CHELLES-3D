@@ -14,6 +14,13 @@ Toutes les armes du soldat (TAB) et tous les pouvoirs (ESPACE en l'air = vol, X 
    `Plugins\ChellesMenu\Compiler_le_plugin.bat` (attendre TERMINE a chaque fois).
 4. Rouvre le projet, Play, **JOUER > HABILLAGE > LENA** ou **SOFIA**.
 
+## Si un personnage est tout blanc / gris, ou reste les bras en croix
+Relancer ce script. Depuis le 24/11 au soir il :
+- met les vraies couleurs (texture_Mat du dossier du perso, ou M_<Nom> cree avec Textures\texture_diffuse.png
+  et texture_normal.png du dossier du Bureau) et les enregistre tout de suite ;
+- refait le corps s'il n'a pas de squelette (Unreal avait plante, memoire pleine, avant de l'enregistrer) ;
+- n'importe plus que l'animation (avant : une copie du corps de 130 Mo par animation, d'ou le plantage).
+
 ## Preparer un nouveau personnage (Mixamo)
 
 - Telecharger le personnage **With Skin**, et les animations avec **In Place** coche.

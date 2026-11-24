@@ -7,7 +7,8 @@
 # Pour chaque personnage de la liste PERSONNAGES :
 #  1. importe le corps AVEC SON SQUELETTE (fichier Mixamo du dossier Animations du Bureau)
 #     -> /Game/Personnages/<DOSSIER>/Joueur/SK_<Nom>  (+ squelette, physique)
-#  2. lui met ses couleurs
+#  2. lui met ses couleurs (materiau texture_Mat du projet, sinon M_<Nom> cree avec texture_diffuse.png
+#     et texture_normal.png du dossier Textures du Bureau) et l'ENREGISTRE (24/11 : elles etaient perdues)
 #  3. importe ses animations Mixamo -> /Game/Personnages/<DOSSIER>/Joueur/Anims/A_<Nom>_<Etat>_Anim
 #     (et supprime les copies du corps qu'Unreal cree en plus a chaque animation : 64 Mo chacune)
 #  4. regle sa taille dans Plugins\ChellesWraith\Wraith.txt (ligne Heros=<Nom>)
@@ -27,7 +28,8 @@ PERSONNAGES = [
         "nom": "Lena", "dossier": "LENA", "taille_cm": 175.0,
         "fbx": os.path.join(BUREAU, "LENA3D", "Animations"),
         "corps": "base_basic_shaded.fbx",
-        "materiau": "/Game/Personnages/LENA/shaded_Mat",  # deja dans le projet
+        "materiau": "/Game/Personnages/LENA/texture_Mat",  # deja dans le projet (couleurs + relief)
+        "textures": os.path.join(BUREAU, "LENA3D", "Textures"),
         "anims": [
             ("Walking.fbx", "Marche"),
             ("Fast Run.fbx", "Course"),
@@ -45,7 +47,8 @@ PERSONNAGES = [
         "nom": "Sofia", "dossier": "SOFIA", "taille_cm": 170.0,
         "fbx": os.path.join(BUREAU, "SOFIA 3D", "Animations"),
         "corps": "lod_basic_shaded.fbx",
-        "materiau": "",  # vide = couleurs prises dans le fichier FBX
+        "materiau": "",  # pas encore dans le projet : cree avec les images du dossier "textures"
+        "textures": os.path.join(BUREAU, "SOFIA 3D", "Textures"),
         "anims": [
             ("Walking.fbx", "Marche"),
             ("Fast Run.fbx", "Course"),
@@ -61,7 +64,8 @@ PERSONNAGES = [
         "nom": "Lucia", "dossier": "LUCIA", "taille_cm": 170.0,
         "fbx": os.path.join(BUREAU, "LUCIA 3D", "Animations"),
         "corps": "lod_basic_shaded.fbx",
-        "materiau": "/Game/Personnages/LUCIA/shaded_Mat",  # deja dans le projet
+        "materiau": "/Game/Personnages/LUCIA/texture_Mat",  # deja dans le projet (couleurs + relief)
+        "textures": os.path.join(BUREAU, "LUCIA 3D", "Textures"),
         "anims": [
             ("Walking.fbx", "Marche"),
             ("Fast Run.fbx", "Course"),
@@ -106,18 +110,123 @@ def classe(chemin):
         return ""
 
 
-def ranger_animations(dossier_anims, nom_corps):
-    """Unreal cree un corps en plus a chaque animation importee (A_X_Marche = corps, A_X_Marche_Anim = animation).
-    On supprime ces corps en trop (seulement des SkeletalMesh / PhysicsAsset / Skeleton du dossier Anims)."""
-    supprimes = 0
+def sauver(objet):
+    """Enregistre tout de suite (meme si Unreal ne le croit pas modifie) : si Unreal plante ensuite, rien n'est perdu."""
+    if objet:
+        try:
+            EAL.save_loaded_asset(objet, False)
+        except Exception:
+            pass
+
+
+def memoire():
+    try:
+        unreal.SystemLibrary.collect_garbage()
+    except Exception:
+        pass
+
+
+def squelette_de(anim):
+    try:
+        sq = anim.get_editor_property("skeleton")
+        return sq.get_path_name() if sq else ""
+    except Exception:
+        return ""
+
+
+def ranger_animations(dossier_anims, squelette):
+    """Dans le dossier Anims, on ne garde que les animations du squelette du personnage.
+    On supprime : les copies du corps (SkeletalMesh / PhysicsAsset / Skeleton) creees par les anciens imports,
+    et les animations rattachees a ces copies (elles ne marchent pas sur le personnage)."""
+    if not EAL.does_directory_exist(dossier_anims):
+        return
+    a_supprimer = []
     for chemin in EAL.list_assets(dossier_anims, recursive=False):
         chemin = chemin.split(".")[0]
         c = classe(chemin)
         if c in ("SkeletalMesh", "PhysicsAsset", "Skeleton"):
-            if EAL.delete_asset(chemin):
-                supprimes += 1
+            a_supprimer.append(chemin)
+        elif c == "AnimSequence":
+            anim = EAL.load_asset(chemin)
+            if not anim or squelette_de(anim) != squelette.get_path_name():
+                a_supprimer.append(chemin)
+    # les animations d'abord, puis les copies du corps
+    a_supprimer.sort(key=lambda x: 0 if classe(x) == "AnimSequence" else 1)
+    supprimes = 0
+    for chemin in a_supprimer:
+        if EAL.does_asset_exist(chemin) and EAL.delete_asset(chemin):
+            supprimes += 1
     if supprimes:
-        dire("%d copies du corps en trop supprimees dans %s" % (supprimes, dossier_anims))
+        dire("%d fichiers en trop supprimes dans %s" % (supprimes, dossier_anims))
+    memoire()
+
+
+def importer_texture(fichier, destination, nom):
+    if not os.path.isfile(fichier):
+        return None
+    tache = unreal.AssetImportTask()
+    tache.set_editor_property("filename", fichier)
+    tache.set_editor_property("destination_path", destination)
+    tache.set_editor_property("destination_name", nom)
+    tache.set_editor_property("automated", True)
+    tache.set_editor_property("replace_existing", True)
+    tache.set_editor_property("save", True)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([tache])
+    return EAL.load_asset("%s/%s" % (destination, nom))
+
+
+def creer_materiau(p):
+    """M_<Nom> : texture_diffuse (couleurs) + texture_normal (relief) du dossier Textures du Bureau."""
+    nom, dossier = p["nom"], p["dossier"]
+    destination = "/Game/Personnages/%s/Joueur" % dossier
+    chemin = "%s/M_%s" % (destination, nom)
+    if EAL.does_asset_exist(chemin):
+        return EAL.load_asset(chemin)
+    dossier_tex = p.get("textures", "")
+    couleurs = EAL.load_asset("%s/T_%s_Couleurs" % (destination, nom)) or \
+        importer_texture(os.path.join(dossier_tex, "texture_diffuse.png"), destination, "T_%s_Couleurs" % nom)
+    if not couleurs:
+        unreal.log_warning("[Personnages] %s : pas de texture_diffuse.png dans %s" % (nom, dossier_tex))
+        return None
+    relief = EAL.load_asset("%s/T_%s_Relief" % (destination, nom)) or \
+        importer_texture(os.path.join(dossier_tex, "texture_normal.png"), destination, "T_%s_Relief" % nom)
+    MEL = unreal.MaterialEditingLibrary
+    mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        "M_" + nom, destination, unreal.Material, unreal.MaterialFactoryNew())
+    if not mat:
+        return None
+    ex = MEL.create_material_expression(mat, unreal.MaterialExpressionTextureSample, -400, -100)
+    ex.set_editor_property("texture", couleurs)
+    MEL.connect_material_property(ex, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
+    if relief:
+        try:
+            relief.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_NORMALMAP)
+            relief.set_editor_property("srgb", False)
+            sauver(relief)
+        except Exception:
+            pass
+        exn = MEL.create_material_expression(mat, unreal.MaterialExpressionTextureSample, -400, 200)
+        exn.set_editor_property("texture", relief)
+        exn.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
+        MEL.connect_material_property(exn, "RGB", unreal.MaterialProperty.MP_NORMAL)
+    mat.set_editor_property("two_sided", False)
+    MEL.recompile_material(mat)
+    sauver(mat)
+    dire("%s : materiau M_%s cree avec ses textures" % (nom, nom))
+    return mat
+
+
+def effacer_dossier(dossier):
+    """Efface tout ce qu'il y a dans un dossier (animations d'abord)."""
+    if not EAL.does_directory_exist(dossier):
+        return 0
+    chemins = [c.split(".")[0] for c in EAL.list_assets(dossier, recursive=True)]
+    chemins.sort(key=lambda x: 0 if classe(x) == "AnimSequence" else (2 if classe(x) == "Skeleton" else 1))
+    n = 0
+    for chemin in chemins:
+        if EAL.does_asset_exist(chemin) and EAL.delete_asset(chemin):
+            n += 1
+    return n
 
 
 def regler_taille(nom, taille):
@@ -151,6 +260,16 @@ def creer(p):
     dossier_anims = destination + "/Anims"
     chemin_corps = "%s/SK_%s" % (destination, nom)
 
+    # ---- 0. corps abime (squelette jamais enregistre : Unreal avait plante pendant l'import du 24/11) -> on refait
+    if EAL.does_asset_exist(chemin_corps):
+        ancien = EAL.load_asset(chemin_corps)
+        if not ancien or not isinstance(ancien, unreal.SkeletalMesh) or not ancien.get_editor_property("skeleton"):
+            ancien = None
+            memoire()
+            n = effacer_dossier(destination)
+            dire("%s : corps sans squelette, on recommence (%d fichiers effaces)" % (nom, n))
+            memoire()
+
     # ---- 1. corps avec squelette
     if not EAL.does_asset_exist(chemin_corps):
         fbx = os.path.join(p["fbx"], p["corps"])
@@ -158,13 +277,14 @@ def creer(p):
             unreal.log_error("[Personnages] %s : fichier introuvable %s" % (nom, fbx))
             return "%s : fichier %s introuvable" % (nom, fbx)
         ui = unreal.FbxImportUI()
+        ui.set_editor_property("automated_import_should_detect_type", False)
+        ui.set_editor_property("original_import_type", unreal.FBXImportType.FBXIT_SKELETAL_MESH)
+        ui.set_editor_property("mesh_type_to_import", unreal.FBXImportType.FBXIT_SKELETAL_MESH)
         ui.set_editor_property("import_mesh", True)
         ui.set_editor_property("import_as_skeletal", True)
-        ui.set_editor_property("mesh_type_to_import", unreal.FBXImportType.FBXIT_SKELETAL_MESH)
         ui.set_editor_property("import_animations", False)
-        avec_couleurs = not p["materiau"]
-        ui.set_editor_property("import_materials", avec_couleurs)
-        ui.set_editor_property("import_textures", avec_couleurs)
+        ui.set_editor_property("import_materials", False)
+        ui.set_editor_property("import_textures", False)
         ui.set_editor_property("create_physics_asset", True)
         ui.skeletal_mesh_import_data.set_editor_property("import_morph_targets", False)
         dire("%s : import du corps %s" % (nom, fbx))
@@ -174,22 +294,35 @@ def creer(p):
         unreal.log_error("[Personnages] %s : l'import du corps a echoue (voir Output Log)." % nom)
         return "%s : import du corps rate" % nom
     squelette = corps.get_editor_property("skeleton")
+    if not squelette:
+        unreal.log_error("[Personnages] %s : le corps n'a pas de squelette." % nom)
+        return "%s : corps sans squelette" % nom
+    # squelette et physique enregistres TOUT DE SUITE
+    sauver(squelette)
+    try:
+        sauver(corps.get_editor_property("physics_asset"))
+    except Exception:
+        pass
 
-    # ---- 2. couleurs (materiau deja dans le projet)
-    if p["materiau"]:
-        materiau = EAL.load_asset(p["materiau"])
-        if materiau:
-            mats = corps.get_editor_property("materials")
-            for i in range(len(mats)):
-                m = mats[i]
-                m.set_editor_property("material_interface", materiau)
-                mats[i] = m  # en Python UE, mats[i] est une COPIE : il faut la remettre
-            corps.set_editor_property("materials", mats)
-            EAL.save_loaded_asset(corps)
-        else:
-            unreal.log_warning("[Personnages] %s introuvable : %s restera gris(e)." % (p["materiau"], nom))
+    # ---- 2. couleurs
+    materiau = EAL.load_asset(p["materiau"]) if p["materiau"] and EAL.does_asset_exist(p["materiau"]) else None
+    if not materiau:
+        materiau = creer_materiau(p)
+    if materiau:
+        mats = corps.get_editor_property("materials")
+        for i in range(len(mats)):
+            m = mats[i]
+            m.set_editor_property("material_interface", materiau)
+            mats[i] = m  # en Python UE, mats[i] est une COPIE : il faut la remettre
+        corps.set_editor_property("materials", mats)
+        dire("%s : couleurs %s" % (nom, materiau.get_path_name()))
+    else:
+        unreal.log_warning("[Personnages] %s : pas de materiau, %s restera gris(e)." % (nom, nom))
+    sauver(corps)
+    memoire()
 
-    # ---- 3. animations
+    # ---- 3. animations (seulement l'animation : plus de copie du corps de 130 Mo a chaque fois)
+    ranger_animations(dossier_anims, squelette)
     faites = 0
     for fichier, etat in p["anims"]:
         voulu = "%s/A_%s_%s_Anim" % (dossier_anims, nom, etat)
@@ -201,6 +334,9 @@ def creer(p):
             unreal.log_warning("[Personnages] %s : animation absente %s" % (nom, fbx))
             continue
         ua = unreal.FbxImportUI()
+        ua.set_editor_property("automated_import_should_detect_type", False)
+        ua.set_editor_property("original_import_type", unreal.FBXImportType.FBXIT_ANIMATION)
+        ua.set_editor_property("mesh_type_to_import", unreal.FBXImportType.FBXIT_ANIMATION)
         ua.set_editor_property("import_mesh", False)
         ua.set_editor_property("import_as_skeletal", True)
         ua.set_editor_property("import_animations", True)
@@ -208,20 +344,23 @@ def creer(p):
         ua.set_editor_property("import_textures", False)
         ua.set_editor_property("create_physics_asset", False)
         ua.set_editor_property("skeleton", squelette)
-        ua.set_editor_property("mesh_type_to_import", unreal.FBXImportType.FBXIT_ANIMATION)
         ua.anim_sequence_import_data.set_editor_property(
             "animation_length", unreal.FBXAnimationLengthImportType.FBXALIT_EXPORTED_TIME)
-        importer(fbx, dossier_anims, "A_%s_%s" % (nom, etat), ua)
+        importer(fbx, dossier_anims, "A_%s_%s_Anim" % (nom, etat), ua)
         if not EAL.does_asset_exist(voulu):
-            # l'animation a pu garder le nom sans "_Anim"
-            sans = "%s/A_%s_%s" % (dossier_anims, nom, etat)
-            if EAL.does_asset_exist(sans) and classe(sans) == "AnimSequence":
-                EAL.rename_asset(sans, voulu)
-        if EAL.does_asset_exist(voulu):
+            # selon la version, Unreal ajoute ou non "_Anim" au nom
+            for autre in ("%s/A_%s_%s" % (dossier_anims, nom, etat), voulu + "_Anim"):
+                if EAL.does_asset_exist(autre) and classe(autre) == "AnimSequence":
+                    EAL.rename_asset(autre, voulu)
+                    break
+        anim = EAL.load_asset(voulu) if EAL.does_asset_exist(voulu) else None
+        if anim and squelette_de(anim) == squelette.get_path_name():
+            sauver(anim)
             faites += 1
         else:
             unreal.log_warning("[Personnages] %s : animation non creee (%s)" % (nom, fichier))
-    ranger_animations(dossier_anims, "SK_" + nom)
+        memoire()
+    ranger_animations(dossier_anims, squelette)
     dire("%s : %d animations sur %d." % (nom, faites, len(p["anims"])))
 
     # ---- 4. taille
