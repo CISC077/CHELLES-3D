@@ -228,8 +228,8 @@ AWraithChelles::AWraithChelles()
 	PrimaryActorTick.TickGroup = TG_PostPhysics;
 	SetActorHiddenInGame(true);
 	Touche = EKeys::K;
-	ToucheDanse = EKeys::D; // Alt+D (D seul = aller a droite, Y = pouvoirs)
-	bDanseAlt = true;
+	ToucheDanse = EKeys::T; // T (D = aller a droite, Y = pouvoirs)
+	bDanseAlt = false;
 }
 
 void AWraithChelles::BeginPlay()
@@ -337,8 +337,8 @@ void AWraithChelles::LireReglages()
 	Heros.Reset();
 	Gardes.Reset();
 	DansesLues.Reset();
-	ToucheDanse = EKeys::D;
-	bDanseAlt = true;
+	ToucheDanse = EKeys::T;
+	bDanseAlt = false;
 	bDanseCtrl = bDanseShift = false;
 	bDanseArretSeulement = false;
 
@@ -723,7 +723,7 @@ void AWraithChelles::Tick(float DeltaSeconds)
 	// Touche K : skin suivant (seulement quand on joue le soldat, hors menus)
 	APlayerController* PC = GetPC();
 
-	// Touche des danses (Alt+D) : LENA, SOFIA, LUCIA... dansent a la suite jusqu'a ce qu'on bouge
+	// Touche des danses (T) : LENA, SOFIA, LUCIA... dansent a la suite jusqu'a ce qu'on bouge
 	if (bActif && PC && !PC->bShowMouseCursor && !W->IsPaused() && ToucheDanseAppuyee(PC))
 	{
 		ACharacter* Moi = Cast<ACharacter>(PC->GetPawn());

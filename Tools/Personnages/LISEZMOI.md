@@ -28,7 +28,7 @@ Toutes les armes du soldat (TAB) et tous les pouvoirs (ESPACE en l'air = vol, X 
 
 ## Danses
 
-**Alt + D** : LENA, SOFIA ou LUCIA enchainent leurs danses (bouger pour arreter, W pour changer de camera et la voir).
+**T** : LENA, SOFIA ou LUCIA enchainent leurs danses (bouger pour arreter, W pour changer de camera et la voir).
 LENA : hip-hop, rumba, twist, uprock, flair, twerk. SOFIA : rumba, northern soul, flair. LUCIA : hip-hop.
 Pour en ajouter : animation Mixamo dans `Bureau\<NOM> 3D\Animations`, une ligne dans `creer_personnages.py`
 et son chemin dans la ligne `Danses=` de `Plugins\ChellesWraith\Wraith.txt`.

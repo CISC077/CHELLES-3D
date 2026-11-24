@@ -30,12 +30,12 @@ Heros=Boris|/Game/ParagonBoris/Characters/Heroes/Boris/Boris_AnimBlueprint.Boris
 
 ; ---------------------------------------------------------------------
 ;  DANSES de LENA, SOFIA, LUCIA : jouees a la suite, on bouge pour arreter.
-;  ToucheDanse : Alt+D par defaut (D seul = aller a droite, Y = changer de pouvoir). Ex. : T, Ctrl+D, Shift+D
+;  ToucheDanse : T par defaut (D = aller a droite, Y = changer de pouvoir). Ex. : Alt+D, Ctrl+D, Shift+D
 ;  DanseArretSeulement=Oui : la touche ne marche que si on est immobile (utile si ToucheDanse=D).
 ;  Danses=Heros|animation;animation;...   (pour en ajouter : une animation Mixamo "sur place" importee par
 ;  Tools\Personnages\creer_personnages.py, puis son chemin ici)
 ; ---------------------------------------------------------------------
-ToucheDanse=Alt+D
+ToucheDanse=T
 DanseArretSeulement=Non
 Danses=Lena|/Game/Personnages/LENA/Joueur/Anims/A_Lena_Danse_Anim.A_Lena_Danse_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Rumba_Anim.A_Lena_Rumba_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Twist_Anim.A_Lena_Twist_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Uprock_Anim.A_Lena_Uprock_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Flair_Anim.A_Lena_Flair_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Twerk_Anim.A_Lena_Twerk_Anim
 Danses=Sofia|/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Danse_Anim.A_Sofia_Danse_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Soul_Anim.A_Sofia_Soul_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Flair_Anim.A_Sofia_Flair_Anim

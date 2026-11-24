@@ -107,7 +107,7 @@ Journal : lignes `[Wraith]` dans `Saved\Logs\FPS_Chelles.log`.
 
 ## DANSES (24/11/2026)
 
-- `ToucheDanse=Alt+D` (D seul = aller a droite en ZQSD, Y = changer de pouvoir). Modificateurs Alt+, Ctrl+, Shift+.
+- `ToucheDanse=T` (D = aller a droite en ZQSD, Y = changer de pouvoir). Modificateurs Alt+, Ctrl+, Shift+.
 - `Danses=Lena|anim;anim...` : jouees a la suite en boucle ; bouger (apres 0,7 s), sauter ou voler arrete la danse.
 - `DanseArretSeulement=Oui` : la touche ne marche qu'immobile au sol.
 - Multijoueur : AWraithRelais::bDanse (RPC ServeurDanse), les autres joueurs voient la danse.

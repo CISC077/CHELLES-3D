@@ -1919,7 +1919,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
 	if (TenueChoisie.EstPersoWraith())
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(FString(TEXT("Tu joues ")) + ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe) + TEXT(", ton personnage.\nElle a toutes les armes du soldat (TAB = roue des armes) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir.\nAlt + D = danser (bouger pour arr\u00EAter). K = apparence suivante (Wraith, Dekker, Aurora...)."))) ];
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(FString(TEXT("Tu joues ")) + ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe) + TEXT(", ton personnage.\nElle a toutes les armes du soldat (TAB = roue des armes) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir.\nT = danser (bouger pour arr\u00EAter). K = apparence suivante (Wraith, Dekker, Aurora...)."))) ];
 	}
 	else if (TenueChoisie.EstPantera())
 	{
