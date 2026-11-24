@@ -25,7 +25,12 @@
 #include "Widgets/Input/SSlider.h"
 #include "Widgets/Layout/SBackgroundBlur.h"
 #include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SScaleBox.h"
 #include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Fonts/FontMeasure.h"
+#include "Rendering/SlateRenderer.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/SNullWidget.h"
@@ -1211,6 +1216,11 @@ void SMenuChelles::Construct(const FArguments& InArgs)
 		[
 			SAssignNew(Zone, SBox)
 		]
+		// Ecrans plein ecran (HABILLAGE facon lobby) : par-dessus le decor, sous le logo son
+		+ SOverlay::Slot()
+		[
+			SAssignNew(ZonePleinEcran, SBox)
+		]
 		// Logo son en haut a droite : clic = couper / remettre la musique
 		+ SOverlay::Slot()
 		.HAlign(HAlign_Right)
@@ -1343,6 +1353,36 @@ FReply SMenuChelles::OnKeyDown(const FGeometry& Geometrie, const FKeyEvent& Touc
 		Retour();
 		return FReply::Handled();
 	}
+	if (Ecran == EEcranMenu::Habillage)
+	{
+		// Lobby (disposition en colonnes) : haut / bas = choix suivant dans la colonne,
+		// gauche / droite = colonne des personnages ou colonne de la tenue
+		if (K == EKeys::Up || K == EKeys::Gamepad_DPad_Up || K == EKeys::Gamepad_LeftStick_Up)
+		{
+			ChangerLobby(-1);
+			return FReply::Handled();
+		}
+		if (K == EKeys::Down || K == EKeys::Gamepad_DPad_Down || K == EKeys::Gamepad_LeftStick_Down)
+		{
+			ChangerLobby(1);
+			return FReply::Handled();
+		}
+		if (K == EKeys::Left || K == EKeys::Gamepad_DPad_Left || K == EKeys::Gamepad_LeftStick_Left)
+		{
+			RubanLobby = 0;
+			return FReply::Handled();
+		}
+		if (K == EKeys::Right || K == EKeys::Gamepad_DPad_Right || K == EKeys::Gamepad_LeftStick_Right)
+		{
+			RubanLobby = 1;
+			return FReply::Handled();
+		}
+		if (K == EKeys::Enter || K == EKeys::Gamepad_FaceButton_Bottom)
+		{
+			JouerDepuisLobby();
+			return FReply::Handled();
+		}
+	}
 	if (K == EKeys::Up || K == EKeys::Gamepad_DPad_Up || K == EKeys::Gamepad_LeftStick_Up)
 	{
 		Deplacer(-1);
@@ -1371,6 +1411,12 @@ FReply SMenuChelles::OnKeyDown(const FGeometry& Geometrie, const FKeyEvent& Touc
 	if ((bGauche || bDroite) && Choisi.IsValid() && Choisi->EstReglage())
 	{
 		Choisi->Cliquer(bDroite ? 1 : -1);
+		return FReply::Handled();
+	}
+	if (bGauche || bDroite)
+	{
+		// Boutons en ligne (disposition inversee) : gauche / droite = bouton precedent / suivant
+		Deplacer(bDroite ? 1 : -1);
 		return FReply::Handled();
 	}
 	return FReply::Unhandled();
@@ -1439,9 +1485,15 @@ void SMenuChelles::Afficher(EEcranMenu NouvelEcran)
 	ToucheEnAttente = INDEX_NONE;
 	Boutons.Reset();
 	Selection = INDEX_NONE;
+	// HABILLAGE (lobby) occupe tout l'ecran ; les autres ecrans restent dans le bloc du milieu
+	const bool bPleinEcran = (Ecran == EEcranMenu::Habillage);
+	if (ZonePleinEcran.IsValid())
+	{
+		ZonePleinEcran->SetContent(bPleinEcran ? Construire(Ecran) : SNullWidget::NullWidget);
+	}
 	if (Zone.IsValid())
 	{
-		Zone->SetContent(Construire(Ecran));
+		Zone->SetContent(bPleinEcran ? SNullWidget::NullWidget : Construire(Ecran));
 	}
 	if (bNavigation || ChellesOptions::Manette())
 	{
@@ -1637,38 +1689,44 @@ TSharedRef<SWidget> SMenuChelles::Construire(EEcranMenu E)
 
 TSharedRef<SWidget> SMenuChelles::EcranPrincipal()
 {
+	// Disposition inversee (24/11) : les grands boutons sont en ligne, les liens de la communaute en colonne
+	TSharedRef<SHorizontalBox> Ligne = SNew(SHorizontalBox);
+	if (EnPause())
+	{
+		// Menu ouvert en jeu par Echap : REPRENDRE revient tout de suite a la partie
+		Ligne->AddSlot().AutoWidth().VAlign(VAlign_Center)[ Bouton(FText::FromString(TEXT("REPRENDRE")), 40, [this]() { if (AMenuChelles* M = LeMenu()) { M->Reprendre(); } }) ];
+	}
+	Ligne->AddSlot().AutoWidth().VAlign(VAlign_Center)[ Bouton(FText::FromString(TEXT("JOUER")), 40, [this]() { Afficher(EEcranMenu::Habillage); }) ];
+	// SANDBOX : mode bac a sable (plugin ChellesSandBox). Grise si le plugin est absent.
+	Ligne->AddSlot().AutoWidth().VAlign(VAlign_Center)[ Bouton(FText::FromString(TEXT("SANDBOX")), 40, [this]() { if (AMenuChelles* M = LeMenu()) { M->SandBox(); } },
+		IConsoleManager::Get().FindConsoleObject(TEXT("Chelles.SandBox")) != nullptr) ];
+	Ligne->AddSlot().AutoWidth().VAlign(VAlign_Center)[ Bouton(FText::FromString(TEXT("OPTIONS")), 40, [this]() { Afficher(EEcranMenu::Options); }) ];
+	Ligne->AddSlot().AutoWidth().VAlign(VAlign_Center)[ Bouton(FText::FromString(TEXT("CR\u00C9DITS")), 26, [this]() { Afficher(EEcranMenu::Credits); }) ];
+	Ligne->AddSlot().AutoWidth().VAlign(VAlign_Center)[ Bouton(FText::FromString(TEXT("QUITTER")), 40, [this]() { Afficher(EEcranMenu::ConfirmerQuitter); }) ];
+
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("CHELLES 3D")), FText::FromString(EnPause() ? TEXT("// PAUSE  -  ECHAP = REPRENDRE") : TEXT("// FPS  -  QUARTIER DE CHELLES"))) ]
-		// Menu ouvert en jeu par Echap : REPRENDRE revient tout de suite a la partie
-		+ SVerticalBox::Slot().AutoHeight()
-		[
-			EnPause()
-			? Bouton(FText::FromString(TEXT("REPRENDRE")), 64, [this]() { if (AMenuChelles* M = LeMenu()) { M->Reprendre(); } })
-			: SNullWidget::NullWidget
-		]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("JOUER")), 64, [this]() { Afficher(EEcranMenu::Habillage); }) ]
-		// SANDBOX : mode bac a sable (plugin ChellesSandBox). Grise si le plugin est absent.
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("SANDBOX")), 64, [this]() { if (AMenuChelles* M = LeMenu()) { M->SandBox(); } },
-			IConsoleManager::Get().FindConsoleObject(TEXT("Chelles.SandBox")) != nullptr) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("OPTIONS")), 64, [this]() { Afficher(EEcranMenu::Options); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("CR\u00C9DITS")), 30, [this]() { Afficher(EEcranMenu::Credits); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("QUITTER")), 64, [this]() { Afficher(EEcranMenu::ConfirmerQuitter); }) ]
-		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 14.f, 0.f, 0.f)).HAlign(HAlign_Left)
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ Ligne ]
+		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 18.f, 0.f, 0.f)).HAlign(HAlign_Left)
 		[
 			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("DISCORD")), 22, [this]() { OuvrirLien(TEXT("LienDiscord"), TEXT("Discord")); }) ]
-			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("FACEBOOK")), 22, [this]() { OuvrirLien(TEXT("LienFacebook"), TEXT("Facebook")); }) ]
-			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("YOUTUBE")), 22, [this]() { OuvrirLien(TEXT("LienYoutube"), TEXT("YouTube")); }) ]
-			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("TIKTOK")), 22, [this]() { OuvrirLien(TEXT("LienTiktok"), TEXT("TikTok")); }) ]
-			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("SITE")), 22, [this]() { OuvrirLien(TEXT("LienSite"), TEXT("le site")); }) ]
-		]
-		+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(STextBlock)
-			.Text_Lambda([this]() { return MessageLien; })
-			.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 14))
-			.ColorAndOpacity(Alpha(Or, 0.9f))
-			.Justification(ETextJustify::Left)
+			+ SHorizontalBox::Slot().AutoWidth()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("DISCORD")), 22, [this]() { OuvrirLien(TEXT("LienDiscord"), TEXT("Discord")); }) ]
+				+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("FACEBOOK")), 22, [this]() { OuvrirLien(TEXT("LienFacebook"), TEXT("Facebook")); }) ]
+				+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("YOUTUBE")), 22, [this]() { OuvrirLien(TEXT("LienYoutube"), TEXT("YouTube")); }) ]
+				+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("TIKTOK")), 22, [this]() { OuvrirLien(TEXT("LienTiktok"), TEXT("TikTok")); }) ]
+				+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("SITE")), 22, [this]() { OuvrirLien(TEXT("LienSite"), TEXT("le site")); }) ]
+			]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(30.f, 0.f, 0.f, 0.f))
+			[
+				SNew(STextBlock)
+				.Text_Lambda([this]() { return MessageLien; })
+				.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 14))
+				.ColorAndOpacity(Alpha(Or, 0.9f))
+				.Justification(ETextJustify::Left)
+			]
 		];
 }
 
@@ -1699,8 +1757,12 @@ TSharedRef<SWidget> SMenuChelles::EcranMode()
 {
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("MODE")), FText::FromString(TEXT("// CHOISIS TA FA\u00C7ON DE JOUER"))) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("SOLO")), 64, [this]() { if (AMenuChelles* M = LeMenu()) { M->Solo(); } }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("MULTI-PLAYER")), 64, [this]() { Afficher(EEcranMenu::Multi); }) ]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("SOLO")), 64, [this]() { if (AMenuChelles* M = LeMenu()) { M->Solo(); } }) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("MULTI-PLAYER")), 64, [this]() { Afficher(EEcranMenu::Multi); }) ]
+		]
 		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 24.f, 0.f, 0.f))[ BoutonRetour() ];
 }
 
@@ -1710,14 +1772,17 @@ TSharedRef<SWidget> SMenuChelles::EcranMode()
 class SZoneApercuChelles : public SCompoundWidget
 {
 public:
-	SLATE_BEGIN_ARGS(SZoneApercuChelles) {}
+	SLATE_BEGIN_ARGS(SZoneApercuChelles) : _SansCadre(false) {}
 		SLATE_ARGUMENT(TWeakObjectPtr<AApercuHabillage>, Acteur)
 		SLATE_ARGUMENT(const FSlateBrush*, Image)
+		/** Lobby (2026-11-24) : pas de cadre neon autour du personnage. */
+		SLATE_ARGUMENT(bool, SansCadre)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs)
 	{
 		Acteur = InArgs._Acteur;
+		bSansCadre = InArgs._SansCadre;
 		SetCursor(EMouseCursor::GrabHand);
 		ChildSlot
 		[
@@ -1751,6 +1816,10 @@ public:
 		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override
 	{
 		const int32 Suite = SCompoundWidget::OnPaint(Args, G, Clip, Sortie, Couche, Style, bParentEnabled);
+		if (bSansCadre)
+		{
+			return Suite;
+		}
 		const FVector2D T = G.GetLocalSize();
 		const float Pulse = 0.6f + 0.3f * FMath::Sin(Horloge() * 2.f);
 		const TArray<FVector2D> Contour = Chanfrein(T, 26.f);
@@ -1766,6 +1835,7 @@ public:
 private:
 	TWeakObjectPtr<AApercuHabillage> Acteur;
 	bool bTire = false;
+	bool bSansCadre = false;
 };
 
 SMenuChelles::~SMenuChelles()
@@ -1866,8 +1936,462 @@ TSharedRef<SWidget> SMenuChelles::ReglageHabillage(const FString& NomReglage, co
 		];
 }
 
+// ---------------------------------------------------------------- HABILLAGE facon LOBBY (2026-11-24)
+//
+// Demande MERIDJA : ecran HABILLAGE refait comme un lobby de jeu de tir moderne :
+//  - barre d'onglets en haut (JOUER, CASIER, ARMEMENTS, OPTIONS) ;
+//  - le personnage en grand au centre, sur un decor bleu (on peut le faire tourner a la souris) ;
+//  - son nom en tres gros a gauche ;
+//  - en bas, les choix defilent en RUBAN HORIZONTAL de cartes : les personnages, puis (FEMININ / MASCULIN)
+//    les morceaux de tenue (MODELE, HAUT, BAS, CHAUSSURES...).
+// Le catalogue et l'enregistrement de la tenue ne changent pas (HabillageChelles).
+
+namespace LobbyChelles
+{
+	const FLinearColor LobNuit(0.010f, 0.025f, 0.110f, 1.f);
+	const FLinearColor LobBleu(0.030f, 0.130f, 0.380f, 1.f);
+	const FLinearColor LobCyan(0.250f, 0.850f, 1.000f, 1.f);
+	const FLinearColor LobSombre(0.020f, 0.030f, 0.140f, 1.f);
+	const FLinearColor LobJaune(1.000f, 0.880f, 0.050f, 1.f);
+
+	FSlateFontInfo LobPolice(int32 Taille, const TCHAR* Graisse = TEXT("Black"))
+	{
+		return FCoreStyle::GetDefaultFontStyle(Graisse, Taille);
+	}
+
+	FSlateRenderTransform LobPenche(float Force = 0.18f)
+	{
+		return FSlateRenderTransform(FShear2D(-Force, 0.f));
+	}
+
+	FLinearColor LobFois(const FLinearColor& C, float F)
+	{
+		return FLinearColor(FMath::Min(1.f, C.R * F), FMath::Min(1.f, C.G * F), FMath::Min(1.f, C.B * F), C.A);
+	}
+
+	/** Triangles colores (degrades, disques) : un sommet = une couleur. */
+	void LobSommets(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const TArray<FVector2D>& Points,
+		const TArray<FLinearColor>& Couleurs, const TArray<SlateIndex>& Indices)
+	{
+		if (!FSlateApplication::IsInitialized() || Points.Num() < 3 || Couleurs.Num() == 0)
+		{
+			return;
+		}
+		const FSlateBrush* Pinceau = FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"));
+		const FSlateResourceHandle Ressource = FSlateApplication::Get().GetRenderer()->GetResourceHandle(*Pinceau);
+		TArray<FSlateVertex> Liste;
+		Liste.Reserve(Points.Num());
+		for (int32 i = 0; i < Points.Num(); ++i)
+		{
+			FSlateVertex V;
+			FMemory::Memzero(&V, sizeof(FSlateVertex));
+			V.TexCoords[2] = 1.f;
+			V.TexCoords[3] = 1.f;
+			V.Position = G.LocalToAbsolute(Points[i]);
+			V.Color = Couleurs[FMath::Min(i, Couleurs.Num() - 1)].ToFColor(true);
+			Liste.Add(V);
+		}
+		TArray<SlateIndex> Copie = Indices;
+		FSlateDrawElement::MakeCustomVerts(Sortie, Couche, Ressource, Liste, Copie, nullptr, 0, 0);
+	}
+
+	void LobDegrade(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Pos, const FVector2D& Taille,
+		const FLinearColor& Haut, const FLinearColor& Bas, bool bHorizontal = false)
+	{
+		const TArray<FLinearColor> C = bHorizontal ? TArray<FLinearColor>{ Haut, Bas, Bas, Haut } : TArray<FLinearColor>{ Haut, Haut, Bas, Bas };
+		LobSommets(Sortie, Couche, G, { Pos, Pos + FVector2D(Taille.X, 0.f), Pos + Taille, Pos + FVector2D(0.f, Taille.Y) }, C, { 0, 1, 2, 0, 2, 3 });
+	}
+
+	/** Halo ovale (centre colore, bord transparent). */
+	void LobHalo(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Centre, const FVector2D& Rayon, const FLinearColor& C)
+	{
+		TArray<FVector2D> P;
+		TArray<FLinearColor> Couleurs;
+		TArray<SlateIndex> I;
+		P.Add(Centre);
+		Couleurs.Add(C);
+		const int32 N = 40;
+		for (int32 k = 0; k < N; ++k)
+		{
+			const float A = k * 2.f * PI / N;
+			P.Add(Centre + FVector2D(FMath::Cos(A) * Rayon.X, FMath::Sin(A) * Rayon.Y));
+			Couleurs.Add(FLinearColor(C.R, C.G, C.B, 0.f));
+		}
+		for (int32 k = 0; k < N; ++k)
+		{
+			I.Add(0);
+			I.Add(SlateIndex(1 + k));
+			I.Add(SlateIndex(1 + (k + 1) % N));
+		}
+		LobSommets(Sortie, Couche, G, P, Couleurs, I);
+	}
+
+	void LobRect(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Pos, const FVector2D& Taille, const FLinearColor& C)
+	{
+		FSlateDrawElement::MakeBox(Sortie, Couche, G.ToPaintGeometry(Pos, Taille), FCoreStyle::Get().GetBrush(TEXT("WhiteBrush")), ESlateDrawEffect::None, C);
+	}
+
+	void LobCadre(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Pos, const FVector2D& T, float E, const FLinearColor& C)
+	{
+		LobRect(Sortie, Couche, G, Pos, FVector2D(T.X, E), C);
+		LobRect(Sortie, Couche, G, Pos + FVector2D(0.f, T.Y - E), FVector2D(T.X, E), C);
+		LobRect(Sortie, Couche, G, Pos + FVector2D(0.f, E), FVector2D(E, T.Y - 2.f * E), C);
+		LobRect(Sortie, Couche, G, Pos + FVector2D(T.X - E, E), FVector2D(E, T.Y - 2.f * E), C);
+	}
+
+	FVector2D LobMesure(const FString& Texte, const FSlateFontInfo& P)
+	{
+		return FSlateApplication::IsInitialized()
+			? FSlateApplication::Get().GetRenderer()->GetFontMeasureService()->Measure(Texte, P)
+			: FVector2D(10.f, 10.f);
+	}
+
+	void LobTexte(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Pos, const FString& Texte,
+		const FSlateFontInfo& P, const FLinearColor& C, bool bOmbre = true)
+	{
+		const FVector2D T = LobMesure(Texte, P);
+		if (bOmbre)
+		{
+			FSlateDrawElement::MakeText(Sortie, Couche, G.ToPaintGeometry(Pos + FVector2D(2.f, 2.f), T), Texte, P, ESlateDrawEffect::None, FLinearColor(0.f, 0.f, 0.05f, 0.7f * C.A));
+		}
+		FSlateDrawElement::MakeText(Sortie, Couche + 1, G.ToPaintGeometry(Pos, T), Texte, P, ESlateDrawEffect::None, C);
+	}
+}
+
+/** Fond du lobby : degrade bleu nuit, rayons de lumiere, halo au sol au centre. */
+class SFondLobbyChelles : public SLeafWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SFondLobbyChelles) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs) {}
+	virtual FVector2D ComputeDesiredSize(float) const override { return FVector2D(100.f, 100.f); }
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSlateRect& Clip,
+		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override
+	{
+		using namespace LobbyChelles;
+		const FVector2D L = G.GetLocalSize();
+		// Degrade de gauche a droite (disposition en colonnes)
+		LobDegrade(Sortie, Couche, G, FVector2D::ZeroVector, FVector2D(L.X * 0.5f, L.Y), LobNuit, LobBleu, true);
+		LobDegrade(Sortie, Couche, G, FVector2D(L.X * 0.5f, 0.f), FVector2D(L.X * 0.5f, L.Y), LobBleu, FLinearColor(0.005f, 0.015f, 0.07f, 1.f), true);
+		// bandes de lumiere horizontales qui partent du bord droit (comme un projecteur)
+		const float T = Horloge();
+		for (int32 k = 0; k < 3; ++k)
+		{
+			const float Y = L.Y * (0.22f + 0.2f * k) + 10.f * FMath::Sin(T * 0.4f + k);
+			const float Haut = L.Y * 0.05f;
+			const FLinearColor C(LobCyan.R, LobCyan.G, LobCyan.B, 0.06f);
+			const FLinearColor Rien(LobCyan.R, LobCyan.G, LobCyan.B, 0.f);
+			LobSommets(Sortie, Couche + 1, G,
+				{ FVector2D(L.X, Y), FVector2D(L.X, Y + Haut), FVector2D(0.f, Y + Haut + L.X * 0.15f), FVector2D(0.f, Y + L.X * 0.15f) },
+				{ C, C, Rien, Rien }, { 0, 1, 2, 0, 2, 3 });
+		}
+		// halo bleu derriere le personnage, halo cyan au sol
+		LobHalo(Sortie, Couche + 2, G, FVector2D(L.X * 0.5f, L.Y * 0.42f), FVector2D(L.X * 0.28f, L.Y * 0.42f), FLinearColor(0.10f, 0.35f, 0.85f, 0.35f));
+		LobHalo(Sortie, Couche + 2, G, FVector2D(L.X * 0.5f, L.Y * 0.79f), FVector2D(L.X * 0.18f, L.Y * 0.05f), FLinearColor(0.25f, 0.85f, 1.f, 0.35f));
+		return Couche + 3;
+	}
+};
+
+/** Bords fondus de l'apercu du personnage : le rectangle de l'image se perd dans le decor. */
+class SBordsLobbyChelles : public SLeafWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SBordsLobbyChelles) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		SetVisibility(EVisibility::HitTestInvisible); // laisse passer la souris (tourner le personnage)
+	}
+	virtual FVector2D ComputeDesiredSize(float) const override { return FVector2D(100.f, 100.f); }
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSlateRect& Clip,
+		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override
+	{
+		using namespace LobbyChelles;
+		const FVector2D L = G.GetLocalSize();
+		const float Bord = L.X * 0.16f;
+		const FLinearColor Plein(0.02f, 0.08f, 0.25f, 1.f);
+		const FLinearColor Vide(0.02f, 0.08f, 0.25f, 0.f);
+		LobDegrade(Sortie, Couche, G, FVector2D::ZeroVector, FVector2D(Bord, L.Y), Plein, Vide, true);
+		LobDegrade(Sortie, Couche, G, FVector2D(L.X - Bord, 0.f), FVector2D(Bord, L.Y), Vide, Plein, true);
+		LobDegrade(Sortie, Couche, G, FVector2D::ZeroVector, FVector2D(L.X, L.Y * 0.12f), FLinearColor(0.02f, 0.05f, 0.18f, 1.f), FLinearColor(0.02f, 0.05f, 0.18f, 0.f));
+		LobDegrade(Sortie, Couche, G, FVector2D(0.f, L.Y * 0.82f), FVector2D(L.X, L.Y * 0.18f), FLinearColor(0.01f, 0.03f, 0.12f, 0.f), FLinearColor(0.01f, 0.03f, 0.12f, 1.f));
+		return Couche + 1;
+	}
+};
+
+/** Carte du ruban (personnage ou morceau de tenue) ou puce d'onglet, dessinee sans asset. */
+class SCarteLobbyChelles : public SLeafWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SCarteLobbyChelles)
+		: _Couleur(FLinearColor(0.1f, 0.3f, 0.8f))
+		, _Taille(FVector2D(200.f, 116.f))
+		, _Choisie(false)
+		, _Puce(false)
+		, _Point(false)
+		, _TaillePolice(26)
+		{}
+		SLATE_ARGUMENT(FString, Titre)
+		SLATE_ARGUMENT(FString, SousTitre)
+		SLATE_ARGUMENT(FLinearColor, Couleur)
+		SLATE_ARGUMENT(FVector2D, Taille)
+		SLATE_ARGUMENT(bool, Choisie)
+		/** Puce d'onglet (texte seul, fond blanc si choisie) au lieu d'une carte. */
+		SLATE_ARGUMENT(bool, Puce)
+		/** Petit point jaune devant le texte d'une puce (nouveaute). */
+		SLATE_ARGUMENT(bool, Point)
+		SLATE_ARGUMENT(int32, TaillePolice)
+		SLATE_EVENT(FSimpleDelegate, OnClic)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		Titre = InArgs._Titre;
+		SousTitre = InArgs._SousTitre;
+		Couleur = InArgs._Couleur;
+		Taille = InArgs._Taille;
+		bChoisie = InArgs._Choisie;
+		bPuce = InArgs._Puce;
+		bPoint = InArgs._Point;
+		TaillePolice = InArgs._TaillePolice;
+		Clic = InArgs._OnClic;
+		SetCursor(EMouseCursor::Hand);
+		SetClipping(EWidgetClipping::ClipToBounds);
+		if (bPuce)
+		{
+			// la puce prend la largeur de son texte
+			const FVector2D T = LobbyChelles::LobMesure(Titre, LobbyChelles::LobPolice(TaillePolice));
+			Taille = FVector2D(T.X + 34.f + (bPoint ? 16.f : 0.f), FMath::Max(Taille.Y, T.Y + 14.f));
+		}
+	}
+
+	virtual FVector2D ComputeDesiredSize(float) const override { return Taille; }
+
+	virtual void OnMouseEnter(const FGeometry& Geometrie, const FPointerEvent& Evenement) override
+	{
+		SLeafWidget::OnMouseEnter(Geometrie, Evenement);
+		Son(ESonMenu::Survol);
+	}
+
+	virtual FReply OnMouseButtonDown(const FGeometry& Geometrie, const FPointerEvent& Evenement) override
+	{
+		if (Evenement.GetEffectingButton() == EKeys::LeftMouseButton)
+		{
+			Son(ESonMenu::Clic);
+			Clic.ExecuteIfBound();
+			return FReply::Handled();
+		}
+		return FReply::Unhandled();
+	}
+
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& G, const FSlateRect& Clip,
+		FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const override
+	{
+		using namespace LobbyChelles;
+		const FVector2D L = G.GetLocalSize();
+		const bool bSurvol = IsHovered();
+		const FSlateFontInfo P = LobPolice(TaillePolice);
+		if (bPuce)
+		{
+			if (bChoisie)
+			{
+				LobRect(Sortie, Couche, G, FVector2D::ZeroVector, L, FLinearColor(0.93f, 0.95f, 1.f));
+			}
+			else if (bSurvol)
+			{
+				LobRect(Sortie, Couche, G, FVector2D::ZeroVector, L, FLinearColor(1.f, 1.f, 1.f, 0.14f));
+			}
+			const FVector2D T = LobMesure(Titre, P);
+			float X = 17.f;
+			if (bPoint && !bChoisie)
+			{
+				LobHalo(Sortie, Couche + 1, G, FVector2D(X + 4.f, L.Y * 0.5f), FVector2D(5.f, 5.f), LobJaune);
+				LobRect(Sortie, Couche + 1, G, FVector2D(X + 1.f, L.Y * 0.5f - 3.f), FVector2D(6.f, 6.f), LobJaune);
+				X += 16.f;
+			}
+			LobTexte(Sortie, Couche + 2, G, FVector2D(X, (L.Y - T.Y) * 0.5f), Titre, P, bChoisie ? LobSombre : FLinearColor(0.85f, 0.9f, 1.f), !bChoisie);
+			return Couche + 4;
+		}
+
+		// Carte : cadre, degrade de sa couleur, reflet, titre en bas a gauche
+		const float M = 3.f;
+		LobRect(Sortie, Couche, G, FVector2D::ZeroVector, L, FLinearColor(0.02f, 0.04f, 0.16f, 0.9f));
+		LobDegrade(Sortie, Couche + 1, G, FVector2D(M, M), L - FVector2D(2.f * M, 2.f * M),
+			LobFois(Couleur, bSurvol || bChoisie ? 1.5f : 1.2f), LobFois(Couleur, bSurvol || bChoisie ? 0.7f : 0.45f));
+		LobSommets(Sortie, Couche + 2, G,
+			{ FVector2D(M, M), FVector2D(L.X * 0.6f, M), FVector2D(M, L.Y * 0.7f) },
+			{ FLinearColor(1.f, 1.f, 1.f, 0.18f), FLinearColor(1.f, 1.f, 1.f, 0.f), FLinearColor(1.f, 1.f, 1.f, 0.f) }, { 0, 1, 2 });
+		// Initiale en grand, en filigrane a droite
+		if (!Titre.IsEmpty())
+		{
+			const FString Initiale = Titre.Left(1);
+			const FSlateFontInfo PoliceInitiale = LobPolice(FMath::RoundToInt(L.Y * 0.62f));
+			const FVector2D TI = LobMesure(Initiale, PoliceInitiale);
+			LobTexte(Sortie, Couche + 3, G, FVector2D(L.X - TI.X - 8.f, (L.Y - TI.Y) * 0.35f), Initiale, PoliceInitiale, FLinearColor(1.f, 1.f, 1.f, 0.16f), false);
+		}
+		// Titre : la police retrecit si le nom est long
+		int32 Taille1 = TaillePolice;
+		FSlateFontInfo PT = LobPolice(Taille1);
+		while (Taille1 > 11 && LobMesure(Titre, PT).X > L.X - 20.f)
+		{
+			PT = LobPolice(--Taille1);
+		}
+		const FVector2D TT = LobMesure(Titre, PT);
+		LobTexte(Sortie, Couche + 4, G, FVector2D(10.f, L.Y - TT.Y - 8.f), Titre, PT, FLinearColor::White);
+		if (!SousTitre.IsEmpty())
+		{
+			const FSlateFontInfo PS = LobPolice(FMath::Max(10, TaillePolice / 2), TEXT("Bold"));
+			const FVector2D TS = LobMesure(SousTitre, PS);
+			LobTexte(Sortie, Couche + 4, G, FVector2D(10.f, L.Y - TT.Y - TS.Y - 8.f), SousTitre, PS, FLinearColor(0.85f, 0.92f, 1.f, 0.9f));
+		}
+		if (bChoisie)
+		{
+			const float Pulse = 0.75f + 0.25f * FMath::Sin(Horloge() * 4.f);
+			LobCadre(Sortie, Couche + 6, G, FVector2D::ZeroVector, L, 4.f, FLinearColor(0.85f, 0.97f, 1.f, Pulse));
+			LobCadre(Sortie, Couche + 6, G, FVector2D(4.f, 4.f), L - FVector2D(8.f, 8.f), 2.f, FLinearColor(LobCyan.R, LobCyan.G, LobCyan.B, 0.8f));
+		}
+		else if (bSurvol)
+		{
+			LobCadre(Sortie, Couche + 6, G, FVector2D::ZeroVector, L, 2.f, FLinearColor(1.f, 1.f, 1.f, 0.75f));
+		}
+		return Couche + 7;
+	}
+
+private:
+	FString Titre;
+	FString SousTitre;
+	FLinearColor Couleur;
+	FVector2D Taille;
+	bool bChoisie = false;
+	bool bPuce = false;
+	bool bPoint = false;
+	int32 TaillePolice = 26;
+	FSimpleDelegate Clic;
+};
+
+namespace LobbyChelles
+{
+	/** Les personnages du premier ruban, dans l'ordre. */
+	struct FPersoLobby
+	{
+		int32 Sexe;
+		FString Nom;
+		FString SousTitre;
+		FLinearColor Couleur;
+	};
+
+	TArray<FPersoLobby> PersosLobby()
+	{
+		TArray<FPersoLobby> Liste;
+		Liste.Add({ int32(ChellesHabillage::SpiderMan), TEXT("SPIDER-MALE"), TEXT("HÉROS"), FLinearColor(0.80f, 0.06f, 0.10f) });
+		Liste.Add({ int32(ChellesHabillage::Pantera), TEXT("PANTERA"), TEXT("HÉROS"), FLinearColor(0.22f, 0.10f, 0.42f) });
+		Liste.Add({ int32(ChellesHabillage::Feminin), TEXT("FÉMININ"), TEXT("CRÉE TON LOOK"), FLinearColor(0.85f, 0.22f, 0.55f) });
+		Liste.Add({ int32(ChellesHabillage::Masculin), TEXT("MASCULIN"), TEXT("CRÉE TON LOOK"), FLinearColor(0.12f, 0.38f, 0.90f) });
+		const FLinearColor Couleurs[] = { FLinearColor(0.05f, 0.65f, 0.80f), FLinearColor(0.90f, 0.45f, 0.05f), FLinearColor(0.20f, 0.65f, 0.15f), FLinearColor(0.75f, 0.60f, 0.05f) };
+		int32 k = 0;
+		for (const int32 Perso : ChellesHabillage::PersosWraith())
+		{
+			Liste.Add({ Perso, ChellesHabillage::NomPersoWraith(Perso), TEXT("PERSONNAGE"), Couleurs[k++ % UE_ARRAY_COUNT(Couleurs)] });
+		}
+		return Liste;
+	}
+
+	/** Couleur d'une carte de tenue : une teinte par emplacement, un peu differente pour chaque choix. */
+	FLinearColor CouleurChoix(int32 Emplacement, int32 Index, bool bAucun)
+	{
+		if (bAucun)
+		{
+			return FLinearColor(0.25f, 0.28f, 0.36f);
+		}
+		const float Teinte = FMath::Fmod(200.f + Emplacement * 47.f + (Index % 5) * 7.f, 360.f);
+		return FLinearColor(Teinte, 0.75f, 0.85f).HSVToLinearRGB();
+	}
+}
+
+int32 SMenuChelles::SexeLobby() const
+{
+	return (TenueChoisie.EstSpiderMan() && !TenueChoisie.EstPantera() && !TenueChoisie.EstPersoWraith())
+		? int32(ChellesHabillage::SpiderMan) : TenueChoisie.Sexe;
+}
+
+void SMenuChelles::ChoisirSexeLobby(int32 Sexe)
+{
+	ModifierTenue([Sexe](ChellesHabillage::FTenue& T)
+	{
+		if (T.Sexe != Sexe)
+		{
+			T.Sexe = Sexe;
+			T.Modele.Reset();
+		}
+	});
+}
+
+void SMenuChelles::ChangerLobby(int32 Sens)
+{
+	// Fleches haut / bas : choix suivant dans la colonne active (gauche = personnages, droite = tenue)
+	if (RubanLobby == 0)
+	{
+		const TArray<LobbyChelles::FPersoLobby> Persos = LobbyChelles::PersosLobby();
+		int32 i = Persos.IndexOfByPredicate([this](const LobbyChelles::FPersoLobby& P) { return P.Sexe == SexeLobby(); });
+		i = ((FMath::Max(i, 0) + Sens) % Persos.Num() + Persos.Num()) % Persos.Num();
+		ChoisirSexeLobby(Persos[i].Sexe);
+		return;
+	}
+	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
+	if (!Modele || TenueChoisie.EstSpiderMan())
+	{
+		return;
+	}
+	if (EmplacementLobby <= 0 || !Modele->Emplacements.IsValidIndex(EmplacementLobby - 1))
+	{
+		ModifierTenue([Sens](ChellesHabillage::FTenue& T)
+		{
+			const TArray<const ChellesHabillage::FModele*> Liste = ChellesHabillage::ModelesDuSexe(T.Sexe);
+			if (Liste.Num() == 0)
+			{
+				return;
+			}
+			int32 i = Liste.IndexOfByPredicate([&T](const ChellesHabillage::FModele* X) { return X->Id == T.Modele; });
+			i = ((FMath::Max(i, 0) + Sens) % Liste.Num() + Liste.Num()) % Liste.Num();
+			T.Modele = Liste[i]->Id;
+		});
+		return;
+	}
+	const ChellesHabillage::FEmplacement* PE = &Modele->Emplacements[EmplacementLobby - 1];
+	ModifierTenue([PE, Sens](ChellesHabillage::FTenue& T)
+	{
+		const FString* Ici = T.Choix.Find(PE->Cle);
+		const int32 N = PE->Lignes.Num();
+		if (N == 0)
+		{
+			return;
+		}
+		const int32 i = ((FMath::Max(0, PE->IndexDe(Ici ? *Ici : FString())) + Sens) % N + N) % N;
+		T.Choix.Add(PE->Cle, PE->Lignes[i].IsNone() ? FString() : PE->Lignes[i].ToString());
+	});
+}
+
+void SMenuChelles::JouerDepuisLobby()
+{
+	ChellesHabillage::EnregistrerTenue(TenueChoisie);
+	if (EnPause())
+	{
+		// En jeu (Echap) : la tenue est appliquee et on reprend la partie
+		if (AMenuChelles* M = LeMenu())
+		{
+			M->Reprendre();
+		}
+		return;
+	}
+	Afficher(EEcranMenu::Mode);
+}
+
 TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 {
+	using namespace LobbyChelles;
 	if (!bTenueLue)
 	{
 		TenueChoisie = ChellesHabillage::TenueLocale();
@@ -1877,154 +2401,423 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	{
 		MontrerApercu();
 	}
-	const int32 SexeActuel = (TenueChoisie.EstSpiderMan() && !TenueChoisie.EstPantera() && !TenueChoisie.EstPersoWraith()) ? int32(ChellesHabillage::SpiderMan) : TenueChoisie.Sexe;
-
-	TSharedRef<SVerticalBox> Gauche = SNew(SVerticalBox);
-	Gauche->AddSlot().AutoHeight()[ Titre(FText::FromString(TEXT("HABILLAGE")), FText::FromString(TEXT("// SEXE, TENUE ET LOOK DE TON JOUEUR"))) ];
-
-	// SEXE : trois gros boutons
-	auto BoutonSexe = [this, SexeActuel](const TCHAR* Nom, int32 Sexe) -> TSharedRef<SWidget>
-	{
-		const FString Libelle = (SexeActuel == Sexe) ? FString::Printf(TEXT("[ %s ]"), Nom) : FString(Nom);
-		return Bouton(FText::FromString(Libelle), 30, [this, Sexe]()
-		{
-			ModifierTenue([Sexe](ChellesHabillage::FTenue& T)
-			{
-				if (T.Sexe != Sexe)
-				{
-					T.Sexe = Sexe;
-					T.Modele.Reset();
-				}
-			});
-		});
-	};
-	Gauche->AddSlot().AutoHeight().HAlign(HAlign_Left)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("F\u00C9MININ"), ChellesHabillage::Feminin) ]
-		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("MASCULIN"), ChellesHabillage::Masculin) ]
-		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("SPIDER-MALE"), ChellesHabillage::SpiderMan) ]
-		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("PANTERA"), ChellesHabillage::Pantera) ]
-	];
-	// Personnages de MERIDJA (LENA, SOFIA...) : une deuxieme rangee de boutons
-	{
-		TSharedRef<SHorizontalBox> Persos = SNew(SHorizontalBox);
-		for (const int32 Perso : ChellesHabillage::PersosWraith())
-		{
-			Persos->AddSlot().AutoWidth()[ BoutonSexe(ChellesHabillage::NomPersoWraith(Perso), Perso) ];
-		}
-		Gauche->AddSlot().AutoHeight().HAlign(HAlign_Left)[ Persos ];
-	}
-
+	const int32 SexeActuel = SexeLobby();
 	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
+	const bool bLook = !TenueChoisie.EstSpiderMan() && Modele != nullptr;
+
+	// Disposition "inversee" (demande du 24/11) : les onglets sont une colonne a gauche,
+	// les rubans de cartes deviennent des colonnes verticales (personnages a gauche, tenue a droite),
+	// le nom et les boutons VALIDER / ALEATOIRE sont en ligne au milieu.
+
+	// ---- Colonne d'onglets a gauche ----
+	TSharedRef<SVerticalBox> Onglets = SNew(SVerticalBox);
+	auto AjouterOnglet = [&Onglets](const TCHAR* Texte, bool bActif, bool bPoint, TFunction<void()> Action)
+	{
+		Onglets->AddSlot().AutoHeight().Padding(FMargin(0.f, 4.f))
+		[
+			SNew(SBox).WidthOverride(190.f)
+			[
+				SNew(SCarteLobbyChelles)
+				.Titre(Texte)
+				.Puce(true)
+				.Choisie(bActif)
+				.Point(bPoint)
+				.TaillePolice(20)
+				.Taille(FVector2D(10.f, 48.f))
+				.OnClic(FSimpleDelegate::CreateLambda(MoveTemp(Action)))
+			]
+		];
+	};
+	AjouterOnglet(EnPause() ? TEXT("REPRENDRE") : TEXT("JOUER"), false, false, [this]() { JouerDepuisLobby(); });
+	AjouterOnglet(TEXT("CASIER"), true, false, []() {});
+	if (EnPause() && IConsoleManager::Get().FindConsoleObject(TEXT("Chelles.Armements")))
+	{
+		AjouterOnglet(TEXT("ARMEMENTS"), false, true, [this]()
+		{
+			ChellesHabillage::EnregistrerTenue(TenueChoisie);
+			AMenuChelles* M = LeMenu();
+			UWorld* Monde = M ? M->GetWorld() : nullptr;
+			if (M)
+			{
+				M->Reprendre();
+			}
+			if (GEngine && Monde)
+			{
+				GEngine->Exec(Monde, TEXT("Chelles.Armements Ouvrir"));
+			}
+		});
+	}
+	AjouterOnglet(TEXT("OPTIONS"), false, true, [this]() { Afficher(EEcranMenu::Options); });
+	AjouterOnglet(TEXT("RETOUR"), false, false, [this]() { Retour(); });
+
+	// ---- Nom du personnage en grand ----
+	FString NomGrand;
+	FString Description;
 	if (TenueChoisie.EstPersoWraith())
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(FString(TEXT("Tu joues ")) + ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe) + TEXT(", ton personnage.\nElle a toutes les armes du soldat (TAB = roue des armes) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir.\nT = danser (bouger pour arr\u00EAter). K = apparence suivante (Wraith, Dekker, Aurora...)."))) ];
+		NomGrand = ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe);
+		Description = TEXT("Toutes les armes du soldat (TAB = roue, I = ARMEMENTS) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir. T = danser (bouger pour arrêter). K = apparence suivante.");
 	}
 	else if (TenueChoisie.EstPantera())
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues PANTERA : tenue noire, masque noir, yeux blancs.\nIl vole comme Spider-Male, mais 20 secondes maximum : ensuite il doit se poser. Clic gauche = tirs des mains (laser, feu, glace, foudre), O = changer de tir.\nTu commences en PANTERA ; TAB pour changer de mode."))) ];
+		NomGrand = TEXT("PANTERA");
+		Description = TEXT("Tenue noire, yeux blancs. Il vole 20 secondes au maximum. Clic gauche = tirs des mains, O = changer de tir.");
 	}
 	else if (TenueChoisie.EstSpiderMan())
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues SPIDER-MALE, le h\u00E9ros que tu as d\u00E9j\u00E0 dans tout le jeu.\nChoisis F\u00C9MININ ou MASCULIN pour cr\u00E9er ton propre look : visage, cheveux, haut, bas, chaussures, chapeau, lunettes..."))) ];
+		NomGrand = TEXT("SPIDER-MALE");
+		Description = TEXT("Le héros de tout le jeu. Choisis FÉMININ ou MASCULIN pour créer ton propre look pièce par pièce.");
 	}
-	else if (!Modele)
+	else if (Modele)
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Packs de personnages introuvables dans Content (Action_Male_and_Female, Female_Mannequin). Tu restes en Spider-Male."))) ];
+		NomGrand = Modele->Nom.ToUpper();
+		Description = Modele->bMannequin
+			? TEXT("Mannequin tout fait : sa tenue ne change pas. Choisis un autre MODÈLE pour habiller ton joueur pièce par pièce.")
+			: TEXT("Choisis un morceau de tenue (HAUT, BAS...) dans la colonne de droite, puis fais défiler les choix.");
 	}
 	else
 	{
-		Gauche->AddSlot().AutoHeight().Padding(FMargin(0.f, 6.f, 0.f, 0.f))
-		[
-			ReglageHabillage(TEXT("MOD\u00C8LE"), Modele->Nom, [this](int32 Sens)
-			{
-				ModifierTenue([Sens](ChellesHabillage::FTenue& T)
-				{
-					const TArray<const ChellesHabillage::FModele*> Liste = ChellesHabillage::ModelesDuSexe(T.Sexe);
-					if (Liste.Num() == 0)
-					{
-						return;
-					}
-					int32 i = Liste.IndexOfByPredicate([&T](const ChellesHabillage::FModele* X) { return X->Id == T.Modele; });
-					i = ((FMath::Max(i, 0) + Sens) % Liste.Num() + Liste.Num()) % Liste.Num();
-					T.Modele = Liste[i]->Id;
-				});
-			})
-		];
-		if (Modele->bMannequin)
-		{
-			Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Mannequin tout fait du pack Female Mannequin : sa tenue ne change pas. Choisis un mod\u00E8le CLASSIQUE, GRANDE ou ATHL\u00C9TIQUE pour habiller ton joueur pi\u00E8ce par pi\u00E8ce."))) ];
-		}
-		for (const ChellesHabillage::FEmplacement& E : Modele->Emplacements)
-		{
-			const FString* Actuel = TenueChoisie.Choix.Find(E.Cle);
-			const int32 Index = FMath::Max(0, E.IndexDe(Actuel ? *Actuel : FString()));
-			const ChellesHabillage::FEmplacement* PE = &E;
-			Gauche->AddSlot().AutoHeight()
-			[
-				ReglageHabillage(E.Titre, E.Noms.IsValidIndex(Index) ? E.Noms[Index] : FString(), [this, PE](int32 Sens)
-				{
-					ModifierTenue([PE, Sens](ChellesHabillage::FTenue& T)
-					{
-						const FString* Ici = T.Choix.Find(PE->Cle);
-						const int32 N = PE->Lignes.Num();
-						if (N == 0)
-						{
-							return;
-						}
-						const int32 i = ((FMath::Max(0, PE->IndexDe(Ici ? *Ici : FString())) + Sens) % N + N) % N;
-						T.Choix.Add(PE->Cle, PE->Lignes[i].IsNone() ? FString() : PE->Lignes[i].ToString());
-					});
-				})
-			];
-		}
+		NomGrand = SexeActuel == ChellesHabillage::Feminin ? TEXT("FÉMININ") : TEXT("MASCULIN");
+		Description = TEXT("Packs de personnages introuvables (Action_Male_and_Female, Female_Mannequin) : tu restes en Spider-Male.");
 	}
 
-	Gauche->AddSlot().AutoHeight().Padding(FMargin(0.f, 14.f, 0.f, 0.f)).HAlign(HAlign_Left)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth()
-		[
-			Bouton(FText::FromString(TEXT("AL\u00C9ATOIRE")), 30, [this]()
+	auto Etiquette = [](const FString& Texte) -> TSharedRef<SWidget>
+	{
+		return SNew(STextBlock)
+			.Text(FText::FromString(Texte))
+			.Font(LobPolice(20))
+			.ColorAndOpacity(FLinearColor::White)
+			.ShadowOffset(FVector2D(2.f, 2.f))
+			.ShadowColorAndOpacity(FLinearColor(0.f, 0.f, 0.05f, 0.7f));
+	};
+	// Fleche haut / bas qui fait defiler une colonne
+	auto Fleche = [](const TCHAR* Sens, TSharedRef<SScrollBox> Colonne, float Pas) -> TSharedRef<SWidget>
+	{
+		return SNew(SCarteLobbyChelles)
+			.Titre(Sens)
+			.Puce(true)
+			.TaillePolice(18)
+			.Taille(FVector2D(10.f, 34.f))
+			.OnClic(FSimpleDelegate::CreateLambda([Colonne, Pas]()
 			{
-				ModifierTenue([](ChellesHabillage::FTenue& T) { ChellesHabillage::Hasard(T); });
-			}, !TenueChoisie.EstSpiderMan() && Modele != nullptr)
-		]
-		+ SHorizontalBox::Slot().AutoWidth()
-		[
-			Bouton(FText::FromString(TEXT("VALIDER >")), 30, [this]()
-			{
-				ChellesHabillage::EnregistrerTenue(TenueChoisie);
-				Afficher(EEcranMenu::Mode);
-			})
-		]
-	];
-	Gauche->AddSlot().AutoHeight()[ BoutonRetour() ];
-	Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Clic gauche / droite (ou fl\u00E8ches) pour changer. Ton look est vu par les autres joueurs en multi. La roue TAB garde Spider-Male, PANTERA, motoneige, cheval..."))) ];
+				Colonne->SetScrollOffset(FMath::Max(0.f, Colonne->GetScrollOffset() + Pas));
+			}));
+	};
+	auto ColonneDefilante = [&Fleche, &Etiquette](const FString& Titre, TSharedRef<SScrollBox> Colonne, float Largeur) -> TSharedRef<SWidget>
+	{
+		return SNew(SBox)
+			.WidthOverride(Largeur)
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 0.f, 0.f, 6.f))[ Etiquette(Titre) ]
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)[ Fleche(TEXT("HAUT"), Colonne, -360.f) ]
+				+ SVerticalBox::Slot().FillHeight(1.f).Padding(FMargin(0.f, 6.f))[ Colonne ]
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)[ Fleche(TEXT("BAS"), Colonne, 360.f) ]
+			];
+	};
 
-	TSharedRef<SWidget> Droite = PinceauApercu.IsValid()
-		? StaticCastSharedRef<SWidget>(SNew(SZoneApercuChelles).Acteur(ApercuActeur).Image(PinceauApercu.Get()))
+	// ---- Colonne 1 : les personnages ----
+	TSharedPtr<SWidget> CartePersoChoisie;
+	TSharedRef<SScrollBox> Colonne1 = SNew(SScrollBox).ScrollBarVisibility(EVisibility::Collapsed);
+	for (const FPersoLobby& P : PersosLobby())
+	{
+		const int32 Sexe = P.Sexe;
+		const bool bChoisie = (Sexe == SexeActuel);
+		TSharedRef<SWidget> Carte = SNew(SCarteLobbyChelles)
+			.Titre(P.Nom)
+			.SousTitre(P.SousTitre)
+			.Couleur(P.Couleur)
+			.Taille(FVector2D(220.f, 100.f))
+			.Choisie(bChoisie)
+			.TaillePolice(24)
+			.OnClic(FSimpleDelegate::CreateLambda([this, Sexe]()
+			{
+				RubanLobby = 0;
+				ChoisirSexeLobby(Sexe);
+			}));
+		if (bChoisie)
+		{
+			CartePersoChoisie = Carte;
+		}
+		Colonne1->AddSlot().HAlign(HAlign_Center).Padding(FMargin(4.f, 6.f))[ Carte ];
+	}
+
+	// ---- Colonnes de la tenue (FEMININ / MASCULIN) : emplacements puis choix ----
+	TSharedRef<SHorizontalBox> Droite = SNew(SHorizontalBox);
+	TSharedPtr<SScrollBox> Colonne2Ptr;
+	TSharedPtr<SWidget> CarteTenueChoisie;
+	if (bLook)
+	{
+		// Puces des emplacements empilees : MODELE, puis HAUT, VESTE, BAS... (mannequin tout fait : MODELE seulement)
+		const int32 NbEmplacements = Modele->bMannequin ? 0 : Modele->Emplacements.Num();
+		EmplacementLobby = FMath::Clamp(EmplacementLobby, 0, NbEmplacements);
+		TSharedRef<SVerticalBox> Puces = SNew(SVerticalBox);
+		for (int32 e = 0; e <= NbEmplacements; ++e)
+		{
+			const FString Nom = (e == 0) ? FString(TEXT("MODÈLE")) : Modele->Emplacements[e - 1].Titre.ToUpper();
+			Puces->AddSlot().AutoHeight().Padding(FMargin(0.f, 3.f))
+			[
+				SNew(SCarteLobbyChelles)
+				.Titre(Nom)
+				.Puce(true)
+				.Choisie(e == EmplacementLobby)
+				.TaillePolice(17)
+				.Taille(FVector2D(10.f, 40.f))
+				.OnClic(FSimpleDelegate::CreateLambda([this, e]()
+				{
+					EmplacementLobby = e;
+					RubanLobby = 1;
+					Afficher(EEcranMenu::Habillage);
+				}))
+			];
+		}
+		Droite->AddSlot().AutoWidth().Padding(FMargin(0.f, 0.f, 12.f, 0.f))
+		[
+			SNew(SBox)
+			.WidthOverride(170.f)
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 0.f, 0.f, 6.f))[ Etiquette(TEXT("TENUE")) ]
+				+ SVerticalBox::Slot().FillHeight(1.f)
+				[
+					SNew(SScrollBox).ScrollBarVisibility(EVisibility::Collapsed)
+					+ SScrollBox::Slot()[ Puces ]
+				]
+			]
+		];
+
+		TSharedRef<SScrollBox> Colonne2 = SNew(SScrollBox).ScrollBarVisibility(EVisibility::Collapsed);
+		Colonne2Ptr = Colonne2;
+		if (EmplacementLobby == 0)
+		{
+			const TArray<const ChellesHabillage::FModele*> Liste = ChellesHabillage::ModelesDuSexe(TenueChoisie.Sexe);
+			for (int32 i = 0; i < Liste.Num(); ++i)
+			{
+				const FString Id = Liste[i]->Id;
+				const bool bChoisie = (Id == TenueChoisie.Modele);
+				TSharedRef<SWidget> Carte = SNew(SCarteLobbyChelles)
+					.Titre(Liste[i]->Nom.ToUpper())
+					.SousTitre(Liste[i]->bMannequin ? TEXT("MANNEQUIN") : TEXT("MODÈLE"))
+					.Couleur(CouleurChoix(0, i, false))
+					.Taille(FVector2D(200.f, 84.f))
+					.Choisie(bChoisie)
+					.TaillePolice(19)
+					.OnClic(FSimpleDelegate::CreateLambda([this, Id]()
+					{
+						RubanLobby = 1;
+						ModifierTenue([Id](ChellesHabillage::FTenue& T) { T.Modele = Id; });
+					}));
+				if (bChoisie)
+				{
+					CarteTenueChoisie = Carte;
+				}
+				Colonne2->AddSlot().HAlign(HAlign_Center).Padding(FMargin(4.f, 5.f))[ Carte ];
+			}
+		}
+		else
+		{
+			const ChellesHabillage::FEmplacement* PE = &Modele->Emplacements[EmplacementLobby - 1];
+			const FString* Actuel = TenueChoisie.Choix.Find(PE->Cle);
+			const int32 IndexActuel = FMath::Max(0, PE->IndexDe(Actuel ? *Actuel : FString()));
+			for (int32 i = 0; i < PE->Lignes.Num(); ++i)
+			{
+				const bool bAucun = PE->Lignes[i].IsNone();
+				const bool bChoisie = (i == IndexActuel);
+				const FString Nom = PE->Noms.IsValidIndex(i) ? PE->Noms[i] : PE->Lignes[i].ToString();
+				TSharedRef<SWidget> Carte = SNew(SCarteLobbyChelles)
+					.Titre(Nom.ToUpper())
+					.SousTitre(PE->Titre.ToUpper())
+					.Couleur(CouleurChoix(EmplacementLobby, i, bAucun))
+					.Taille(FVector2D(200.f, 84.f))
+					.Choisie(bChoisie)
+					.TaillePolice(19)
+					.OnClic(FSimpleDelegate::CreateLambda([this, PE, i]()
+					{
+						RubanLobby = 1;
+						ModifierTenue([PE, i](ChellesHabillage::FTenue& T)
+						{
+							if (PE->Lignes.IsValidIndex(i))
+							{
+								T.Choix.Add(PE->Cle, PE->Lignes[i].IsNone() ? FString() : PE->Lignes[i].ToString());
+							}
+						});
+					}));
+				if (bChoisie)
+				{
+					CarteTenueChoisie = Carte;
+				}
+				Colonne2->AddSlot().HAlign(HAlign_Center).Padding(FMargin(4.f, 5.f))[ Carte ];
+			}
+		}
+		Droite->AddSlot().AutoWidth()
+		[
+			ColonneDefilante(EmplacementLobby == 0 ? FString(TEXT("MODÈLES")) : Modele->Emplacements[EmplacementLobby - 1].Titre.ToUpper(), Colonne2, 220.f)
+		];
+	}
+	else
+	{
+		RubanLobby = 0;
+	}
+
+	// La carte choisie reste visible dans sa colonne
+	if (CartePersoChoisie.IsValid())
+	{
+		Colonne1->ScrollDescendantIntoView(CartePersoChoisie, false, EDescendantScrollDestination::Center);
+	}
+	if (Colonne2Ptr.IsValid() && CarteTenueChoisie.IsValid())
+	{
+		Colonne2Ptr->ScrollDescendantIntoView(CarteTenueChoisie, false, EDescendantScrollDestination::Center);
+	}
+
+	// ---- Apercu du personnage ----
+	TSharedRef<SWidget> Apercu = PinceauApercu.IsValid()
+		? StaticCastSharedRef<SWidget>(SNew(SZoneApercuChelles).Acteur(ApercuActeur).Image(PinceauApercu.Get()).SansCadre(true))
 		: StaticCastSharedRef<SWidget>(SNew(SBox));
 
-	return SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(0.f, 0.f, 40.f, 0.f))
+	const bool bAleatoire = bLook && !Modele->bMannequin;
+
+	// ---- Milieu : nom en ligne en haut, personnage, boutons en ligne en bas ----
+	TSharedRef<SHorizontalBox> BoutonsBas = SNew(SHorizontalBox);
+	BoutonsBas->AddSlot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(6.f, 0.f))
+	[
+		SNew(SCarteLobbyChelles)
+		.Titre(EnPause() ? TEXT("VALIDER ET REPRENDRE") : TEXT("VALIDER ET JOUER  >"))
+		.Puce(true)
+		.Choisie(true)
+		.TaillePolice(24)
+		.Taille(FVector2D(10.f, 58.f))
+		.OnClic(FSimpleDelegate::CreateLambda([this]() { JouerDepuisLobby(); }))
+	];
+	if (bAleatoire)
+	{
+		BoutonsBas->AddSlot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(6.f, 0.f))
 		[
-			SNew(SBox).MinDesiredWidth(760.f)[ Gauche ]
-		]
-		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+			SNew(SCarteLobbyChelles)
+			.Titre(TEXT("ALÉATOIRE"))
+			.Puce(true)
+			.Point(true)
+			.TaillePolice(20)
+			.Taille(FVector2D(10.f, 58.f))
+			.OnClic(FSimpleDelegate::CreateLambda([this]()
+			{
+				ModifierTenue([](ChellesHabillage::FTenue& T) { ChellesHabillage::Hasard(T); });
+			}))
+		];
+	}
+
+	TSharedRef<SWidget> Milieu = SNew(SVerticalBox)
+		// Nom + petite etiquette sur une meme ligne, description dessous
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot().AutoHeight()
-			[
-				SNew(SBox).WidthOverride(400.f).HeightOverride(600.f)[ Droite ]
-			]
-			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 8.f))
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(FText::FromString(TEXT("< GLISSE POUR TOURNER >")))
-				.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 12))
-				.ColorAndOpacity(Alpha(Magenta, 0.8f))
+				.Text(FText::FromString(NomGrand))
+				.Font(LobPolice(NomGrand.Len() > 12 ? 46 : 64))
+				.ColorAndOpacity(FLinearColor::White)
+				.ShadowOffset(FVector2D(4.f, 4.f))
+				.ShadowColorAndOpacity(FLinearColor(0.f, 0.f, 0.08f, 0.7f))
+				.RenderTransform(LobPenche(0.12f))
+				.RenderTransformPivot(FVector2D(0.5f, 0.5f))
+			]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(20.f, 0.f, 0.f, 0.f))
+			[
+				SNew(SBorder)
+				.BorderImage(FCoreStyle::Get().GetBrush(TEXT("WhiteBrush")))
+				.BorderBackgroundColor(FLinearColor(0.f, 0.02f, 0.1f, 0.6f))
+				.Padding(FMargin(14.f, 5.f))
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(EnPause() ? TEXT("Ton personnage dans la partie") : TEXT("Ton personnage")))
+					.Font(LobPolice(15, TEXT("Bold")))
+					.ColorAndOpacity(FLinearColor(0.9f, 0.95f, 1.f))
+				]
+			]
+		]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 4.f))
+		[
+			SNew(SBox).MaxDesiredWidth(820.f)
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(Description))
+				.Font(LobPolice(15, TEXT("Regular")))
+				.ColorAndOpacity(FLinearColor(0.85f, 0.9f, 1.f, 0.85f))
+				.Justification(ETextJustify::Center)
+				.AutoWrapText(true)
+			]
+		]
+		// Le personnage, qui retrecit si l'ecran est petit
+		+ SVerticalBox::Slot().FillHeight(1.f).HAlign(HAlign_Center).Padding(FMargin(0.f, 6.f))
+		[
+			SNew(SScaleBox)
+			.Stretch(EStretch::ScaleToFit)
+			[
+				SNew(SBox).WidthOverride(560.f).HeightOverride(840.f)
+				[
+					SNew(SOverlay)
+					+ SOverlay::Slot()[ Apercu ]
+					+ SOverlay::Slot()[ SNew(SBordsLobbyChelles) ]
+				]
+			]
+		]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+		[
+			BoutonsBas
+		]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 10.f, 0.f, 0.f))
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(TEXT("Clic sur une carte pour choisir  •  Haut / Bas = choix suivant, Gauche / Droite = changer de colonne  •  Glisse sur le personnage pour le tourner")))
+			.Font(LobPolice(13, TEXT("Bold")))
+			.ColorAndOpacity(FLinearColor(0.75f, 0.85f, 1.f, 0.75f))
+		];
+
+	return SNew(SOverlay)
+		+ SOverlay::Slot()
+		[
+			SNew(SFondLobbyChelles)
+		]
+		+ SOverlay::Slot()
+		[
+			SNew(SHorizontalBox)
+			// Colonne d'onglets (barre verticale sombre)
+			+ SHorizontalBox::Slot().AutoWidth()
+			[
+				SNew(SBorder)
+				.BorderImage(FCoreStyle::Get().GetBrush(TEXT("WhiteBrush")))
+				.BorderBackgroundColor(FLinearColor(0.f, 0.01f, 0.06f, 0.55f))
+				.Padding(FMargin(20.f, 34.f, 20.f, 24.f))
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 0.f, 0.f, 36.f))
+					[
+						SNew(STextBlock)
+						.Text(FText::FromString(TEXT("CHELLES\n3D")))
+						.Font(LobPolice(28))
+						.Justification(ETextJustify::Center)
+						.ColorAndOpacity(FLinearColor::White)
+						.RenderTransform(LobPenche())
+						.RenderTransformPivot(FVector2D(0.5f, 0.5f))
+					]
+					+ SVerticalBox::Slot().AutoHeight()[ Onglets ]
+					+ SVerticalBox::Slot().FillHeight(1.f)[ SNew(SSpacer) ]
+				]
+			]
+			// Colonne des personnages
+			+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(22.f, 34.f, 0.f, 24.f))
+			[
+				ColonneDefilante(TEXT("PERSONNAGES"), Colonne1, 240.f)
+			]
+			// Milieu
+			+ SHorizontalBox::Slot().FillWidth(1.f).Padding(FMargin(20.f, 30.f, 20.f, 22.f))
+			[
+				Milieu
+			]
+			// Colonnes de la tenue
+			+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(0.f, 80.f, 40.f, 24.f))
+			[
+				Droite
 			]
 		];
 }
@@ -2038,20 +2831,25 @@ TSharedRef<SWidget> SMenuChelles::EcranMulti()
 
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("MULTI-PLAYER")), FText::FromString(TEXT("// JOUER \u00C0 PLUSIEURS"))) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("REJOINDRE SERVEUR")), 46, [this]()
-			{
-				Afficher(EEcranMenu::Serveurs);
-				if (AMenuChelles* Mn = LeMenu()) { Mn->Rechercher(); }
-			}) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("ADRESSE IP SERVEUR")), 46, [this]() { Afficher(EEcranMenu::AdresseIP); }) ]
+		// Disposition inversee : les quatre choix sont en ligne
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("REJOINDRE SERVEUR")), 32, [this]()
+				{
+					Afficher(EEcranMenu::Serveurs);
+					if (AMenuChelles* Mn = LeMenu()) { Mn->Rechercher(); }
+				}) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("ADRESSE IP SERVEUR")), 32, [this]() { Afficher(EEcranMenu::AdresseIP); }) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("LAN LOCAL")), 32, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->HebergerLAN(); } }) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("SEARCH")), 32, [this]()
+				{
+					Afficher(EEcranMenu::Search);
+					if (AMenuChelles* Mn = LeMenu()) { Mn->Rechercher(); }
+				}) ]
+		]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TextePvp(); }, [](int32) { ChellesOptions::ChangerPvp(); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("LAN LOCAL")), 46, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->HebergerLAN(); } }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("LAN LOCAL = cr\u00E9er ta partie : les autres PC de la maison pourront la rejoindre."))) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("SEARCH")), 46, [this]()
-			{
-				Afficher(EEcranMenu::Search);
-				if (AMenuChelles* Mn = LeMenu()) { Mn->Rechercher(); }
-			}) ]
 		+ SVerticalBox::Slot().AutoHeight()[ TexteEtat() ]
 		+ SVerticalBox::Slot().AutoHeight()[ Petit(Info) ]
 		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 12.f, 0.f, 0.f))[ BoutonRetour() ];
@@ -2092,8 +2890,12 @@ TSharedRef<SWidget> SMenuChelles::EcranServeurs()
 			]
 		]
 		+ SVerticalBox::Slot().AutoHeight()[ TexteEtat() ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("ACTUALISER")), 30, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->Rechercher(); } }, !(M && M->RechercheEnCours())) ]
-		+ SVerticalBox::Slot().AutoHeight()[ BoutonRetour() ];
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()[ BoutonRetour() ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("ACTUALISER")), 30, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->Rechercher(); } }, !(M && M->RechercheEnCours())) ]
+		];
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranAdresseIP()
@@ -2122,16 +2924,22 @@ TSharedRef<SWidget> SMenuChelles::EcranAdresseIP()
 				})
 			]
 		]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("REJOINDRE")), 46, [this]() { if (AMenuChelles* M = LeMenu()) { M->RejoindreIP(TexteIP); } }) ]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()[ BoutonRetour() ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("REJOINDRE")), 46, [this]() { if (AMenuChelles* M = LeMenu()) { M->RejoindreIP(TexteIP); } }) ]
+		]
 		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("L'adresse du serveur s'affiche sur son \u00E9cran MULTI-PLAYER. Pour Internet, l'h\u00F4te doit ouvrir le port 7777 (UDP) de sa box."))) ]
-		+ SVerticalBox::Slot().AutoHeight()[ TexteEtat() ]
-		+ SVerticalBox::Slot().AutoHeight()[ BoutonRetour() ];
+		+ SVerticalBox::Slot().AutoHeight()[ TexteEtat() ];
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranSearch()
 {
 	AMenuChelles* M = LeMenu();
 	TSharedRef<SVerticalBox> Corps = SNew(SVerticalBox);
+	// Disposition inversee : les boutons sont en ligne
+	TSharedRef<SHorizontalBox> Choix = SNew(SHorizontalBox);
 
 	if (!M || M->RechercheEnCours() || !M->RechercheFaite())
 	{
@@ -2141,23 +2949,24 @@ TSharedRef<SWidget> SMenuChelles::EcranSearch()
 	{
 		const FPartieTrouvee& P = M->Parties()[0];
 		Corps->AddSlot().AutoHeight()[ Petit(FText::FromString(FString::Printf(TEXT("Partie trouv\u00E9e chez %s  (%d/%d joueurs, %d ms)"), *P.Hote, P.Joueurs, P.Places, P.Ping))) ];
-		Corps->AddSlot().AutoHeight()[ Bouton(FText::FromString(TEXT("REJOINDRE")), 52, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->RejoindrePartie(0); } }) ];
+		Choix->AddSlot().AutoWidth()[ Bouton(FText::FromString(TEXT("REJOINDRE")), 52, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->RejoindrePartie(0); } }) ];
 		if (M->Parties().Num() > 1)
 		{
-			Corps->AddSlot().AutoHeight()[ Bouton(FText::FromString(FString::Printf(TEXT("VOIR LES %d PARTIES"), M->Parties().Num())), 30, [this]() { Afficher(EEcranMenu::Serveurs); }) ];
+			Choix->AddSlot().AutoWidth()[ Bouton(FText::FromString(FString::Printf(TEXT("VOIR LES %d PARTIES"), M->Parties().Num())), 30, [this]() { Afficher(EEcranMenu::Serveurs); }) ];
 		}
-		Corps->AddSlot().AutoHeight()[ Bouton(FText::FromString(TEXT("CR\u00C9ER MA PARTIE")), 30, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->HebergerLAN(); } }) ];
+		Choix->AddSlot().AutoWidth()[ Bouton(FText::FromString(TEXT("CR\u00C9ER MA PARTIE")), 30, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->HebergerLAN(); } }) ];
 	}
 	else
 	{
 		Corps->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Personne ne joue sur ton r\u00E9seau local pour l'instant. Tu peux cr\u00E9er ta partie : les autres la trouveront avec SEARCH. (Recherche sur Internet : prochaine \u00E9tape, avec Steam ou Epic.)"))) ];
-		Corps->AddSlot().AutoHeight()[ Bouton(FText::FromString(TEXT("CR\u00C9ER MA PARTIE")), 46, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->HebergerLAN(); } }) ];
-		Corps->AddSlot().AutoHeight()[ Bouton(FText::FromString(TEXT("CHERCHER ENCORE")), 30, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->Rechercher(); } }) ];
+		Choix->AddSlot().AutoWidth()[ Bouton(FText::FromString(TEXT("CR\u00C9ER MA PARTIE")), 46, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->HebergerLAN(); } }) ];
+		Choix->AddSlot().AutoWidth()[ Bouton(FText::FromString(TEXT("CHERCHER ENCORE")), 30, [this]() { if (AMenuChelles* Mn = LeMenu()) { Mn->Rechercher(); } }) ];
 	}
 
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("SEARCH")), FText::FromString(TEXT("// RECHERCHE AUTOMATIQUE D'UNE PARTIE"))) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Corps ]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ Choix ]
 		+ SVerticalBox::Slot().AutoHeight()[ TexteEtat() ]
 		+ SVerticalBox::Slot().AutoHeight()[ BoutonRetour() ];
 }
@@ -2165,7 +2974,7 @@ TSharedRef<SWidget> SMenuChelles::EcranSearch()
 TSharedRef<SWidget> SMenuChelles::BoutonOnglet(const FText& Texte, EOngletOptions Cible)
 {
 	return SNew(SBox)
-		.Padding(FMargin(4.f, 0.f))
+		.Padding(FMargin(0.f, 4.f))
 		[
 			Enregistrer(SNew(SBoutonMenu)
 			.Texte(Texte)
@@ -2192,21 +3001,26 @@ TSharedRef<SWidget> SMenuChelles::EcranOptions()
 
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("OPTIONS")), FText::FromString(TEXT("// CLIC GAUCHE = SUIVANT   CLIC DROIT = PR\u00C9C\u00C9DENT   LB / RB / TAB = ONGLET"))) ]
-		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left).Padding(FMargin(0.f, 0.f, 0.f, 18.f))
+		// Disposition inversee : les onglets sont une colonne a gauche, les reglages a droite
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)
 		[
 			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth()[ BoutonOnglet(FText::FromString(TEXT("CONTR\u00D4LES")), EOngletOptions::Controles) ]
-			+ SHorizontalBox::Slot().AutoWidth()[ BoutonOnglet(FText::FromString(TEXT("GRAPHISMES")), EOngletOptions::Graphismes) ]
-			+ SHorizontalBox::Slot().AutoWidth()[ BoutonOnglet(FText::FromString(TEXT("AUDIO")), EOngletOptions::Audio) ]
-			+ SHorizontalBox::Slot().AutoWidth()[ BoutonOnglet(FText::FromString(TEXT("JEU")), EOngletOptions::Jeu) ]
-		]
-		+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SBox)
-			.MinDesiredHeight(380.f)
-			.VAlign(VAlign_Top)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Top).Padding(FMargin(0.f, 0.f, 34.f, 0.f))
 			[
-				Contenu
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ BoutonOnglet(FText::FromString(TEXT("CONTR\u00D4LES")), EOngletOptions::Controles) ]
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ BoutonOnglet(FText::FromString(TEXT("GRAPHISMES")), EOngletOptions::Graphismes) ]
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ BoutonOnglet(FText::FromString(TEXT("AUDIO")), EOngletOptions::Audio) ]
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ BoutonOnglet(FText::FromString(TEXT("JEU")), EOngletOptions::Jeu) ]
+			]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Top)
+			[
+				SNew(SBox)
+				.MinDesiredHeight(380.f)
+				.VAlign(VAlign_Top)
+				[
+					Contenu
+				]
 			]
 		]
 		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 12.f, 0.f, 0.f))[ BoutonRetour() ];
@@ -2318,16 +3132,24 @@ TSharedRef<SWidget> SMenuChelles::EcranTouches()
 				+ SScrollBox::Slot()[ Liste ]
 			]
 		]
-		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 10.f, 0.f, 0.f))[ Bouton(FText::FromString(TEXT("TOUT REMETTRE PAR D\u00C9FAUT")), 28, []() { ChellesOptions::ToutesLesTouchesParDefaut(); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ BoutonRetour() ];
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left).Padding(FMargin(0.f, 10.f, 0.f, 0.f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()[ BoutonRetour() ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("TOUT REMETTRE PAR D\u00C9FAUT")), 28, []() { ChellesOptions::ToutesLesTouchesParDefaut(); }) ]
+		];
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranQuitter()
 {
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("QUITTER ?")), FText::FromString(TEXT("// \u00CATES-VOUS S\u00DBR DE VOULOIR QUITTER ?"))) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("NON, RESTER")), 56, [this]() { Retour(); }) ]
-		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("OUI, QUITTER")), 56, [this]() { if (AMenuChelles* M = LeMenu()) { M->Quitter(); } }) ];
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("NON, RESTER")), 56, [this]() { Retour(); }) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("OUI, QUITTER")), 56, [this]() { if (AMenuChelles* M = LeMenu()) { M->Quitter(); } }) ]
+		];
 }
 
 TSharedRef<SWidget> SMenuChelles::Curseur(TFunction<float()> Lire, TFunction<void(float)> Ecrire)
@@ -2369,9 +3191,13 @@ TSharedRef<SWidget> SMenuChelles::EcranCredits()
 
 	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("CR\u00C9DITS")), FText::FromString(TEXT("// CHELLES 3D  -  ") + ChellesOptions::Version())) ]
-		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("CR\u00C9ATION"), TEXT("MERIDJA RACHID")) ]
-		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("DESIGN"), TEXT("MERIDJA DYLAN")) ]
-		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("MOTEUR"), TEXT("UNREAL ENGINE 4.27")) ]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(0.f, 0.f, 50.f, 0.f))[ LigneCredit(TEXT("CR\u00C9ATION"), TEXT("MERIDJA RACHID")) ]
+			+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(0.f, 0.f, 50.f, 0.f))[ LigneCredit(TEXT("DESIGN"), TEXT("MERIDJA DYLAN")) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ LigneCredit(TEXT("MOTEUR"), TEXT("UNREAL ENGINE 4.27")) ]
+		]
 		+ SVerticalBox::Slot().AutoHeight()[ LigneCredit(TEXT("PACKS UTILIS\u00C9S"), TEXT("FPS GAME  -  VEHICLE GAME  -  MARKETPLACE")) ]
 		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 24.f, 0.f, 0.f))[ BoutonRetour() ];
 }
