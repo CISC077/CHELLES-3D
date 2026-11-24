@@ -2181,12 +2181,17 @@ public:
 			LobTexte(Sortie, Couche + 3, G, FVector2D(L.X - TI.X - 8.f, (L.Y - TI.Y) * 0.35f), Initiale, PoliceInitiale, FLinearColor(1.f, 1.f, 1.f, 0.16f), false);
 		}
 		// Titre : la police retrecit si le nom est long
-		int32 Taille1 = TaillePolice;
-		FSlateFontInfo PT = LobPolice(Taille1);
-		while (Taille1 > 11 && LobMesure(Titre, PT).X > L.X - 20.f)
+		// (calcule une seule fois par largeur de carte, pas a chaque image)
+		if (LargeurCalculee != L.X)
 		{
-			PT = LobPolice(--Taille1);
+			LargeurCalculee = L.X;
+			TailleTitre = TaillePolice;
+			while (TailleTitre > 11 && LobMesure(Titre, LobPolice(TailleTitre)).X > L.X - 20.f)
+			{
+				--TailleTitre;
+			}
 		}
+		const FSlateFontInfo PT = LobPolice(TailleTitre);
 		const FVector2D TT = LobMesure(Titre, PT);
 		LobTexte(Sortie, Couche + 4, G, FVector2D(10.f, L.Y - TT.Y - 8.f), Titre, PT, FLinearColor::White);
 		if (!SousTitre.IsEmpty())
@@ -2218,6 +2223,9 @@ private:
 	bool bPoint = false;
 	int32 TaillePolice = 26;
 	FSimpleDelegate Clic;
+	/** Taille de police du titre deja calculee pour cette largeur (evite de mesurer le texte a chaque image). */
+	mutable float LargeurCalculee = -1.f;
+	mutable int32 TailleTitre = 26;
 };
 
 namespace LobbyChelles

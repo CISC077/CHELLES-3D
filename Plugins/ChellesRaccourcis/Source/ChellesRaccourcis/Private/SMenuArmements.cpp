@@ -312,7 +312,11 @@ void SCarteArme::Construct(const FArguments& InArgs)
 	Choisie = InArgs._Choisie;
 	Clic = InArgs._OnClic;
 	DoubleClic = InArgs._OnDoubleClic;
-	Dessinateur = SNew(SRoueArmes);
+	// Le petit dessin n'est utile que pour une arme sans image (economise un widget par carte)
+	if (!bVide && !(Case.Image.IsValid() && Case.Image->GetResourceObject()))
+	{
+		Dessinateur = SNew(SRoueArmes);
+	}
 	SetClipping(EWidgetClipping::ClipToBounds);
 	if (!bVide)
 	{
@@ -812,7 +816,7 @@ TSharedRef<SWidget> SMenuArmements::BandeauHaut()
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(14.f, 0.f))
 			[
 				SNew(STextBlock)
-				.Text_Lambda([this]() { return FText::FromString(FString::Printf(TEXT("%d OBJETS"), ListeVisible().Num())); })
+				.Text_Lambda([this]() { return FText::FromString(FString::Printf(TEXT("%d OBJETS"), NbVisibles)); }) // compte garde par ReconstruireGrille (pas de tri a chaque image)
 				.Font(MAPolice(21))
 				.ColorAndOpacity(MALavande)
 			]
@@ -1201,6 +1205,7 @@ void SMenuArmements::ReconstruireGrille()
 	}
 	Grille->ClearChildren();
 	const TArray<int32> Liste = ListeVisible();
+	NbVisibles = Liste.Num();
 	if (Liste.Num() == 0)
 	{
 		Grille->AddSlot(0, 0)

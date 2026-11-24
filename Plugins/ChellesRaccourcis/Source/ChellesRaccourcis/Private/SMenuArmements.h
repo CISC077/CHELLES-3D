@@ -172,6 +172,8 @@ private:
 	FText TexteMessage;
 	float AgeMessage = 100.f;
 	int32 Colonnes = 6;
+	/** Nombre de cartes visibles (mis a jour par ReconstruireGrille). */
+	int32 NbVisibles = 0;
 
 	TSharedPtr<SHorizontalBox> BoiteCategories;
 	TSharedPtr<SHorizontalBox> BoiteFiltres;
