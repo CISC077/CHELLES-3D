@@ -428,7 +428,7 @@ void AWraithChelles::LireReglages()
 						}
 						else
 						{
-							UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : animation introuvable (%s). Lancez Tools\\Lena\\creer_lena.py dans Unreal."), *H.Nom, *Chemin);
+							UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : animation introuvable (%s). Lancez Tools\\Personnages\\creer_personnages.py dans Unreal."), *H.Nom, *Chemin);
 						}
 					}
 				}
@@ -2076,8 +2076,8 @@ void AWraithChelles::AnimerSimple(FSoldatWraith& S)
 	}
 	if (S.AnimJouee.Get() != A.Anim || S.EtatAnim != (int32)Etat)
 	{
-		// Accroupi : on se baisse une fois et on reste baisse ; le reste tourne en boucle
-		const bool bBoucle = Etat != EEtatAnimWraith::Accroupi && A.Fige < 0.f;
+		// Accroupi / chute (saut) : joues une fois, on garde la derniere image ; le reste tourne en boucle
+		const bool bBoucle = Etat != EEtatAnimWraith::Accroupi && Etat != EEtatAnimWraith::Chute && A.Fige < 0.f;
 		Corps->PlayAnimation(A.Anim, bBoucle);
 		if (A.Fige >= 0.f)
 		{

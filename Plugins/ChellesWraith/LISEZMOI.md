@@ -94,3 +94,9 @@ Journal : lignes `[Wraith]` dans `Saved\Logs\FPS_Chelles.log`.
   Sur ce soldat en tenue d'origine, K garde son role d'avant (couleurs de la tenue) ; une fois habille (LENA...),
   K passe a l'apparence suivante.
 - Console : `Chelles.Wraith Skin LENA` (un nom marche aussi, pas seulement un numero).
+
+## SOFIA (24/11/2026)
+
+- Meme principe que LENA : `Heros=Sofia|Anims:...` + `Skin=SOFIA`, bouton SOFIA dans HABILLAGE.
+- Animations nommees `A_<Nom>_<Etat>_Anim` (nom donne par Unreal a l'import). Saut (chute) joue une fois, comme accroupi.
+- Import des personnages : `Tools\Personnages\creer_personnages.py` (remplace `Tools\Lena\creer_lena.py`).

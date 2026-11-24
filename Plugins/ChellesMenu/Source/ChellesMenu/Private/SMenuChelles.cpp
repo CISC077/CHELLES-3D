@@ -1835,12 +1835,14 @@ void SMenuChelles::MontrerApercu()
 
 void SMenuChelles::ModifierTenue(TFunction<void(ChellesHabillage::FTenue&)> Changement)
 {
-	const bool bEtaitLena = TenueChoisie.EstLena();
+	const int32 SexeAvant = TenueChoisie.Sexe;
 	Changement(TenueChoisie);
-	// LENA : c'est le plugin ChellesWraith qui la pose sur le soldat (pas de lien direct entre plugins : on passe par GameUserSettings)
-	if (TenueChoisie.EstLena() != bEtaitLena && GConfig)
+	// LENA, SOFIA... : c'est le plugin ChellesWraith qui la pose sur le soldat (pas de lien direct entre plugins : on passe par GameUserSettings)
+	const TCHAR* PersoAvant = ChellesHabillage::NomPersoWraith(SexeAvant);
+	const TCHAR* PersoApres = ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe);
+	if (PersoAvant != PersoApres && GConfig)
 	{
-		GConfig->SetString(TEXT("ChellesWraith"), TEXT("Demande"), TenueChoisie.EstLena() ? TEXT("LENA") : TEXT("SOLDAT D'ORIGINE"), GGameUserSettingsIni);
+		GConfig->SetString(TEXT("ChellesWraith"), TEXT("Demande"), PersoApres ? PersoApres : TEXT("SOLDAT D'ORIGINE"), GGameUserSettingsIni);
 		GConfig->Flush(false, GGameUserSettingsIni);
 	}
 	ChellesHabillage::Completer(TenueChoisie);
@@ -1875,7 +1877,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	{
 		MontrerApercu();
 	}
-	const int32 SexeActuel = (TenueChoisie.EstSpiderMan() && !TenueChoisie.EstPantera() && !TenueChoisie.EstLena()) ? int32(ChellesHabillage::SpiderMan) : TenueChoisie.Sexe;
+	const int32 SexeActuel = (TenueChoisie.EstSpiderMan() && !TenueChoisie.EstPantera() && !TenueChoisie.EstPersoWraith()) ? int32(ChellesHabillage::SpiderMan) : TenueChoisie.Sexe;
 
 	TSharedRef<SVerticalBox> Gauche = SNew(SVerticalBox);
 	Gauche->AddSlot().AutoHeight()[ Titre(FText::FromString(TEXT("HABILLAGE")), FText::FromString(TEXT("// SEXE, TENUE ET LOOK DE TON JOUEUR"))) ];
@@ -1903,13 +1905,21 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("MASCULIN"), ChellesHabillage::Masculin) ]
 		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("SPIDER-MALE"), ChellesHabillage::SpiderMan) ]
 		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("PANTERA"), ChellesHabillage::Pantera) ]
-		+ SHorizontalBox::Slot().AutoWidth()[ BoutonSexe(TEXT("LENA"), ChellesHabillage::Lena) ]
 	];
+	// Personnages de MERIDJA (LENA, SOFIA...) : une deuxieme rangee de boutons
+	{
+		TSharedRef<SHorizontalBox> Persos = SNew(SHorizontalBox);
+		for (const int32 Perso : ChellesHabillage::PersosWraith())
+		{
+			Persos->AddSlot().AutoWidth()[ BoutonSexe(ChellesHabillage::NomPersoWraith(Perso), Perso) ];
+		}
+		Gauche->AddSlot().AutoHeight().HAlign(HAlign_Left)[ Persos ];
+	}
 
 	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
-	if (TenueChoisie.EstLena())
+	if (TenueChoisie.EstPersoWraith())
 	{
-		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(TEXT("Tu joues LENA, ton personnage.\nElle a toutes les armes du soldat (TAB = roue des armes) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir.\nK = apparence suivante (Wraith, Dekker, Aurora...)."))) ];
+		Gauche->AddSlot().AutoHeight()[ Petit(FText::FromString(FString(TEXT("Tu joues ")) + ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe) + TEXT(", ton personnage.\nElle a toutes les armes du soldat (TAB = roue des armes) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir.\nK = apparence suivante (Wraith, Dekker, Aurora...)."))) ];
 	}
 	else if (TenueChoisie.EstPantera())
 	{

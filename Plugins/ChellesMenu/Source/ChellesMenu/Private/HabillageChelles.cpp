@@ -35,13 +35,31 @@ namespace HabillageInterne
 	static const TCHAR* YeuxBlancs = TEXT("/Game/Personnages/SK_Pantera/M_Pantera_Yeux.M_Pantera_Yeux");
 	static const TCHAR* CheminSpiderMale = TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Vol.SK_SpiderMan_Vol");
 	static const TCHAR* AttentePantera = TEXT("/Game/SuperheroFlight/Characters/Mannequin/Animations/ThirdPerson_Idle.ThirdPerson_Idle");
-	// LENA (2026-11-24) : corps et animations crees par Tools\Lena\creer_lena.py
-	static const TCHAR* CheminLena = TEXT("/Game/Personnages/LENA/Joueur/SK_Lena.SK_Lena");
-	static const TCHAR* AnimsApercuLena[] =
+	// Personnages de MERIDJA (2026-11-24) : corps et animations crees par Tools\Personnages\creer_personnages.py
+	//  /Game/Personnages/<DOSSIER>/Joueur/SK_<Prefixe>  et  .../Joueur/Anims/A_<Prefixe>_<Danse|Marche>_Anim
+	struct FPersoWraithInfo
 	{
-		TEXT("/Game/Personnages/LENA/Joueur/Anims/A_Lena_Danse.A_Lena_Danse"),
-		TEXT("/Game/Personnages/LENA/Joueur/Anims/A_Lena_Marche.A_Lena_Marche"),
+		int32 Sexe;
+		const TCHAR* Nom;      // nom du skin dans Wraith.txt (Skin=LENA)
+		const TCHAR* Dossier;  // dossier sous /Game/Personnages
+		const TCHAR* Prefixe;  // SK_<Prefixe>, A_<Prefixe>_...
 	};
+	static const FPersoWraithInfo PersosWraithInfos[] =
+	{
+		{ ChellesHabillage::Lena,  TEXT("LENA"),  TEXT("LENA"),  TEXT("Lena") },
+		{ ChellesHabillage::Sofia, TEXT("SOFIA"), TEXT("SOFIA"), TEXT("Sofia") },
+	};
+	static const FPersoWraithInfo* InfoPerso(int32 Sexe)
+	{
+		for (const FPersoWraithInfo& P : PersosWraithInfos)
+		{
+			if (P.Sexe == Sexe)
+			{
+				return &P;
+			}
+		}
+		return nullptr;
+	}
 	static void YeuxPantera(USkeletalMeshComponent* Corps, bool bAvecYeux);
 	static const TCHAR* TableTetes = TEXT("/Game/Action_Male_and_Female/Data/Heads/DT_Heads.DT_Heads");
 	static const TCHAR* TablesMannequin[] =
@@ -743,11 +761,27 @@ namespace ChellesHabillage
 		return E.Lignes.Num() > 0 && !E.Lignes[0].IsNone() ? E.Lignes[0].ToString() : FString();
 	}
 
+	const TCHAR* NomPersoWraith(int32 Sexe)
+	{
+		const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe);
+		return P ? P->Nom : nullptr;
+	}
+
+	TArray<int32> PersosWraith()
+	{
+		TArray<int32> Liste;
+		for (const HabillageInterne::FPersoWraithInfo& P : HabillageInterne::PersosWraithInfos)
+		{
+			Liste.Add(P.Sexe);
+		}
+		return Liste;
+	}
+
 	void Completer(FTenue& Tenue)
 	{
 		if (Tenue.EstSpiderMan())
 		{
-			if (Tenue.Sexe != Pantera && Tenue.Sexe != Lena)
+			if (Tenue.Sexe != Pantera && !NomPersoWraith(Tenue.Sexe))
 			{
 				Tenue.Sexe = SpiderMan;
 			}
@@ -1722,16 +1756,20 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 	UClass* Anim = nullptr;
 	USkeletalMesh* Squelette = nullptr;
 	HabillageInterne::YeuxPantera(Corps, false);
-	USkeletalMesh* MeshLena = Tenue.EstLena() ? LoadObject<USkeletalMesh>(nullptr, HabillageInterne::CheminLena) : nullptr;
-	if (MeshLena)
+	const HabillageInterne::FPersoWraithInfo* Perso = HabillageInterne::InfoPerso(Tenue.Sexe);
+	USkeletalMesh* MeshPerso = Perso ? LoadObject<USkeletalMesh>(nullptr,
+		*FString::Printf(TEXT("/Game/Personnages/%s/Joueur/SK_%s.SK_%s"), Perso->Dossier, Perso->Prefixe, Perso->Prefixe)) : nullptr;
+	if (MeshPerso)
 	{
-		// LENA : son corps, qui danse dans l'apercu
-		Corps->SetSkeletalMesh(MeshLena);
+		// LENA, SOFIA... : son corps, qui danse dans l'apercu
+		Corps->SetSkeletalMesh(MeshPerso);
 		HabillageInterne::RenduCache(Corps, false, true);
 		Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-		for (const TCHAR* Chemin : HabillageInterne::AnimsApercuLena)
+		static const TCHAR* const AnimsApercu[] = { TEXT("Danse"), TEXT("Marche") };
+		for (const TCHAR* Quoi : AnimsApercu)
 		{
-			if (UAnimationAsset* Danse = LoadObject<UAnimationAsset>(nullptr, Chemin))
+			const FString Nom = FString::Printf(TEXT("A_%s_%s_Anim"), Perso->Prefixe, Quoi);
+			if (UAnimationAsset* Danse = LoadObject<UAnimationAsset>(nullptr, *FString::Printf(TEXT("/Game/Personnages/%s/Joueur/Anims/%s.%s"), Perso->Dossier, *Nom, *Nom)))
 			{
 				Corps->PlayAnimation(Danse, true);
 				break;
