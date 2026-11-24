@@ -21,6 +21,11 @@ Relancer ce script. Depuis le 24/11 au soir il :
 - refait le corps s'il n'a pas de squelette (Unreal avait plante, memoire pleine, avant de l'enregistrer) ;
 - n'importe plus que l'animation (avant : une copie du corps de 130 Mo par animation, d'ou le plantage).
 
+## Deux passages (memoire)
+1er passage : imports (corps, couleurs, animations). Le message de fin demande alors de RELANCER le script.
+2e passage (apres avoir rouvert Unreal) : rien a importer, donc il allege les personnages (3 versions simplifiees
+LOD pour la fluidite, de loin) et fait le menage des doublons, un par un en vidant la memoire.
+
 ## Preparer un nouveau personnage (Mixamo)
 
 - Telecharger le personnage **With Skin**, et les animations avec **In Place** coche.

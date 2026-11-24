@@ -79,6 +79,7 @@ PERSONNAGES = [
 
 EAL = unreal.EditorAssetLibrary
 resultats = []
+TRAVAIL = {"import": False}  # vrai si ce passage a importe quelque chose (le menage se fera au passage suivant)
 
 
 def dire(texte):
@@ -288,6 +289,7 @@ def creer(p):
         ui.set_editor_property("create_physics_asset", True)
         ui.skeletal_mesh_import_data.set_editor_property("import_morph_targets", False)
         dire("%s : import du corps %s" % (nom, fbx))
+        TRAVAIL["import"] = True
         importer(fbx, destination, "SK_" + nom, ui)
     corps = EAL.load_asset(chemin_corps)
     if not corps or not isinstance(corps, unreal.SkeletalMesh):
@@ -307,6 +309,7 @@ def creer(p):
     # ---- 2. couleurs
     materiau = EAL.load_asset(p["materiau"]) if p["materiau"] and EAL.does_asset_exist(p["materiau"]) else None
     if not materiau:
+        TRAVAIL["import"] = True
         materiau = creer_materiau(p)
     if materiau:
         mats = corps.get_editor_property("materials")
@@ -346,6 +349,7 @@ def creer(p):
         ua.set_editor_property("skeleton", squelette)
         ua.anim_sequence_import_data.set_editor_property(
             "animation_length", unreal.FBXAnimationLengthImportType.FBXALIT_EXPORTED_TIME)
+        TRAVAIL["import"] = True
         importer(fbx, dossier_anims, "A_%s_%s_Anim" % (nom, etat), ua)
         if not EAL.does_asset_exist(voulu):
             # selon la version, Unreal ajoute ou non "_Anim" au nom
@@ -373,6 +377,27 @@ def creer(p):
         dire("%s mesure %.0f cm -> taille %s" % (nom, hauteur, taille))
         regler_taille(nom, taille)
     return "%s : pret(e), %d animations" % (nom.upper(), faites)
+
+
+def alleger(p):
+    """FLUIDITE : ajoute 3 versions simplifiees (LOD) du corps, utilisees de loin (autres joueurs, apercus).
+    De pres rien ne change. Une seule fois par personnage (si le corps n'a qu'une version)."""
+    nom, dossier = p["nom"], p["dossier"]
+    chemin = "/Game/Personnages/%s/Joueur/SK_%s" % (dossier, nom)
+    corps = EAL.load_asset(chemin) if EAL.does_asset_exist(chemin) else None
+    if not corps:
+        return ""
+    try:
+        lib = unreal.EditorSkeletalMeshLibrary
+        if lib.get_lod_count(corps) > 1:
+            return ""
+        dire("%s : creation des versions allegees (LOD)..." % nom)
+        if lib.regenerate_lod(corps, 4, False, False):
+            sauver(corps)
+            return "%s : allege(e) (4 niveaux de detail)" % nom.upper()
+    except Exception as e:
+        unreal.log_warning("[Personnages] %s : LOD non crees (%s)" % (nom, e))
+    return ""
 
 
 # Doublons de l'import fait a la main de LUCIA (24/11) : un corps de 129 Mo + squelette + physique par animation,
@@ -414,9 +439,13 @@ def nettoyer_doublons(dossier, noms, nom_perso):
         texte = "%s : doublons gardes, %d sont utilises ailleurs (voir Output Log)" % (dossier, len(gardes))
         dire(texte)
         return texte
+    # petits fichiers d'abord, puis les gros corps un par un en vidant la memoire entre chaque
+    # (le 24/11 Unreal a plante, memoire pleine, en les effacant tous d'affilee)
+    candidats.sort(key=lambda x: 1 if classe(x) == "SkeletalMesh" else 0)
     for chemin in candidats:
         if EAL.does_asset_exist(chemin) and EAL.delete_asset(chemin):
             supprimes += 1
+        memoire()
     texte = "%s : %d doublons supprimes (environ 1,3 Go)" % (dossier, supprimes)
     dire(texte)
     return texte
@@ -424,12 +453,26 @@ def nettoyer_doublons(dossier, noms, nom_perso):
 
 for perso in PERSONNAGES:
     resultats.append(creer(perso))
-for perso in PERSONNAGES:
-    if perso["dossier"] in DOUBLONS:
-        t = nettoyer_doublons(perso["dossier"], DOUBLONS[perso["dossier"]], perso["nom"])
+    memoire()
+EAL.save_directory("/Game/Personnages", only_if_is_dirty=True, recursive=True)
+memoire()
+
+if TRAVAIL["import"]:
+    # Pour ne pas remplir la memoire : le menage et l'allegement se font au passage SUIVANT (rien a importer)
+    resultats.append("\nRELANCEZ CE SCRIPT UNE 2e FOIS (apres avoir rouvert Unreal) :\n"
+                     "il fera le menage des doublons et allegera les personnages (LOD).")
+else:
+    for perso in PERSONNAGES:
+        t = alleger(perso)
         if t:
             resultats.append(t)
-EAL.save_directory("/Game/Personnages", only_if_is_dirty=True, recursive=True)
+        memoire()
+    for perso in PERSONNAGES:
+        if perso["dossier"] in DOUBLONS:
+            t = nettoyer_doublons(perso["dossier"], DOUBLONS[perso["dossier"]], perso["nom"])
+            if t:
+                resultats.append(t)
+    EAL.save_directory("/Game/Personnages", only_if_is_dirty=True, recursive=True)
 
 texte = "\n".join(resultats)
 dire("TERMINE.\n" + texte)

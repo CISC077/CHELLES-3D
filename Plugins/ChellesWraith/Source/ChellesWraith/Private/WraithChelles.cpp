@@ -401,7 +401,7 @@ void AWraithChelles::LireReglages()
 				bDanseShift |= M.Equals(TEXT("Shift"), ESearchCase::IgnoreCase) || M.Equals(TEXT("Maj"), ESearchCase::IgnoreCase);
 			}
 			const FKey K(Morceaux.Num() > 0 ? *Morceaux.Last().TrimStartAndEnd() : TEXT("D"));
-			ToucheDanse = K.IsValid() ? K : EKeys::D;
+			ToucheDanse = K.IsValid() ? K : EKeys::T;
 		}
 		else if (Cle.Equals(TEXT("DanseArretSeulement"), ESearchCase::IgnoreCase))
 		{
