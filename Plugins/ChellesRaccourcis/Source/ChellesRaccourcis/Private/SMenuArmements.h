@@ -23,7 +23,7 @@ namespace MenuArmementsStyle
 	FText NomRarete(int32 Rarete);
 }
 
-/** Fond plein ecran : degrade bleu, rayons de lumiere, barre d'onglets. */
+/** Fond plein ecran : degrade bleu de gauche a droite, bandes de lumiere horizontales. */
 class SFondArmements : public SLeafWidget
 {
 public:
@@ -135,16 +135,19 @@ public:
 
 private:
 	// Construction des morceaux
-	TSharedRef<SWidget> BarreOnglets();
-	TSharedRef<SWidget> ColonneGauche();
-	TSharedRef<SWidget> ColonneCentre();
-	TSharedRef<SWidget> ColonneDroite();
+	// Disposition inversee : onglets en colonne a gauche, categories/filtres en barres en haut,
+	// sac (inventaire) en colonne, boutons empiles a droite sous la fiche.
+	TSharedRef<SWidget> ColonneOnglets();
+	TSharedRef<SWidget> BandeauHaut();
+	TSharedRef<SWidget> ZoneCentre();
+	TSharedRef<SWidget> ColonneFiche();
 	TSharedRef<SWidget> BoutonBas(const FText& Texte, TFunction<void()> Action, TAttribute<bool> Actif);
 	TSharedRef<SWidget> Bouton(TSharedRef<SWidget> Contenu, const FButtonStyle* Style, TFunction<void()> Action,
 		FMargin Marge = FMargin(0.f), TAttribute<bool> Actif = true);
 	const FButtonStyle* StyleBouton(const FLinearColor& Normal, const FLinearColor& Survol, const FLinearColor& Appui);
 
 	void ReconstruireCategories();
+	void ReconstruireFiltres();
 	void ReconstruireGrille();
 	void ReconstruirePanneau();
 	void ReconstruireInventaire();
@@ -165,17 +168,17 @@ private:
 	int32 Tri = 0;
 	/** Filtres (cases a cocher de droite). */
 	TArray<bool> Filtres;
-	bool bPanneauFiltres = false;
 	FString NomChoisi;
 	FText TexteMessage;
 	float AgeMessage = 100.f;
 	int32 Colonnes = 6;
 
-	TSharedPtr<SVerticalBox> BoiteCategories;
+	TSharedPtr<SHorizontalBox> BoiteCategories;
+	TSharedPtr<SHorizontalBox> BoiteFiltres;
 	TSharedPtr<SUniformGridPanel> Grille;
 	TSharedPtr<SScrollBox> Defilement;
 	TSharedPtr<SBox> Panneau;
-	TSharedPtr<SHorizontalBox> Inventaire;
+	TSharedPtr<SVerticalBox> Inventaire;
 	TSharedPtr<SEditableTextBox> ChampRecherche;
 	TArray<TSharedPtr<FButtonStyle>> Styles;
 };

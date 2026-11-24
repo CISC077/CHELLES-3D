@@ -274,20 +274,28 @@ int32 SFondArmements::OnPaint(const FPaintArgs& Args, const FGeometry& G, const 
 	FSlateWindowElementList& Sortie, int32 Couche, const FWidgetStyle& Style, bool bParentEnabled) const
 {
 	const FVector2D L = G.GetLocalSize();
-	MADegrade(Sortie, Couche, G, FVector2D::ZeroVector, L, FLinearColor(0.035f, 0.085f, 0.40f, 1.f), FLinearColor(0.09f, 0.26f, 0.72f, 1.f));
-	// Grands rayons de lumiere en biais (comme un decor de scene)
+	// Degrade de gauche (sombre) a droite (clair) : le menu se lit en colonnes
+	const FLinearColor Gauche(0.035f, 0.085f, 0.40f, 1.f);
+	const FLinearColor Droite(0.09f, 0.26f, 0.72f, 1.f);
+	MASommets(Sortie, Couche, G,
+		{ FVector2D::ZeroVector, FVector2D(L.X, 0.f), L, FVector2D(0.f, L.Y) },
+		{ Gauche, Droite, Droite, Gauche }, { 0, 1, 2, 0, 2, 3 });
+	// Bandes de lumiere horizontales legerement en biais
 	for (int32 k = 0; k < 4; ++k)
 	{
-		const float X = L.X * (0.30f + 0.17f * k);
-		const float Largeur = L.X * (0.05f + 0.02f * (k % 2));
+		const float Y = L.Y * (0.18f + 0.2f * k);
+		const float Epaisseur = L.Y * (0.05f + 0.02f * (k % 2));
 		const FLinearColor C(1.f, 1.f, 1.f, 0.035f);
 		const FLinearColor Rien(1.f, 1.f, 1.f, 0.f);
 		MASommets(Sortie, Couche + 1, G,
-			{ FVector2D(X, 0.f), FVector2D(X + Largeur, 0.f), FVector2D(X + Largeur - L.Y * 0.35f, L.Y), FVector2D(X - L.Y * 0.35f, L.Y) },
+			{ FVector2D(L.X, Y), FVector2D(L.X, Y + Epaisseur), FVector2D(0.f, Y + Epaisseur - L.X * 0.12f), FVector2D(0.f, Y - L.X * 0.12f) },
 			{ C, C, Rien, Rien }, { 0, 1, 2, 0, 2, 3 });
 	}
-	// Vignette sombre en bas
-	MADegrade(Sortie, Couche + 1, G, FVector2D(0.f, L.Y * 0.8f), FVector2D(L.X, L.Y * 0.2f), FLinearColor(0.f, 0.f, 0.08f, 0.f), FLinearColor(0.f, 0.f, 0.08f, 0.35f));
+	// Vignette sombre a droite
+	MASommets(Sortie, Couche + 1, G,
+		{ FVector2D(L.X * 0.82f, 0.f), FVector2D(L.X, 0.f), L, FVector2D(L.X * 0.82f, L.Y) },
+		{ FLinearColor(0.f, 0.f, 0.08f, 0.f), FLinearColor(0.f, 0.f, 0.08f, 0.35f), FLinearColor(0.f, 0.f, 0.08f, 0.35f), FLinearColor(0.f, 0.f, 0.08f, 0.f) },
+		{ 0, 1, 2, 0, 2, 3 });
 	return Couche + 2;
 }
 
@@ -553,6 +561,11 @@ TSharedRef<SWidget> SMenuArmements::Bouton(TSharedRef<SWidget> Contenu, const FB
 		];
 }
 
+// Disposition "inversee" (demande du 24/11) : ce qui etait horizontal devient vertical et inversement.
+//  - onglets ARMEMENTS / PERSONNAGE : colonne verticale a gauche
+//  - categories et filtres : barres horizontales en haut
+//  - cases de l'inventaire du soldat : colonne verticale a gauche de la grille
+//  - boutons ÉQUIPER / COFFRE / LÂCHER / QUITTER : colonne verticale a droite, sous la fiche
 void SMenuArmements::Construct(const FArguments& InArgs)
 {
 	Filtres.Init(false, MANbFiltres);
@@ -567,223 +580,253 @@ void SMenuArmements::Construct(const FArguments& InArgs)
 		]
 		+ SOverlay::Slot()
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot().AutoHeight()
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()
 			[
-				BarreOnglets()
+				ColonneOnglets()
 			]
-			+ SVerticalBox::Slot().FillHeight(1.f).Padding(FMargin(70.f, 30.f, 70.f, 26.f))
+			+ SHorizontalBox::Slot().FillWidth(1.f).Padding(FMargin(40.f, 28.f, 56.f, 24.f))
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth()
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight()
 				[
-					SNew(SBox).WidthOverride(340.f)[ ColonneGauche() ]
+					BandeauHaut()
 				]
-				+ SHorizontalBox::Slot().FillWidth(1.f).Padding(FMargin(48.f, 0.f))
+				+ SVerticalBox::Slot().FillHeight(1.f).Padding(FMargin(0.f, 18.f, 0.f, 0.f))
 				[
-					ColonneCentre()
-				]
-				+ SHorizontalBox::Slot().AutoWidth()
-				[
-					SNew(SBox).WidthOverride(340.f)[ ColonneDroite() ]
+					ZoneCentre()
 				]
 			]
-		]
-		// Fleches sur les bords : categorie precedente / suivante
-		+ SOverlay::Slot().HAlign(HAlign_Left).VAlign(VAlign_Center).Padding(FMargin(12.f, 0.f))
-		[
-			Bouton(SNew(SIconeArmements).Forme(SIconeArmements::EForme::Fleche).Nombre(-1).Taille(FVector2D(40.f, 60.f)),
-				StyleBouton(MATransparent, FLinearColor(1.f, 1.f, 1.f, 0.08f), FLinearColor(1.f, 1.f, 1.f, 0.15f)),
-				[this]() { ChoisirCategorie(-1); })
-		]
-		+ SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Center).Padding(FMargin(12.f, 0.f))
-		[
-			Bouton(SNew(SIconeArmements).Forme(SIconeArmements::EForme::Fleche).Nombre(1).Taille(FVector2D(40.f, 60.f)),
-				StyleBouton(MATransparent, FLinearColor(1.f, 1.f, 1.f, 0.08f), FLinearColor(1.f, 1.f, 1.f, 0.15f)),
-				[this]() { ChoisirCategorie(1); })
 		]
 	];
 	ReconstruireCategories();
+	ReconstruireFiltres();
 	ReconstruireGrille();
 	ReconstruirePanneau();
 	ReconstruireInventaire();
 }
 
-TSharedRef<SWidget> SMenuArmements::BarreOnglets()
+TSharedRef<SWidget> SMenuArmements::ColonneOnglets()
 {
 	auto OngletInactif = [this](const TCHAR* Texte, int32 Index) -> TSharedRef<SWidget>
 	{
-		return Bouton(
-			SNew(STextBlock)
-			.Text(FText::FromString(Texte))
-			.Font(MAPolice(26))
-			.ColorAndOpacity(MABleuOnglet)
-			.RenderTransform(MAPenche())
-			.RenderTransformPivot(FVector2D(0.5f, 0.5f)),
-			StyleBouton(MATransparent, FLinearColor(1.f, 1.f, 1.f, 0.07f), FLinearColor(1.f, 1.f, 1.f, 0.12f)),
-			[this, Index]()
-			{
-				if (OnOnglet)
+		return SNew(SBox).HeightOverride(70.f)
+		[
+			Bouton(
+				SNew(STextBlock)
+				.Text(FText::FromString(Texte))
+				.Font(MAPolice(22))
+				.ColorAndOpacity(MABleuOnglet)
+				.Justification(ETextJustify::Center)
+				.RenderTransform(MAPenche())
+				.RenderTransformPivot(FVector2D(0.5f, 0.5f)),
+				StyleBouton(MATransparent, FLinearColor(1.f, 1.f, 1.f, 0.07f), FLinearColor(1.f, 1.f, 1.f, 0.12f)),
+				[this, Index]()
 				{
-					OnOnglet(Index);
-				}
-			},
-			FMargin(30.f, 12.f));
+					if (OnOnglet)
+					{
+						OnOnglet(Index);
+					}
+				},
+				FMargin(10.f, 0.f))
+		];
 	};
 
-	return SNew(SBorder)
-		.BorderImage(MABlanc())
-		.BorderBackgroundColor(MABleuBarre)
-		.Padding(FMargin(36.f, 0.f, 36.f, 0.f))
+	return SNew(SBox)
+		.WidthOverride(210.f)
 		[
-			SNew(SHorizontalBox)
-			// Onglet actif : fond blanc penche, trait jaune dessous
-			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Fill)
+			SNew(SBorder)
+			.BorderImage(MABlanc())
+			.BorderBackgroundColor(MABleuBarre)
+			.Padding(FMargin(0.f, 30.f, 0.f, 24.f))
 			[
-				SNew(SBox)
-				.RenderTransform(MAPenche(0.25f))
-				.RenderTransformPivot(FVector2D(0.5f, 0.5f))
+				SNew(SVerticalBox)
+				// Nom du jeu en haut de la colonne
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 0.f, 0.f, 40.f))
 				[
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot().FillHeight(1.f)
+					SNew(STextBlock)
+					.Text(FText::FromString(TEXT("CHELLES\n3D")))
+					.Font(MAPolice(26))
+					.Justification(ETextJustify::Center)
+					.ColorAndOpacity(FLinearColor::White)
+					.RenderTransform(MAPenche())
+					.RenderTransformPivot(FVector2D(0.5f, 0.5f))
+				]
+				// Onglet actif : fond blanc, trait jaune sur le cote droit
+				+ SVerticalBox::Slot().AutoHeight()
+				[
+					SNew(SBox).HeightOverride(70.f)
 					[
-						SNew(SBorder)
-						.BorderImage(MABlanc())
-						.BorderBackgroundColor(FLinearColor::White)
-						.Padding(FMargin(34.f, 12.f))
-						.VAlign(VAlign_Center)
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot().FillWidth(1.f)
 						[
-							SNew(STextBlock)
-							.Text(FText::FromString(TEXT("ARMEMENTS")))
-							.Font(MAPolice(28))
-							.ColorAndOpacity(MATexteSombre)
+							SNew(SBorder)
+							.BorderImage(MABlanc())
+							.BorderBackgroundColor(FLinearColor::White)
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
+							[
+								SNew(STextBlock)
+								.Text(FText::FromString(TEXT("ARMEMENTS")))
+								.Font(MAPolice(22))
+								.ColorAndOpacity(MATexteSombre)
+								.RenderTransform(MAPenche())
+								.RenderTransformPivot(FVector2D(0.5f, 0.5f))
+							]
+						]
+						+ SHorizontalBox::Slot().AutoWidth()
+						[
+							SNew(SBorder).BorderImage(MABlanc()).BorderBackgroundColor(MAJaune).Padding(FMargin(3.f, 0.f))
 						]
 					]
-					+ SVerticalBox::Slot().AutoHeight()
-					[
-						SNew(SBorder).BorderImage(MABlanc()).BorderBackgroundColor(MAJaune).Padding(FMargin(0.f, 3.f))
-					]
+				]
+				+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 8.f, 0.f, 0.f))
+				[
+					OngletInactif(TEXT("PERSONNAGE"), 1)
+				]
+				+ SVerticalBox::Slot().FillHeight(1.f)
+				[
+					SNew(SSpacer)
+				]
+				// QUITTER tout en bas de la colonne
+				+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(16.f, 0.f))
+				[
+					Bouton(
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 0.f, 0.f, 6.f))
+						[
+							MAToucheClavier(TEXT("ÉCHAP"))
+						]
+						+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+						[
+							SNew(STextBlock).Text(FText::FromString(TEXT("QUITTER"))).Font(MAPolice(22)).ColorAndOpacity(MATexteSombre)
+						],
+						StyleBouton(MABleuBouton, MABleuSurvol, MALavande),
+						[this]()
+						{
+							if (OnFermer)
+							{
+								OnFermer();
+							}
+						},
+						FMargin(10.f, 10.f))
 				]
 			]
-			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(14.f, 0.f, 0.f, 0.f))
-			[
-				OngletInactif(TEXT("PERSONNAGE"), 1)
-			]
-			+ SHorizontalBox::Slot().FillWidth(1.f)
-			[
-				SNew(SSpacer)
-			]
+		];
+}
+
+TSharedRef<SWidget> SMenuArmements::BandeauHaut()
+{
+	const FButtonStyle* StyleLavande = StyleBouton(MALavande, FLinearColor(0.84f, 0.87f, 1.f), FLinearColor(0.6f, 0.65f, 0.98f));
+	const FButtonStyle* StyleFleche = StyleBouton(MATransparent, FLinearColor(1.f, 1.f, 1.f, 0.08f), FLinearColor(1.f, 1.f, 1.f, 0.15f));
+	return SNew(SVerticalBox)
+		// Ligne 1 : titre + recherche
+		+ SVerticalBox::Slot().AutoHeight()
+		[
+			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(FText::FromString(TEXT("CHELLES 3D")))
-				.Font(MAPolice(24))
-				.ColorAndOpacity(FLinearColor::White)
-				.RenderTransform(MAPenche())
-				.RenderTransformPivot(FVector2D(0.5f, 0.5f))
-			]
-		];
-}
-
-TSharedRef<SWidget> SMenuArmements::ColonneGauche()
-{
-	return SNew(SVerticalBox)
-		// Recherche
-		+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SBox).HeightOverride(62.f)
-			[
-				SNew(SBorder)
-				.BorderImage(MABlanc())
-				.BorderBackgroundColor(FLinearColor(0.33f, 0.38f, 0.86f, 1.f))
-				.Padding(FMargin(16.f, 0.f))
-				.VAlign(VAlign_Center)
-				[
-					SAssignNew(ChampRecherche, SEditableTextBox)
-					.HintText(FText::FromString(TEXT("Rechercher...")))
-					.Font(MAPolice(22))
-					.BackgroundColor(MATransparent)
-					.ForegroundColor(FLinearColor::White)
-					.OnTextChanged_Lambda([this](const FText& Texte)
-					{
-						Recherche = Texte.ToString().TrimStartAndEnd();
-						ReconstruireGrille();
-					})
-				]
-			]
-		]
-		+ SVerticalBox::Slot().AutoHeight()[ SNew(SSpacer).Size(FVector2D(1.f, 44.f)) ]
-		// MACategories
-		+ SVerticalBox::Slot().FillHeight(1.f)
-		[
-			SNew(SBorder)
-			.BorderImage(MABlanc())
-			.BorderBackgroundColor(MABleuNuit)
-			.Padding(FMargin(8.f, 16.f, 8.f, 8.f))
-			[
-				SNew(SScrollBox)
-				+ SScrollBox::Slot()
-				[
-					SAssignNew(BoiteCategories, SVerticalBox)
-				]
-			]
-		]
-		+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SBorder)
-			.BorderImage(MABlanc())
-			.BorderBackgroundColor(MABleuPied)
-			.Padding(FMargin(8.f, 6.f))
-			.HAlign(HAlign_Center)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(0.f, 0.f, 10.f, 0.f))
-				[
-					MAToucheClavier(TEXT("CTRL"), true)
-				]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
-				[
-					SNew(STextBlock).Text(FText::FromString(TEXT("CATÉGORIES"))).Font(MAPolice(17)).ColorAndOpacity(FLinearColor::White)
-				]
-			]
-		];
-}
-
-TSharedRef<SWidget> SMenuArmements::ColonneCentre()
-{
-	const FButtonStyle* StyleLavande = StyleBouton(MALavande, FLinearColor(0.84f, 0.87f, 1.f), FLinearColor(0.6f, 0.65f, 0.98f));
-	return SNew(SVerticalBox)
-		// Titre
-		+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SBox).HeightOverride(62.f).HAlign(HAlign_Center).VAlign(VAlign_Center)
-			[
-				SNew(STextBlock)
 				.Text(FText::FromString(TEXT("ARMEMENTS")))
-				.Font(MAPolice(54))
+				.Font(MAPolice(50))
 				.ColorAndOpacity(FLinearColor(0.93f, 0.95f, 1.f))
 				.ShadowOffset(FVector2D(3.f, 3.f))
 				.ShadowColorAndOpacity(FLinearColor(0.f, 0.f, 0.1f, 0.6f))
 				.RenderTransform(MAPenche(0.22f))
 				.RenderTransformPivot(FVector2D(0.5f, 0.5f))
 			]
+			+ SHorizontalBox::Slot().FillWidth(1.f)[ SNew(SSpacer) ]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+			[
+				SNew(SBox).WidthOverride(420.f).HeightOverride(56.f)
+				[
+					SNew(SBorder)
+					.BorderImage(MABlanc())
+					.BorderBackgroundColor(FLinearColor(0.33f, 0.38f, 0.86f, 1.f))
+					.Padding(FMargin(16.f, 0.f))
+					.VAlign(VAlign_Center)
+					[
+						SAssignNew(ChampRecherche, SEditableTextBox)
+						.HintText(FText::FromString(TEXT("Rechercher...")))
+						.Font(MAPolice(20))
+						.BackgroundColor(MATransparent)
+						.ForegroundColor(FLinearColor::White)
+						.OnTextChanged_Lambda([this](const FText& Texte)
+						{
+							Recherche = Texte.ToString().TrimStartAndEnd();
+							ReconstruireGrille();
+						})
+					]
+				]
+			]
 		]
-		+ SVerticalBox::Slot().AutoHeight()[ SNew(SSpacer).Size(FVector2D(1.f, 30.f)) ]
-		// Tri + nombre d'objets + relire
-		+ SVerticalBox::Slot().AutoHeight()
+		// Ligne 2 : categories en barre horizontale (fleches aux deux bouts)
+		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 16.f, 0.f, 0.f))
+		[
+			SNew(SBorder)
+			.BorderImage(MABlanc())
+			.BorderBackgroundColor(MABleuNuit)
+			.Padding(FMargin(4.f, 6.f))
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+				[
+					Bouton(SNew(SIconeArmements).Forme(SIconeArmements::EForme::Fleche).Nombre(-1).Taille(FVector2D(30.f, 40.f)),
+						StyleFleche, [this]() { ChoisirCategorie(-1); }, FMargin(6.f, 4.f))
+				]
+				+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
+				[
+					SNew(SScrollBox)
+					.Orientation(Orient_Horizontal)
+					.ScrollBarVisibility(EVisibility::Collapsed)
+					+ SScrollBox::Slot()
+					[
+						SAssignNew(BoiteCategories, SHorizontalBox)
+					]
+				]
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+				[
+					Bouton(SNew(SIconeArmements).Forme(SIconeArmements::EForme::Fleche).Nombre(1).Taille(FVector2D(30.f, 40.f)),
+						StyleFleche, [this]() { ChoisirCategorie(1); }, FMargin(6.f, 4.f))
+				]
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(10.f, 0.f, 8.f, 0.f))
+				[
+					MAToucheClavier(TEXT("CTRL"), true)
+				]
+			]
+		]
+		// Ligne 3 : filtres en barre horizontale + tri + nombre + relire
+		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 10.f, 0.f, 0.f))
 		[
 			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth()
+			+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
+			[
+				SNew(SScrollBox)
+				.Orientation(Orient_Horizontal)
+				.ScrollBarVisibility(EVisibility::Collapsed)
+				+ SScrollBox::Slot()
+				[
+					SAssignNew(BoiteFiltres, SHorizontalBox)
+				]
+			]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(14.f, 0.f))
+			[
+				SNew(STextBlock)
+				.Text_Lambda([this]() { return FText::FromString(FString::Printf(TEXT("%d OBJETS"), ListeVisible().Num())); })
+				.Font(MAPolice(21))
+				.ColorAndOpacity(MALavande)
+			]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 			[
 				Bouton(
 					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(0.f, 0.f, 12.f, 0.f))
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(0.f, 0.f, 10.f, 0.f))
 					[
 						MAToucheClavier(TEXT("Z"))
 					]
 					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 					[
-						SNew(STextBlock).Text_Lambda([this]() { return TexteTri(); }).Font(MAPolice(21)).ColorAndOpacity(MATexteSombre)
+						SNew(STextBlock).Text_Lambda([this]() { return TexteTri(); }).Font(MAPolice(19)).ColorAndOpacity(MATexteSombre)
 					],
 					StyleLavande,
 					[this]()
@@ -791,20 +834,12 @@ TSharedRef<SWidget> SMenuArmements::ColonneCentre()
 						Tri = (Tri + 1) % MANbTris;
 						ReconstruireGrille();
 					},
-					FMargin(20.f, 9.f))
+					FMargin(16.f, 8.f))
 			]
-			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(20.f, 0.f))
-			[
-				SNew(STextBlock)
-				.Text_Lambda([this]() { return FText::FromString(FString::Printf(TEXT("%d OBJETS"), ListeVisible().Num())); })
-				.Font(MAPolice(23))
-				.ColorAndOpacity(MALavande)
-			]
-			+ SHorizontalBox::Slot().FillWidth(1.f)[ SNew(SSpacer) ]
-			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(8.f, 0.f, 0.f, 0.f))
 			[
 				Bouton(
-					SNew(STextBlock).Text(FText::FromString(TEXT("•••"))).Font(MAPolice(22)).ColorAndOpacity(MATexteSombre),
+					SNew(STextBlock).Text(FText::FromString(TEXT("•••"))).Font(MAPolice(20)).ColorAndOpacity(MATexteSombre),
 					StyleLavande,
 					[this]()
 					{
@@ -814,41 +849,113 @@ TSharedRef<SWidget> SMenuArmements::ColonneCentre()
 						}
 						Dire(TEXT("Liste des armes relue"));
 					},
-					FMargin(14.f, 2.f))
+					FMargin(12.f, 6.f))
+			]
+		];
+}
+
+TSharedRef<SWidget> SMenuArmements::ZoneCentre()
+{
+	return SNew(SHorizontalBox)
+		// Colonne verticale : cases de l'inventaire du soldat
+		+ SHorizontalBox::Slot().AutoWidth()
+		[
+			SNew(SBorder)
+			.BorderImage(MABlanc())
+			.BorderBackgroundColor(MABleuNuit)
+			.Padding(FMargin(8.f, 10.f))
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 0.f, 0.f, 8.f))
+				[
+					SNew(STextBlock).Text(FText::FromString(TEXT("SAC"))).Font(MAPolice(17)).ColorAndOpacity(MALavande)
+				]
+				+ SVerticalBox::Slot().FillHeight(1.f)
+				[
+					SNew(SScrollBox)
+					.ScrollBarVisibility(EVisibility::Collapsed)
+					+ SScrollBox::Slot()
+					[
+						SAssignNew(Inventaire, SVerticalBox)
+					]
+				]
 			]
 		]
-		+ SVerticalBox::Slot().AutoHeight()[ SNew(SSpacer).Size(FVector2D(1.f, 16.f)) ]
 		// Grille de cartes
+		+ SHorizontalBox::Slot().FillWidth(1.f).Padding(FMargin(22.f, 0.f))
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot().FillHeight(1.f)
+			[
+				SAssignNew(Defilement, SScrollBox)
+				+ SScrollBox::Slot()
+				[
+					SAssignNew(Grille, SUniformGridPanel).SlotPadding(FMargin(8.f))
+				]
+			]
+			// Message (ex : pas en mode Soldat)
+			+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 8.f, 0.f, 0.f))
+			[
+				SNew(STextBlock)
+				.Text_Lambda([this]() { return TexteMessage; })
+				.Font(MAPolice(18))
+				.ColorAndOpacity_Lambda([this]() { return FSlateColor(MAAlpha(MAJaune, FMath::Clamp(4.f - AgeMessage, 0.f, 1.f))); })
+				.ShadowOffset(FVector2D(1.f, 1.f))
+			]
+		]
+		// Colonne de droite : fiche de l'arme puis boutons empiles
+		+ SHorizontalBox::Slot().AutoWidth()
+		[
+			SNew(SBox).WidthOverride(360.f)
+			[
+				ColonneFiche()
+			]
+		];
+}
+
+TSharedRef<SWidget> SMenuArmements::BoutonBas(const FText& Texte, TFunction<void()> Action, TAttribute<bool> Actif)
+{
+	return SNew(SBox).HeightOverride(58.f)
+	[
+		Bouton(
+			SNew(STextBlock).Text(Texte).Font(MAPolice(22)).ColorAndOpacity(MATexteSombre).Justification(ETextJustify::Center),
+			StyleBouton(MABleuBouton, MABleuSurvol, MALavande),
+			Action,
+			FMargin(10.f, 0.f),
+			Actif)
+	];
+}
+
+TSharedRef<SWidget> SMenuArmements::ColonneFiche()
+{
+	return SNew(SVerticalBox)
 		+ SVerticalBox::Slot().FillHeight(1.f)
 		[
-			SAssignNew(Defilement, SScrollBox)
-			+ SScrollBox::Slot()
+			SNew(SBorder)
+			.BorderImage(MABlanc())
+			.BorderBackgroundColor(MABleuNuit)
+			.Padding(FMargin(8.f, 12.f))
 			[
-				SAssignNew(Grille, SUniformGridPanel).SlotPadding(FMargin(8.f))
+				SNew(SScrollBox)
+				+ SScrollBox::Slot()
+				[
+					SAssignNew(Panneau, SBox)
+				]
 			]
 		]
-		+ SVerticalBox::Slot().AutoHeight()[ SNew(SSpacer).Size(FVector2D(1.f, 14.f)) ]
-		// Cases de l'inventaire du soldat
-		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 12.f, 0.f, 0.f))
 		[
-			SAssignNew(Inventaire, SHorizontalBox)
-		]
-		+ SVerticalBox::Slot().AutoHeight()[ SNew(SSpacer).Size(FVector2D(1.f, 18.f)) ]
-		// Boutons
-		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(8.f, 0.f))
-			[
-				BoutonBas(FText::FromString(TEXT("ÉQUIPER")), [this]()
+			BoutonBas(FText::FromString(TEXT("ÉQUIPER")), [this]()
+			{
+				if (OnEquiper && Choisie() != INDEX_NONE)
 				{
-					if (OnEquiper && Choisie() != INDEX_NONE)
-					{
-						OnEquiper(Choisie());
-					}
-				}, TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([this]() { return Choisie() != INDEX_NONE && Cases[Choisie()].bPossedee; })))
-			]
-			+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(8.f, 0.f))
+					OnEquiper(Choisie());
+				}
+			}, TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([this]() { return Choisie() != INDEX_NONE && Cases[Choisie()].bPossedee; })))
+		]
+		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 8.f, 0.f, 0.f))
+		[
+			SNew(SBox).HeightOverride(58.f)
 			[
 				Bouton(
 					SNew(STextBlock)
@@ -869,73 +976,19 @@ TSharedRef<SWidget> SMenuArmements::ColonneCentre()
 							OnCoffre(Choisie());
 						}
 					},
-					FMargin(34.f, 10.f),
+					FMargin(10.f, 0.f),
 					TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([this]() { return Choisie() != INDEX_NONE; })))
 			]
-			+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(8.f, 0.f))
-			[
-				BoutonBas(FText::FromString(TEXT("LÂCHER")), [this]()
+		]
+		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 8.f, 0.f, 0.f))
+		[
+			BoutonBas(FText::FromString(TEXT("LÂCHER")), [this]()
+			{
+				if (OnLacher && Choisie() != INDEX_NONE)
 				{
-					if (OnLacher && Choisie() != INDEX_NONE)
-					{
-						OnLacher(Choisie());
-					}
-				}, TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([this]() { return Choisie() != INDEX_NONE && Cases[Choisie()].bEnMain; })))
-			]
-		]
-		// Message (ex : pas en mode Soldat)
-		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 10.f, 0.f, 0.f))
-		[
-			SNew(STextBlock)
-			.Text_Lambda([this]() { return TexteMessage; })
-			.Font(MAPolice(18))
-			.ColorAndOpacity_Lambda([this]() { return FSlateColor(MAAlpha(MAJaune, FMath::Clamp(4.f - AgeMessage, 0.f, 1.f))); })
-			.ShadowOffset(FVector2D(1.f, 1.f))
-		];
-}
-
-TSharedRef<SWidget> SMenuArmements::BoutonBas(const FText& Texte, TFunction<void()> Action, TAttribute<bool> Actif)
-{
-	return Bouton(
-		SNew(STextBlock).Text(Texte).Font(MAPolice(22)).ColorAndOpacity(MATexteSombre).Justification(ETextJustify::Center),
-		StyleBouton(MABleuBouton, MABleuSurvol, MALavande),
-		Action,
-		FMargin(60.f, 10.f),
-		Actif);
-}
-
-TSharedRef<SWidget> SMenuArmements::ColonneDroite()
-{
-	return SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()
-		[
-			SAssignNew(Panneau, SBox) // remplace juste apres par ReconstruirePanneau (boutons + contenu)
-		]
-		+ SVerticalBox::Slot().FillHeight(1.f)
-		[
-			SNew(SSpacer)
-		]
-		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right).Padding(FMargin(0.f, 18.f, 0.f, 0.f))
-		[
-			Bouton(
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(0.f, 0.f, 12.f, 0.f))
-				[
-					MAToucheClavier(TEXT("ÉCHAP"))
-				]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
-				[
-					SNew(STextBlock).Text(FText::FromString(TEXT("QUITTER"))).Font(MAPolice(22)).ColorAndOpacity(MATexteSombre)
-				],
-				StyleBouton(MABleuBouton, MABleuSurvol, MALavande),
-				[this]()
-				{
-					if (OnFermer)
-					{
-						OnFermer();
-					}
-				},
-				FMargin(26.f, 10.f))
+					OnLacher(Choisie());
+				}
+			}, TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([this]() { return Choisie() != INDEX_NONE && Cases[Choisie()].bEnMain; })))
 		];
 }
 
@@ -953,14 +1006,14 @@ void SMenuArmements::ReconstruireCategories()
 	for (int32 k = 0; k < MANbCategories; ++k)
 	{
 		const bool bChoisie = (k == Categorie);
-		BoiteCategories->AddSlot().AutoHeight().Padding(FMargin(0.f, 2.f))
+		BoiteCategories->AddSlot().AutoWidth().Padding(FMargin(2.f, 0.f))
 		[
-			SNew(SBox).HeightOverride(60.f)
+			SNew(SBox).HeightOverride(52.f)
 			[
 				Bouton(
 					SNew(STextBlock)
 					.Text(FText::FromString(MACategories[k].Libelle))
-					.Font(MAPolice(24, bChoisie))
+					.Font(MAPolice(20, bChoisie))
 					.ColorAndOpacity(bChoisie ? MATexteSombre : FLinearColor(0.9f, 0.92f, 1.f)),
 					bChoisie ? StyleBouton(MALavande, FLinearColor(0.84f, 0.87f, 1.f), MALavande)
 						: StyleBouton(MATransparent, FLinearColor(1.f, 1.f, 1.f, 0.08f), FLinearColor(1.f, 1.f, 1.f, 0.14f)),
@@ -970,8 +1023,58 @@ void SMenuArmements::ReconstruireCategories()
 						ReconstruireCategories();
 						ReconstruireGrille();
 					},
-					FMargin(24.f, 0.f))
+					FMargin(18.f, 0.f))
 			]
+		];
+	}
+}
+
+void SMenuArmements::ReconstruireFiltres()
+{
+	if (!BoiteFiltres.IsValid())
+	{
+		return;
+	}
+	BoiteFiltres->ClearChildren();
+	bool bUnFiltre = false;
+	for (int32 k = 1; k < MANbFiltres; ++k)
+	{
+		bUnFiltre |= Filtres[k];
+	}
+	for (int32 k = 0; k < MANbFiltres; ++k)
+	{
+		const bool bCoche = (k == 0) ? !bUnFiltre : Filtres[k];
+		BoiteFiltres->AddSlot().AutoWidth().Padding(FMargin(0.f, 0.f, 6.f, 0.f))
+		[
+			Bouton(
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(0.f, 0.f, 8.f, 0.f))
+				[
+					SNew(SIconeArmements).Forme(SIconeArmements::EForme::Coche).Taille(FVector2D(22.f, 22.f)).Coche(bCoche)
+				]
+				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+				[
+					SNew(STextBlock).Text(FText::FromString(LibellesFiltres[k])).Font(MAPolice(17)).ColorAndOpacity(FLinearColor(0.92f, 0.94f, 1.f))
+				],
+				bCoche ? StyleBouton(MABleuPied, MABleuSurvol, MABleuPied)
+					: StyleBouton(MABleuNuit, FLinearColor(0.1f, 0.14f, 0.45f, 1.f), MABleuPied),
+				[this, k]()
+				{
+					if (k == 0)
+					{
+						for (bool& F : Filtres)
+						{
+							F = false;
+						}
+					}
+					else
+					{
+						Filtres[k] = !Filtres[k];
+					}
+					ReconstruireFiltres();
+					ReconstruireGrille();
+				},
+				FMargin(10.f, 6.f))
 		];
 	}
 }
@@ -1175,14 +1278,14 @@ void SMenuArmements::ReconstruireInventaire()
 		const bool bPleine = Portees.IsValidIndex(k);
 		const int32 i = bPleine ? Portees[k] : INDEX_NONE;
 		const FString Nom = bPleine ? Cases[i].Nom.ToString() : FString();
-		Inventaire->AddSlot().AutoWidth().Padding(FMargin(5.f, 0.f))
+		Inventaire->AddSlot().AutoHeight().Padding(FMargin(0.f, 5.f))
 		[
-			SNew(SBox).WidthOverride(104.f).HeightOverride(104.f)
+			SNew(SBox).WidthOverride(96.f).HeightOverride(96.f)
 			[
 				bPleine
 					? StaticCastSharedRef<SWidget>(SNew(SCarteArme)
 						.Case(Cases[i])
-						.Taille(104.f)
+						.Taille(96.f)
 						.DansLeCoffre(LeCoffre.Contains(Nom))
 						.Choisie_Lambda([this, Nom]() { return NomChoisi == Nom; })
 						.OnClic_Lambda([this, i]() { Choisir(i); })
@@ -1194,7 +1297,7 @@ void SMenuArmements::ReconstruireInventaire()
 								OnEquiper(i);
 							}
 						}))
-					: StaticCastSharedRef<SWidget>(SNew(SCarteArme).Vide(true).Taille(104.f))
+					: StaticCastSharedRef<SWidget>(SNew(SCarteArme).Vide(true).Taille(96.f))
 			]
 		];
 	}
@@ -1206,208 +1309,102 @@ void SMenuArmements::ReconstruirePanneau()
 	{
 		return;
 	}
-	auto BoutonVue = [this](bool bFiltres) -> TSharedRef<SWidget>
-	{
-		const bool bActifIci = (bPanneauFiltres == bFiltres);
-		return SNew(SBox)
-			.HeightOverride(62.f)
-			[
-				Bouton(
-					SNew(SBox).HAlign(HAlign_Center).VAlign(VAlign_Center)
-					[
-						SNew(SIconeArmements)
-						.Forme(bFiltres ? SIconeArmements::EForme::Filtres : SIconeArmements::EForme::Info)
-						.Taille(FVector2D(30.f, 30.f))
-						.Couleur(bActifIci ? MATexteSombre : FLinearColor::White)
-					],
-					bActifIci ? StyleBouton(FLinearColor(0.88f, 0.9f, 1.f), FLinearColor::White, MALavande)
-						: StyleBouton(MABleuNuit, FLinearColor(0.1f, 0.14f, 0.45f, 1.f), MABleuPied),
-					[this, bFiltres]()
-					{
-						bPanneauFiltres = bFiltres;
-						ReconstruirePanneau();
-					})
-			];
-	};
-
 	TSharedRef<SVerticalBox> Contenu = SNew(SVerticalBox);
-	if (bPanneauFiltres)
+	const int32 i = Choisie();
+	if (i == INDEX_NONE)
 	{
-		bool bUnFiltre = false;
-		for (int32 k = 1; k < MANbFiltres; ++k)
-		{
-			bUnFiltre |= Filtres[k];
-		}
-		for (int32 k = 0; k < MANbFiltres; ++k)
-		{
-			const bool bCoche = (k == 0) ? !bUnFiltre : Filtres[k];
-			Contenu->AddSlot().AutoHeight().Padding(FMargin(0.f, 3.f))
-			[
-				Bouton(
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(0.f, 0.f, 16.f, 0.f))
-					[
-						SNew(SIconeArmements).Forme(SIconeArmements::EForme::Coche).Taille(FVector2D(30.f, 30.f)).Coche(bCoche)
-					]
-					+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center)
-					[
-						SNew(STextBlock).Text(FText::FromString(LibellesFiltres[k])).Font(MAPolice(22)).ColorAndOpacity(FLinearColor(0.92f, 0.94f, 1.f))
-					],
-					StyleBouton(MATransparent, FLinearColor(1.f, 1.f, 1.f, 0.07f), FLinearColor(1.f, 1.f, 1.f, 0.12f)),
-					[this, k]()
-					{
-						if (k == 0)
-						{
-							for (bool& F : Filtres)
-							{
-								F = false;
-							}
-						}
-						else
-						{
-							Filtres[k] = !Filtres[k];
-						}
-						ReconstruirePanneau();
-						ReconstruireGrille();
-					},
-					FMargin(14.f, 8.f))
-			];
-		}
+		Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f))
+		[
+			SNew(STextBlock).Text(FText::FromString(TEXT("Choisis une arme dans la grille."))).Font(MAPolice(20, false)).ColorAndOpacity(MALavande).AutoWrapText(true)
+		];
 	}
 	else
 	{
-		const int32 i = Choisie();
-		if (i == INDEX_NONE)
+		const FCaseArme& C = Cases[i];
+		FString Etat;
+		if (C.bEnMain)
 		{
-			Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f))
-			[
-				SNew(STextBlock).Text(FText::FromString(TEXT("Choisis une arme dans la grille."))).Font(MAPolice(20, false)).ColorAndOpacity(MALavande).AutoWrapText(true)
-			];
+			Etat = TEXT("EN MAIN");
+		}
+		else if (C.bRamassee)
+		{
+			Etat = TEXT("Ramassée");
+		}
+		else if (C.bPossedee)
+		{
+			Etat = TEXT("Pas ramassée : ÉQUIPER te la donne");
 		}
 		else
 		{
-			const FCaseArme& C = Cases[i];
-			FString Etat;
-			if (C.bEnMain)
-			{
-				Etat = TEXT("EN MAIN");
-			}
-			else if (C.bRamassee)
-			{
-				Etat = TEXT("Ramassée");
-			}
-			else if (C.bPossedee)
-			{
-				Etat = TEXT("Pas ramassée : ÉQUIPER te la donne");
-			}
-			else
-			{
-				Etat = C.bArsenal ? TEXT("Pas prête (prends-la sur un râtelier)") : TEXT("À trouver sur la carte");
-			}
-			auto Ligne = [](const FString& Titre, const FString& Valeur) -> TSharedRef<SWidget>
-			{
-				return SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(0.f, 0.f, 8.f, 0.f))
-					[
-						SNew(STextBlock).Text(FText::FromString(Titre)).Font(MAPolice(17)).ColorAndOpacity(MALavande)
-					]
-					+ SHorizontalBox::Slot().FillWidth(1.f)
-					[
-						SNew(STextBlock).Text(FText::FromString(Valeur)).Font(MAPolice(17, false)).ColorAndOpacity(FLinearColor::White).AutoWrapText(true)
-					];
-			};
-			Contenu->AddSlot().AutoHeight().HAlign(HAlign_Center).Padding(FMargin(0.f, 10.f))
-			[
-				SNew(SBox).WidthOverride(200.f).HeightOverride(200.f)
-				[
-					SNew(SCarteArme).Case(C).Taille(200.f).DansLeCoffre(LeCoffre.Contains(C.Nom.ToString()))
-				]
-			];
-			Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 4.f))
-			[
-				SNew(STextBlock).Text(C.Nom).Font(MAPolice(28)).ColorAndOpacity(FLinearColor::White).AutoWrapText(true)
-				.RenderTransform(MAPenche(0.15f)).RenderTransformPivot(FVector2D(0.5f, 0.5f))
-			];
-			Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 2.f))
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(0.f, 0.f, 12.f, 0.f))
-				[
-					SNew(STextBlock).Text(MenuArmementsStyle::NomRarete(C.Rarete)).Font(MAPolice(19))
-					.ColorAndOpacity(MAPlus(MenuArmementsStyle::CouleurRarete(C.Rarete), 1.35f))
-				]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
-				[
-					SNew(SIconeArmements).Forme(SIconeArmements::EForme::Etoiles).Nombre(FMath::Clamp(C.Rarete, 1, 5))
-					.Taille(FVector2D(FMath::Clamp(C.Rarete, 1, 5) * 21.f, 18.f)).Couleur(FLinearColor::White)
-				]
-			];
-			Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 10.f, 16.f, 2.f))[ Ligne(TEXT("Famille :"), C.bArsenal ? FString(TEXT("Arsenal CHELLES")) : MANomFamille(C.Categorie)) ];
-			if (!C.Munitions.IsEmpty())
-			{
-				Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 2.f))[ Ligne(TEXT("Munitions :"), C.Munitions.ToString()) ];
-			}
-			Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 2.f))[ Ligne(TEXT("État :"), Etat) ];
-			if (C.bPack)
-			{
-				Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 2.f))[ Ligne(TEXT("Modèle :"), TEXT("arme d'un pack")) ];
-			}
-			if (LeCoffre.Contains(C.Nom.ToString()))
-			{
-				Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 2.f))[ Ligne(TEXT("Coffre :"), TEXT("oui")) ];
-			}
-			Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 14.f, 16.f, 4.f))
-			[
-				SNew(STextBlock)
-				.Text(FText::FromString(TEXT("Double-clic sur une carte = ÉQUIPER.\nFlèches = changer de carte, Entrée = ÉQUIPER.")))
-				.Font(MAPolice(14, false))
-				.ColorAndOpacity(MAAlpha(MALavande, 0.8f))
-				.AutoWrapText(true)
-			];
+			Etat = C.bArsenal ? TEXT("Pas prête (prends-la sur un râtelier)") : TEXT("À trouver sur la carte");
 		}
-	}
-
-	Panneau->SetContent(
-		SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()
+		auto Ligne = [](const FString& Titre, const FString& Valeur) -> TSharedRef<SWidget>
+		{
+			return SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(0.f, 0.f, 8.f, 0.f))
+				[
+					SNew(STextBlock).Text(FText::FromString(Titre)).Font(MAPolice(17)).ColorAndOpacity(MALavande)
+				]
+				+ SHorizontalBox::Slot().FillWidth(1.f)
+				[
+					SNew(STextBlock).Text(FText::FromString(Valeur)).Font(MAPolice(17, false)).ColorAndOpacity(FLinearColor::White).AutoWrapText(true)
+				];
+		};
+		// Image a gauche, nom + rarete a droite (en ligne, plus en colonne)
+		Contenu->AddSlot().AutoHeight().Padding(FMargin(8.f, 6.f))
 		[
 			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot().FillWidth(1.f)[ BoutonVue(false) ]
-			+ SHorizontalBox::Slot().FillWidth(1.f).Padding(FMargin(6.f, 0.f, 0.f, 0.f))[ BoutonVue(true) ]
-		]
-		+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 18.f, 0.f, 0.f))
-		[
-			SNew(SBox).HeightOverride(640.f)
+			+ SHorizontalBox::Slot().AutoWidth()
 			[
-				SNew(SBorder)
-				.BorderImage(MABlanc())
-				.BorderBackgroundColor(MABleuNuit)
-				.Padding(FMargin(8.f, 12.f))
+				SNew(SBox).WidthOverride(130.f).HeightOverride(130.f)
 				[
-					SNew(SScrollBox)
-					+ SScrollBox::Slot()[ Contenu ]
+					SNew(SCarteArme).Case(C).Taille(130.f).DansLeCoffre(LeCoffre.Contains(C.Nom.ToString()))
 				]
 			]
-		]
-		+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SBorder)
-			.BorderImage(MABlanc())
-			.BorderBackgroundColor(MABleuPied)
-			.Padding(FMargin(8.f, 6.f))
-			.HAlign(HAlign_Center)
+			+ SHorizontalBox::Slot().FillWidth(1.f).VAlign(VAlign_Center).Padding(FMargin(12.f, 0.f, 0.f, 0.f))
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(FMargin(0.f, 0.f, 10.f, 0.f))
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight()
 				[
-					MAToucheClavier(TEXT("ALT"), true)
+					SNew(STextBlock).Text(C.Nom).Font(MAPolice(22)).ColorAndOpacity(FLinearColor::White).AutoWrapText(true)
+					.RenderTransform(MAPenche(0.15f)).RenderTransformPivot(FVector2D(0.5f, 0.5f))
 				]
-				+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+				+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 6.f, 0.f, 0.f))
 				[
-					SNew(STextBlock).Text(FText::FromString(bPanneauFiltres ? TEXT("FILTRES") : TEXT("FICHE DE L'ARME"))).Font(MAPolice(17)).ColorAndOpacity(FLinearColor::White)
+					SNew(STextBlock).Text(MenuArmementsStyle::NomRarete(C.Rarete)).Font(MAPolice(17))
+					.ColorAndOpacity(MAPlus(MenuArmementsStyle::CouleurRarete(C.Rarete), 1.35f))
+				]
+				+ SVerticalBox::Slot().AutoHeight().Padding(FMargin(0.f, 4.f, 0.f, 0.f))
+				[
+					SNew(SIconeArmements).Forme(SIconeArmements::EForme::Etoiles).Nombre(FMath::Clamp(C.Rarete, 1, 5))
+					.Taille(FVector2D(FMath::Clamp(C.Rarete, 1, 5) * 19.f, 16.f)).Couleur(FLinearColor::White)
 				]
 			]
-		]);
+		];
+		Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 12.f, 16.f, 2.f))[ Ligne(TEXT("Famille :"), C.bArsenal ? FString(TEXT("Arsenal CHELLES")) : MANomFamille(C.Categorie)) ];
+		if (!C.Munitions.IsEmpty())
+		{
+			Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 2.f))[ Ligne(TEXT("Munitions :"), C.Munitions.ToString()) ];
+		}
+		Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 2.f))[ Ligne(TEXT("État :"), Etat) ];
+		if (C.bPack)
+		{
+			Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 2.f))[ Ligne(TEXT("Modèle :"), TEXT("arme d'un pack")) ];
+		}
+		if (LeCoffre.Contains(C.Nom.ToString()))
+		{
+			Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 2.f))[ Ligne(TEXT("Coffre :"), TEXT("oui")) ];
+		}
+		Contenu->AddSlot().AutoHeight().Padding(FMargin(16.f, 14.f, 16.f, 4.f))
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(TEXT("Double-clic sur une carte = ÉQUIPER.\nFlèches = changer de carte, Entrée = ÉQUIPER.\nCTRL = catégorie suivante, ALT = enlever les filtres.")))
+			.Font(MAPolice(14, false))
+			.ColorAndOpacity(MAAlpha(MALavande, 0.8f))
+			.AutoWrapText(true)
+		];
+	}
+	Panneau->SetContent(Contenu);
 }
 
 // =====================================================================================
@@ -1503,8 +1500,13 @@ FReply SMenuArmements::OnKeyDown(const FGeometry& Geometrie, const FKeyEvent& Ev
 	}
 	else if (K == EKeys::LeftAlt || K == EKeys::RightAlt || K == EKeys::Gamepad_FaceButton_Top)
 	{
-		bPanneauFiltres = !bPanneauFiltres;
-		ReconstruirePanneau();
+		// ALT : enleve tous les filtres (la barre de filtres est toujours visible en haut)
+		for (bool& F : Filtres)
+		{
+			F = false;
+		}
+		ReconstruireFiltres();
+		ReconstruireGrille();
 	}
 	else if (K == EKeys::Left || K == EKeys::Gamepad_DPad_Left)
 	{
