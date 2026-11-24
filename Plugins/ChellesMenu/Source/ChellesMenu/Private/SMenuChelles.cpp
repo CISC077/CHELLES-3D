@@ -2294,7 +2294,18 @@ namespace LobbyChelles
 		int32 k = 0;
 		for (const int32 Perso : ChellesHabillage::PersosWraith())
 		{
-			Liste.Add({ Perso, ChellesHabillage::NomPersoWraith(Perso), TEXT("PERSONNAGE"), Couleurs[k++ % UE_ARRAY_COUNT(Couleurs)] });
+			if (ChellesHabillage::EstPersoCree(Perso))
+			{
+				Liste.Add({ Perso, ChellesHabillage::NomPersoWraith(Perso), TEXT("PERSONNAGE"), Couleurs[k++ % UE_ARRAY_COUNT(Couleurs)] });
+			}
+			else
+			{
+				// Heros de la touche K : carte de la couleur du heros (un peu eclaircie pour rester lisible)
+				FLinearColor C = ChellesHabillage::CouleurPersoWraith(Perso);
+				C = FLinearColor::LerpUsingHSV(C, FLinearColor(0.10f, 0.12f, 0.20f), C.GetLuminance() < 0.04f ? 0.6f : 0.f);
+				C.R = FMath::Max(C.R, 0.06f); C.G = FMath::Max(C.G, 0.06f); C.B = FMath::Max(C.B, 0.08f);
+				Liste.Add({ Perso, ChellesHabillage::NomPersoWraith(Perso), TEXT("HÉROS"), C });
+			}
 		}
 		return Liste;
 	}
@@ -2456,7 +2467,9 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	if (TenueChoisie.EstPersoWraith())
 	{
 		NomGrand = ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe);
-		Description = TEXT("Toutes les armes du soldat (TAB = roue, I = ARMEMENTS) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir. T = danser (bouger pour arrêter). K = apparence suivante.");
+		Description = ChellesHabillage::EstPersoCree(TenueChoisie.Sexe)
+			? TEXT("Toutes les armes du soldat (TAB = roue, I = ARMEMENTS) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir. T = danser (bouger pour arrêter). K = apparence suivante.")
+			: TEXT("Héros du SOLDAT : toutes ses armes (TAB = roue, I = ARMEMENTS) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir. K = apparence suivante.");
 	}
 	else if (TenueChoisie.EstPantera())
 	{

@@ -43,8 +43,14 @@ namespace ChellesHabillage
 
 	/** Nom du personnage pose par ChellesWraith pour ce choix (LENA, SOFIA...), nullptr pour les autres choix. */
 	CHELLESMENU_API const TCHAR* NomPersoWraith(int32 Sexe);
-	/** Tous les choix "personnage" (dans l'ordre des boutons de HABILLAGE). */
+	/** Tous les choix "personnage" (dans l'ordre des boutons de HABILLAGE) : LENA, SOFIA, LUCIA, puis (2026-11-24)
+	 *  TOUS les heros de la touche K du SOLDAT, lus dans Plugins\ChellesWraith\Wraith.txt (lignes Skin=) :
+	 *  Wraith, Dekker, Sci-Fi, Aurora, Boris... Un Skin= ajoute dans Wraith.txt apparait tout seul dans le menu. */
 	CHELLESMENU_API TArray<int32> PersosWraith();
+	/** Vrai pour les personnages crees par MERIDJA (LENA, SOFIA, LUCIA) : ils dansent (touche T). */
+	CHELLESMENU_API bool EstPersoCree(int32 Sexe);
+	/** Couleur de la carte du heros (5e valeur de sa ligne Skin=), noir si aucune. */
+	CHELLESMENU_API FLinearColor CouleurPersoWraith(int32 Sexe);
 
 	/** Le choix du joueur, enregistre dans GameUserSettings.ini (section ChellesHabillage, cle Tenue). */
 	struct CHELLESMENU_API FTenue

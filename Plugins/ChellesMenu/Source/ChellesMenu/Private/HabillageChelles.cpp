@@ -24,6 +24,9 @@
 #include "Materials/MaterialInterface.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/Crc.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Net/UnrealNetwork.h"
 #include "UObject/UnrealType.h"
 
@@ -58,6 +61,120 @@ namespace HabillageInterne
 			if (P.Sexe == Sexe)
 			{
 				return &P;
+			}
+		}
+		return nullptr;
+	}
+	// Heros de la touche K du SOLDAT (2026-11-24) : lus dans Plugins\ChellesWraith\Wraith.txt
+	//  Skin=NOM|corps|couleur|...|couleur carte|Heros|materiau   et   Heros=Heros|AnimBlueprint (ou Soldat)|...
+	// Le choix est enregistre par un numero tire du nom (1000 et plus) : il ne change pas si on ajoute des lignes.
+	struct FHerosSkin
+	{
+		int32 Sexe = 0;
+		FString Nom;
+		FString Corps;
+		FString Materiau;
+		FString Anim;       // classe d'Animation Blueprint, "Soldat", ou vide
+		FLinearColor Couleur = FLinearColor::Black;
+	};
+	static const TArray<FHerosSkin>& HerosSkins()
+	{
+		static TArray<FHerosSkin> Liste;
+		static bool bLu = false;
+		if (bLu)
+		{
+			return Liste;
+		}
+		bLu = true;
+		TArray<FString> Lignes;
+		const FString Fichier = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesWraith"), TEXT("Wraith.txt"));
+		if (!FFileHelper::LoadFileToStringArray(Lignes, *Fichier))
+		{
+			return Liste;
+		}
+		TMap<FString, FString> AnimDuHeros;
+		for (FString L : Lignes)
+		{
+			L.TrimStartAndEndInline();
+			if (L.StartsWith(TEXT("Heros=")))
+			{
+				TArray<FString> M;
+				L.Mid(6).ParseIntoArray(M, TEXT("|"), false);
+				if (M.Num() > 1)
+				{
+					AnimDuHeros.Add(M[0].TrimStartAndEnd(), M[1].TrimStartAndEnd());
+				}
+			}
+		}
+		for (FString L : Lignes)
+		{
+			L.TrimStartAndEndInline();
+			if (!L.StartsWith(TEXT("Skin=")))
+			{
+				continue;
+			}
+			TArray<FString> M;
+			L.Mid(5).ParseIntoArray(M, TEXT("|"), false);
+			if (M.Num() < 2)
+			{
+				continue;
+			}
+			FHerosSkin H;
+			H.Nom = M[0].TrimStartAndEnd();
+			H.Corps = M[1].TrimStartAndEnd();
+			if (H.Nom.IsEmpty() || !H.Corps.StartsWith(TEXT("/Game/")))
+			{
+				continue; // SOLDAT D'ORIGINE
+			}
+			bool bDejaLa = false;
+			for (const FPersoWraithInfo& P : PersosWraithInfos)
+			{
+				bDejaLa |= H.Nom.Equals(P.Nom, ESearchCase::IgnoreCase);
+			}
+			if (bDejaLa)
+			{
+				continue; // LENA, SOFIA, LUCIA ont deja leur carte
+			}
+			if (M.IsValidIndex(4))
+			{
+				TArray<FString> C;
+				M[4].ParseIntoArray(C, TEXT(","));
+				if (C.Num() >= 3)
+				{
+					H.Couleur = FLinearColor(FCString::Atof(*C[0]), FCString::Atof(*C[1]), FCString::Atof(*C[2]));
+				}
+			}
+			if (M.IsValidIndex(5))
+			{
+				if (const FString* A = AnimDuHeros.Find(M[5].TrimStartAndEnd()))
+				{
+					H.Anim = *A;
+				}
+			}
+			if (M.IsValidIndex(6))
+			{
+				H.Materiau = M[6].TrimStartAndEnd();
+			}
+			H.Sexe = 1000 + int32(FCrc::StrCrc32(*H.Nom.ToUpper()) % 1000000u);
+			while (Liste.ContainsByPredicate([&H](const FHerosSkin& X) { return X.Sexe == H.Sexe; }))
+			{
+				++H.Sexe;
+			}
+			Liste.Add(H);
+		}
+		return Liste;
+	}
+	static const FHerosSkin* InfoHeros(int32 Sexe)
+	{
+		if (Sexe < 1000)
+		{
+			return nullptr;
+		}
+		for (const FHerosSkin& H : HerosSkins())
+		{
+			if (H.Sexe == Sexe)
+			{
+				return &H;
 			}
 		}
 		return nullptr;
@@ -765,8 +882,12 @@ namespace ChellesHabillage
 
 	const TCHAR* NomPersoWraith(int32 Sexe)
 	{
-		const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe);
-		return P ? P->Nom : nullptr;
+		if (const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe))
+		{
+			return P->Nom;
+		}
+		const HabillageInterne::FHerosSkin* H = HabillageInterne::InfoHeros(Sexe);
+		return H ? *H->Nom : nullptr;
 	}
 
 	TArray<int32> PersosWraith()
@@ -776,7 +897,22 @@ namespace ChellesHabillage
 		{
 			Liste.Add(P.Sexe);
 		}
+		for (const HabillageInterne::FHerosSkin& H : HabillageInterne::HerosSkins())
+		{
+			Liste.Add(H.Sexe);
+		}
 		return Liste;
+	}
+
+	bool EstPersoCree(int32 Sexe)
+	{
+		return HabillageInterne::InfoPerso(Sexe) != nullptr;
+	}
+
+	FLinearColor CouleurPersoWraith(int32 Sexe)
+	{
+		const HabillageInterne::FHerosSkin* H = HabillageInterne::InfoHeros(Sexe);
+		return H ? H->Couleur : FLinearColor::Black;
 	}
 
 	void Completer(FTenue& Tenue)
@@ -1803,6 +1939,7 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 	{
 		// LENA, SOFIA... : son corps, qui danse dans l'apercu
 		Corps->SetSkeletalMesh(MeshPerso);
+		Corps->EmptyOverrideMaterials();
 		HabillageInterne::RenduCache(Corps, false, true);
 		Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 		static const TCHAR* const AnimsApercu[] = { TEXT("Danse"), TEXT("Marche") };
@@ -1813,6 +1950,48 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 			{
 				Corps->PlayAnimation(Danse, true);
 				break;
+			}
+		}
+		return;
+	}
+	const HabillageInterne::FHerosSkin* Heros = HabillageInterne::InfoHeros(Tenue.Sexe);
+	USkeletalMesh* MeshHeros = Heros ? LoadObject<USkeletalMesh>(nullptr, *Heros->Corps) : nullptr;
+	if (MeshHeros)
+	{
+		// Heros de la touche K (Wraith, Aurora, Boris...) : son corps, avec son Animation Blueprint (il reste en attente)
+		Corps->SetSkeletalMesh(MeshHeros);
+		Corps->EmptyOverrideMaterials();
+		if (!Heros->Materiau.IsEmpty())
+		{
+			if (UMaterialInterface* Mat = LoadObject<UMaterialInterface>(nullptr, *Heros->Materiau))
+			{
+				for (int32 i = 0; i < Corps->GetNumMaterials(); ++i)
+				{
+					Corps->SetMaterial(i, Mat);
+				}
+			}
+		}
+		HabillageInterne::RenduCache(Corps, false, true);
+		UClass* ClasseAnim = nullptr;
+		if (Heros->Anim.Equals(TEXT("Soldat"), ESearchCase::IgnoreCase))
+		{
+			ClasseAnim = AnimSpiderMan;
+		}
+		else if (Heros->Anim.StartsWith(TEXT("/Game/")))
+		{
+			ClasseAnim = LoadClass<UAnimInstance>(nullptr, *Heros->Anim);
+		}
+		if (ClasseAnim)
+		{
+			Corps->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+			Corps->SetAnimInstanceClass(ClasseAnim);
+		}
+		else
+		{
+			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			if (UAnimationAsset* Attente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+			{
+				Corps->PlayAnimation(Attente, true);
 			}
 		}
 		return;
