@@ -93,4 +93,12 @@ struct CHELLESRACCOURCIS_API FChellesArmeLigne : public FTableRowBase
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arme")
 	TSoftObjectPtr<UObject> Maillage;
+
+	/**
+	 * Rarete montree dans le menu ARMEMENTS (touche I, 2026-11-24) : couleur de la carte et nombre d'etoiles.
+	 * 0 = automatique (selon la famille), 1 = Commune (gris), 2 = Peu commune (vert), 3 = Rare (bleu),
+	 * 4 = Epique (violet), 5 = Legendaire (orange).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arme", meta = (ClampMin = "0", ClampMax = "5"))
+	int32 Rarete = 0;
 };

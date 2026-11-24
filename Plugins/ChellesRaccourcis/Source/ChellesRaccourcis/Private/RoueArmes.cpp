@@ -532,6 +532,7 @@ void ARoueArmes::ChargerTableau()
 		A.Categorie = L->Categorie;
 		A.bDonner = L->bDonner;
 		A.Maillage = L->Maillage.ToSoftObjectPath();
+		A.Rarete = L->Rarete;
 		if (A.Classe.IsNull() && A.Arsenal.IsEmpty())
 		{
 			A.Classe = TSoftClassPtr<AActor>(FSoftObjectPath(ClasseDeBase(A.Categorie))); // arme de pack sans arme de base
@@ -562,6 +563,10 @@ APlayerController* ARoueArmes::GetPC() const
 
 void ARoueArmes::Message(const FString& Texte) const
 {
+	if (Ecouteur)
+	{
+		Ecouteur(Texte);
+	}
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(int32(0xC4E115), 3.f, FColor(160, 200, 255), Texte);
@@ -713,13 +718,13 @@ void ARoueArmes::Ouvrir()
 	UE_LOG(LogTemp, Log, TEXT("[RoueArmes] Roue ouverte (%d cases)."), Widget->Cases.Num());
 }
 
-void ARoueArmes::Remplir()
+void ARoueArmes::ListerArmes(TArray<FCaseArme>& Cases, TArray<FCibleRoueArmes>& LesCibles, TArray<UTexture2D*>& LesImages)
 {
 	// Une case par ligne du tableau (ou par arme ramassee seulement si ToutesLesArmes=Non),
 	// puis les armes ramassees qui ne sont dans aucune ligne.
-	Cibles.Reset();
-	Images.Reset();
-	Widget->Cases.Reset();
+	LesCibles.Reset();
+	LesImages.Reset();
+	Cases.Reset();
 	APlayerController* PC = GetPC();
 	APawn* Pion = PC ? PC->GetPawn() : nullptr;
 	const bool bSoldat = Soldat(Pion);
@@ -789,14 +794,31 @@ void ARoueArmes::Remplir()
 		Case.Image = Pinceau(Image);
 		if (Image)
 		{
-			Images.Add(Image);
+			LesImages.Add(Image);
 		}
 		Case.Couleur = Couleur.A > 0.01f ? Couleur : GrisBleu;
 		Case.Categorie = Categorie;
 		Case.bPossedee = bPossedee;
 		Case.bEnMain = bDansLaMain;
-		Widget->Cases.Add(Case);
-		Cibles.Add(Cible);
+		// Pour le menu ARMEMENTS : rarete, vraie possession, munitions
+		Case.bArsenal = !Cible.Arsenal.IsEmpty();
+		Case.bPack = !Cible.Maillage.IsNull();
+		Case.bRamassee = Cible.Instance.IsValid() || (Case.bArsenal && bPossedee);
+		const FArmeDeLaRoue* LigneArme = Armes.IsValidIndex(Cible.Ligne) ? &Armes[Cible.Ligne] : nullptr;
+		Case.Rarete = (LigneArme && LigneArme->Rarete > 0) ? FMath::Clamp(LigneArme->Rarete, 1, 5) : RareteAuto(Categorie, Cible.Arsenal, Case.bPack);
+		if (UObject* Inst = Cible.Instance.Get())
+		{
+			Case.Munitions = TexteMunitions(Inst);
+		}
+		else if (Cible.Arsenal.IsEmpty())
+		{
+			if (UClass* K = Cible.Classe.Get())
+			{
+				Case.Munitions = TexteMunitions(K->GetDefaultObject(), true);
+			}
+		}
+		Cases.Add(Case);
+		LesCibles.Add(Cible);
 	};
 
 	for (int32 l = 0; l < Armes.Num(); ++l)
@@ -881,6 +903,20 @@ void ARoueArmes::Remplir()
 		Cible.Instance = Ramassees[c];
 		AjouterCase(NomDeLArme(Ramassees[c]), ImageDeLArme(Ramassees[c]), FLinearColor(0.f, 0.f, 0.f, 0.f), TEXT("Fusil"),
 			true, c == EnMain && !bArsenalEnMain, Cible);
+	}
+
+}
+
+void ARoueArmes::Remplir()
+{
+	{
+		TArray<FCaseArme> Liste;
+		TArray<FCibleRoueArmes> ListeCibles;
+		TArray<UTexture2D*> ListeImages;
+		ListerArmes(Liste, ListeCibles, ListeImages);
+		Widget->Cases = MoveTemp(Liste);
+		Cibles = MoveTemp(ListeCibles);
+		Images = MoveTemp(ListeImages);
 	}
 
 	// Beaucoup d'armes (packs) : la roue montre une page de ParPage cases, molette = autre page.
@@ -1199,11 +1235,72 @@ void ARoueArmes::Tick(float DeltaSeconds)
 
 void ARoueArmes::Choisir(int32 Index)
 {
-	if (!Cibles.IsValidIndex(Index))
+	if (Cibles.IsValidIndex(Index))
 	{
-		return;
+		ChoisirCible(Cibles[Index]);
 	}
-	const FCibleRoueArmes Cible = Cibles[Index];
+}
+
+int32 ARoueArmes::RareteAuto(const FString& Categorie, const FString& Arsenal, bool bPack)
+{
+	if (!Arsenal.IsEmpty())
+	{
+		return 5; // arsenal CHELLES : legendaire
+	}
+	if (Categorie.Equals(TEXT("Lourde"), ESearchCase::IgnoreCase) || Categorie.Equals(TEXT("Energie"), ESearchCase::IgnoreCase))
+	{
+		return 4;
+	}
+	if (bPack || Categorie.Equals(TEXT("Precision"), ESearchCase::IgnoreCase))
+	{
+		return 3;
+	}
+	if (Categorie.Equals(TEXT("Fusil"), ESearchCase::IgnoreCase) || Categorie.Equals(TEXT("Pompe"), ESearchCase::IgnoreCase))
+	{
+		return 2;
+	}
+	return 1;
+}
+
+bool ARoueArmes::LacherArme(const FCibleRoueArmes& Cible, bool bEnMain)
+{
+	APlayerController* PC = GetPC();
+	APawn* Pion = PC ? PC->GetPawn() : nullptr;
+	if (!Soldat(Pion))
+	{
+		Message(TEXT("Les armes se l\u00E2chent en mode Soldat (touche F1)"));
+		return false;
+	}
+	if (!Cible.Arsenal.IsEmpty())
+	{
+		if (!bEnMain)
+		{
+			Message(TEXT("Cette arme n'est pas en main"));
+			return false;
+		}
+		LancerCommande(TEXT("Chelles.Arsenal"), { TEXT("Aucune") }); // l'arme de l'arsenal est rangee
+		return true;
+	}
+	if (!Cible.Instance.IsValid())
+	{
+		Message(TEXT("Tu n'as pas cette arme"));
+		return false;
+	}
+	if (!bEnMain)
+	{
+		Message(TEXT("\u00C9quipe-la d'abord, puis L\u00C2CHER"));
+		return false;
+	}
+	if (!AppelerSansParametre(Pion, TEXT("DropCurrentWeapon")))
+	{
+		Message(TEXT("Ce personnage ne sait pas l\u00E2cher son arme (DropCurrentWeapon absent)"));
+		return false;
+	}
+	return true;
+}
+
+void ARoueArmes::ChoisirCible(const FCibleRoueArmes& Cible)
+{
 	APlayerController* PC = GetPC();
 	APawn* Pion = PC ? PC->GetPawn() : nullptr;
 	if (!Soldat(Pion))

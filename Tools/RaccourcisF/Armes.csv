@@ -1,17 +1,17 @@
----,Nom,ClasseArme,Arsenal,Icone,Couleur,Categorie,bDonner,Maillage
-Pistolet,"PISTOLET","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponPistol.BPC_WeaponPistol_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Pistolet",False,""
-PistoletAuto,"PISTOLET AUTO","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponPistolAuto.BPC_WeaponPistolAuto_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Pistolet",False,""
-Fusil,"FUSIL D'ASSAUT","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponRifle.BPC_WeaponRifle_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Fusil",False,""
-Pompe,"FUSIL A POMPE","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponShotgun.BPC_WeaponShotgun_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Pompe",False,""
-Sniper,"SNIPER","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponSniper.BPC_WeaponSniper_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Precision",False,""
-LanceRoquettes,"LANCE-ROQUETTES","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponLauncher.BPC_WeaponLauncher_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Lourde",False,""
-Epee,"EPEE","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponSword.BPC_WeaponSword_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Melee",False,""
-Rayon,"RAYON","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponBeam.BPC_WeaponBeam_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Energie",False,""
-Laser,"LASER","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponLaser_New.BPC_WeaponLaser_New_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Energie",False,""
-FusilRecul,"FUSIL RECUL","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponRecoil.BPC_WeaponRecoil_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Fusil",False,""
-Blaster,"BLASTER","","Blaster","","(R=1.000000,G=0.120000,B=0.080000,A=1.000000)","Energie",False,""
-Bazooka,"BAZOOKA","","Bazooka","","(R=1.000000,G=0.550000,B=0.100000,A=1.000000)","Lourde",False,""
-Sabre,"SABRE LUMINEUX","","Sabre","","(R=0.100000,G=0.900000,B=1.000000,A=1.000000)","Melee",False,""
-Grenade,"GRENADE","","Grenade","","(R=0.300000,G=1.000000,B=0.300000,A=1.000000)","Lancer",False,""
-LanceFlammes,"LANCE-FLAMMES","","LanceFlammes","","(R=1.000000,G=0.350000,B=0.000000,A=1.000000)","Lourde",False,""
-Mitrailleuse,"MITRAILLEUSE","","Mitrailleuse","","(R=1.000000,G=0.900000,B=0.200000,A=1.000000)","Lourde",False,""
+---,Nom,ClasseArme,Arsenal,Icone,Couleur,Categorie,bDonner,Maillage,Rarete
+Pistolet,"PISTOLET","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponPistol.BPC_WeaponPistol_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Pistolet",False,"",0
+PistoletAuto,"PISTOLET AUTO","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponPistolAuto.BPC_WeaponPistolAuto_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Pistolet",False,"",0
+Fusil,"FUSIL D'ASSAUT","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponRifle.BPC_WeaponRifle_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Fusil",False,"",0
+Pompe,"FUSIL A POMPE","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponShotgun.BPC_WeaponShotgun_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Pompe",False,"",0
+Sniper,"SNIPER","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponSniper.BPC_WeaponSniper_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Precision",False,"",0
+LanceRoquettes,"LANCE-ROQUETTES","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponLauncher.BPC_WeaponLauncher_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Lourde",False,"",0
+Epee,"EPEE","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponSword.BPC_WeaponSword_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Melee",False,"",0
+Rayon,"RAYON","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponBeam.BPC_WeaponBeam_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Energie",False,"",0
+Laser,"LASER","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponLaser_New.BPC_WeaponLaser_New_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Energie",False,"",0
+FusilRecul,"FUSIL RECUL","/Game/FPS_Game/Blueprints/Weapons/BPC_WeaponRecoil.BPC_WeaponRecoil_C","","","(R=0.000000,G=0.000000,B=0.000000,A=0.000000)","Fusil",False,"",0
+Blaster,"BLASTER","","Blaster","","(R=1.000000,G=0.120000,B=0.080000,A=1.000000)","Energie",False,"",0
+Bazooka,"BAZOOKA","","Bazooka","","(R=1.000000,G=0.550000,B=0.100000,A=1.000000)","Lourde",False,"",0
+Sabre,"SABRE LUMINEUX","","Sabre","","(R=0.100000,G=0.900000,B=1.000000,A=1.000000)","Melee",False,"",0
+Grenade,"GRENADE","","Grenade","","(R=0.300000,G=1.000000,B=0.300000,A=1.000000)","Lancer",False,"",0
+LanceFlammes,"LANCE-FLAMMES","","LanceFlammes","","(R=1.000000,G=0.350000,B=0.000000,A=1.000000)","Lourde",False,"",0
+Mitrailleuse,"MITRAILLEUSE","","Mitrailleuse","","(R=1.000000,G=0.900000,B=0.200000,A=1.000000)","Lourde",False,"",0

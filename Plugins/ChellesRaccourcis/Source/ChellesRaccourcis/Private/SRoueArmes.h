@@ -17,6 +17,14 @@ struct FCaseArme
 	bool bPossedee = true;
 	/** Arme en main en ce moment. */
 	bool bEnMain = false;
+	// ---- Menu ARMEMENTS (touche I) ----
+	/** 1 = Commune ... 5 = Legendaire. */
+	int32 Rarete = 1;
+	/** Vraiment dans l'inventaire du soldat (pas seulement "peut etre donnee"). */
+	bool bRamassee = false;
+	bool bArsenal = false;
+	bool bPack = false;
+	FText Munitions;
 };
 
 class SRoueArmes : public SLeafWidget
@@ -45,6 +53,10 @@ public:
 	FText NomPerso;
 	FLinearColor CouleurPerso = FLinearColor(0.f, 0.94f, 1.f);
 
+	/** Petit dessin d'arme selon sa famille (aussi utilise par les cartes du menu ARMEMENTS). */
+	void Dessin(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Centre,
+		float Taille, const FString& Categorie, const FLinearColor& Couleur) const;
+
 private:
 	void Secteur(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Centre,
 		float RayonIn, float RayonOut, float AngleDebut, float AngleFin, const FLinearColor& Couleur) const;
@@ -52,8 +64,6 @@ private:
 		float Rayon, const FLinearColor& Couleur) const;
 	void Texte(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Centre,
 		const FText& Contenu, const FSlateFontInfo& Police, const FLinearColor& Couleur) const;
-	void Dessin(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Centre,
-		float Taille, const FString& Categorie, const FLinearColor& Couleur) const;
 	void Personnage(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G, const FVector2D& Centre,
 		float Rayon, float Alpha) const;
 };

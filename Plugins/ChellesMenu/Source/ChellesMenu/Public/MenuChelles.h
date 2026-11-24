@@ -112,6 +112,8 @@ public:
 	void OuvrirPause();
 	/** Bouton REPRENDRE / Echap dans le menu PAUSE : ferme le menu et reprend la partie. */
 	void Reprendre();
+	/** En jeu : ouvre le menu (pause) directement sur HABILLAGE (lobby). Console : Chelles.Habillage */
+	void OuvrirHabillage();
 
 protected:
 	virtual void BeginPlay() override;

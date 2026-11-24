@@ -22,6 +22,7 @@
 class APawn;
 class APlayerController;
 class SRoueArmes;
+struct FCaseArme;
 class UInputComponent;
 
 /** Une arme de la liste (tableau DT_Armes ou secours). */
@@ -38,6 +39,8 @@ struct FArmeDeLaRoue
 	bool bDonner = false;
 	/** Modele d'un pack pose sur l'arme Classe (vide = arme normale). */
 	FSoftObjectPath Maillage;
+	/** 0 = automatique, 1..5 = Commune..Legendaire (menu ARMEMENTS). */
+	int32 Rarete = 0;
 };
 
 /** Ce que represente une case de la roue ouverte. */
@@ -66,6 +69,20 @@ public:
 
 	/** Console : Chelles.RoueArmes [Info|Relire|0|1] */
 	void Commande(const TArray<FString>& Arguments);
+
+	// ---- Pour le menu ARMEMENTS (touche I, MenuArmements.h) : meme liste et memes actions que la roue ----
+	/** Toutes les armes (tableau DT_Armes + armes ramassees hors tableau), sans pages. */
+	void ListerArmes(TArray<FCaseArme>& Cases, TArray<FCibleRoueArmes>& LesCibles, TArray<UTexture2D*>& LesImages);
+	/** Prend l'arme (la donne d'abord si besoin et permis), comme un choix dans la roue. */
+	void ChoisirCible(const FCibleRoueArmes& Cible);
+	/** Lache l'arme au sol si elle est en main (arme FPS_Game) ou range l'arme de l'arsenal. */
+	bool LacherArme(const FCibleRoueArmes& Cible, bool bEnMain);
+	/** Rarete 1..5 d'une ligne (colonne Rarete, ou automatique selon la famille). */
+	static int32 RareteAuto(const FString& Categorie, const FString& Arsenal, bool bPack);
+	/** Petit message en bas de l'ecran. */
+	void Dire(const FString& Texte) const { Message(Texte); }
+	/** Si rempli : recoit aussi chaque message (le menu ARMEMENTS les affiche, l'ecran de jeu etant cache). */
+	TFunction<void(const FString&)> Ecouteur;
 
 private:
 	// ---- Reglages (Raccourcis.txt, section ROUE DES ARMES) ----

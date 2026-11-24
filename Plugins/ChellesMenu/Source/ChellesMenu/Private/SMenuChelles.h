@@ -162,6 +162,19 @@ private:
 	bool bTenueLue = false;
 	TWeakObjectPtr<AApercuHabillage> ApercuActeur;
 	TSharedPtr<FSlateBrush> PinceauApercu;
+	// HABILLAGE facon lobby (2026-11-24) : rubans horizontaux de cartes
+	int32 SexeLobby() const;
+	void ChoisirSexeLobby(int32 Sexe);
+	/** Fleches : choix suivant / precedent dans le ruban actif. */
+	void ChangerLobby(int32 Sens);
+	/** JOUER / VALIDER : enregistre la tenue, puis ecran MODE (ou reprend la partie en pause). */
+	void JouerDepuisLobby();
+	/** 0 = ruban des personnages, 1 = ruban de la tenue. */
+	int32 RubanLobby = 0;
+	/** 0 = MODELE, 1.. = emplacement de vetement (HAUT, BAS...). */
+	int32 EmplacementLobby = 0;
+	/** Zone plein ecran (le lobby), au-dessus du decor. */
+	TSharedPtr<SBox> ZonePleinEcran;
 	TSharedRef<SWidget> EcranMulti();
 	TSharedRef<SWidget> EcranServeurs();
 	TSharedRef<SWidget> EcranAdresseIP();

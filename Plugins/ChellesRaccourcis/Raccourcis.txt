@@ -48,6 +48,18 @@ DonnerLesArmes=Oui
 RoueArmesParPage=12
 # Les armes des packs : Tools\RaccourcisF\AJOUTER_LES_ARMES_DES_PACKS.bat (Unreal ferme)
 
+# --- MENU ARMEMENTS (touche I, 2026-11-24) ---
+# Grand menu des armes : categories a gauche, cartes colorees par rarete (etoiles), filtres a droite,
+# recherche, EQUIPER / AJOUTER AU COFFRE / LACHER / QUITTER. Meme liste d'armes que la roue TAB (DT_Armes).
+# La rarete d'une arme : colonne Rarete de DT_Armes (0 = automatique, 1 = commune ... 5 = legendaire).
+# Oui = le menu marche, Non = coupe
+MenuArmements=Oui
+# Touche qui ouvre et ferme le menu
+ToucheMenuArmements=I
+# Oui = la touche I ouvre CE menu a la place de l'ancien menu d'inventaire du kit FPS (W_WeaponInventory_UI)
+# Non = l'ancien menu reste aussi sur I (deconseille : les deux s'ouvrent)
+RemplacerInventaire=Oui
+
 # --- SECOURS : utilise seulement tant que le tableau DT_Raccourcis n'existe pas ---
 # Action = nom d'un mode de la roue, ou Case1..Case4 (armes du soldat), ou Blaster, Bazooka, Sabre,
 # Grenade, LanceFlammes, Mitrailleuse (arsenal), ou Reserve (rien).

@@ -22,6 +22,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Net/UnrealNetwork.h"
 #include "UObject/UnrealType.h"
@@ -1728,6 +1729,22 @@ AApercuHabillage::AApercuHabillage()
 	Lampe2->SetAttenuationRadius(900.f);
 	Lampe2->SetLightColor(FLinearColor(0.35f, 0.85f, 1.f)); // contre-jour cyan, comme le menu
 	Lampe2->SetCastShadows(false);
+
+	// Decor du lobby : un mur bleu derriere le personnage et un sol (ils ne tournent pas avec lui)
+	Fond = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Fond"));
+	Fond->SetupAttachment(Racine);
+	Fond->SetRelativeLocation(FVector(-230.f, 0.f, 120.f));
+	Fond->SetRelativeScale3D(FVector(0.05f, 8.f, 9.f));
+	Sol = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sol"));
+	Sol->SetupAttachment(Racine);
+	Sol->SetRelativeLocation(FVector(0.f, 0.f, -3.f));
+	Sol->SetRelativeScale3D(FVector(6.f, 8.f, 0.05f));
+	for (UStaticMeshComponent* Decor : { Fond, Sol })
+	{
+		Decor->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Decor->SetCastShadow(false);
+		Decor->SetGenerateOverlapEvents(false);
+	}
 }
 
 void AApercuHabillage::BeginPlay()
@@ -1740,6 +1757,28 @@ void AApercuHabillage::BeginPlay()
 	Camera->TextureTarget = Cible;
 	Camera->ShowOnlyActors.Reset();
 	Camera->ShowOnlyActors.Add(this);
+
+	// Decor bleu du lobby (formes de base du moteur). Si elles manquent, le fond reste sombre comme avant.
+	UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	UMaterialInterface* Matiere = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+	const TPair<UStaticMeshComponent*, FLinearColor> Decors[] = {
+		TPair<UStaticMeshComponent*, FLinearColor>(Fond, FLinearColor(0.03f, 0.16f, 0.55f)),
+		TPair<UStaticMeshComponent*, FLinearColor>(Sol, FLinearColor(0.02f, 0.07f, 0.25f)),
+	};
+	for (const TPair<UStaticMeshComponent*, FLinearColor>& D : Decors)
+	{
+		if (!D.Key || !Cube)
+		{
+			continue;
+		}
+		D.Key->SetStaticMesh(Cube);
+		if (Matiere)
+		{
+			UMaterialInstanceDynamic* Dyn = UMaterialInstanceDynamic::Create(Matiere, this);
+			Dyn->SetVectorParameterValue(TEXT("Color"), D.Value);
+			D.Key->SetMaterial(0, Dyn);
+		}
+	}
 }
 
 void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalMesh* MeshSpiderMan, UClass* AnimSpiderMan)

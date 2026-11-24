@@ -69,6 +69,7 @@ Les armes sont des DONNEES : tableau `/Game/Chelles/Donnees/DT_Armes` (structure
 | Couleur | couleur de la bande (transparente = gris-bleu) |
 | Categorie | Pistolet, Fusil, Pompe, Precision, Lourde, Melee, Energie, Lancer (choisit le dessin) |
 | bDonner | coche = choisir l'arme la donne si elle n'est pas ramassee (solo / hote) |
+| Rarete | menu ARMEMENTS : 0 = automatique, 1 commune (gris) ... 5 legendaire (orange) |
 - Creer : `Tools\RaccourcisF\CREER_LA_TABLE.bat` (cree DT_Raccourcis ET DT_Armes, depuis Armes.csv).
 - Ajouter une arme : bouton Add du tableau DT_Armes, remplir la ligne, Save. Rien a recompiler.
 - Une arme ramassee qui n'est dans aucune ligne apparait quand meme dans la roue.
@@ -76,3 +77,18 @@ Tant que DT_Armes n'existe pas, une liste par defaut (la meme que Armes.csv) est
 
 Console : `Chelles.RoueArmes` (liste), `Chelles.RoueArmes Relire`, `Chelles.RoueArmes 0` / `1`.
 Journal : lignes `[RoueArmes]`.
+
+## Menu ARMEMENTS (touche I, 2026-11-24)
+Grand menu facon lobby de jeu de tir (bleu), a la place de l'ancien menu d'inventaire du kit FPS :
+- en haut : onglets ARMEMENTS / PERSONNAGE (PERSONNAGE ouvre l'ecran HABILLAGE du menu CHELLES) ;
+- a gauche : recherche + categories (Tout, Coffre, Pistolets, Fusils, Pompes, Precision, Lourdes,
+  Corps a corps, Energie, Lancer, Arsenal CHELLES, Armes des packs) ;
+- au centre : cartes des armes, couleur = rarete (gris, vert, bleu, violet, orange) et 1 a 5 etoiles,
+  badge EN MAIN, coffre jaune, "A TROUVER" pour une arme pas encore trouvee ; en dessous, les cases
+  de l'inventaire du soldat ;
+- a droite : fiche de l'arme choisie (i) ou FILTRES (ramassees, pas encore trouvees, raretes) ;
+- en bas : EQUIPER, AJOUTER AU COFFRE (tes armes preferees, categorie Coffre), LACHER (arme en main), QUITTER.
+Touches : I ou Echap = fermer, Z = tri, Ctrl = categorie suivante, Alt = fiche / filtres,
+fleches = changer de carte, Entree ou double-clic = EQUIPER.
+Meme liste que la roue TAB (DT_Armes). Reglages : section MENU ARMEMENTS de Raccourcis.txt.
+Console : `Chelles.Armements` (ouvrir), `Chelles.Armements Fermer`, `Relire`, `0` / `1`. Journal : `[MenuArmements]`.

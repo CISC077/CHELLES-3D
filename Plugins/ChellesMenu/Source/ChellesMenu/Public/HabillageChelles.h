@@ -12,6 +12,7 @@ class UDataTable;
 class USceneCaptureComponent2D;
 class UTextureRenderTarget2D;
 class UPointLightComponent;
+class UStaticMeshComponent;
 class APawn;
 class APlayerState;
 
@@ -223,6 +224,13 @@ private:
 
 	UPROPERTY(Transient)
 	UTextureRenderTarget2D* Cible = nullptr;
+
+	/** Decor du lobby (2026-11-24) : mur et sol bleus derriere le personnage, au lieu d'un fond noir. */
+	UPROPERTY(Transient)
+	UStaticMeshComponent* Fond = nullptr;
+
+	UPROPERTY(Transient)
+	UStaticMeshComponent* Sol = nullptr;
 
 	UPROPERTY(Transient)
 	TArray<USkeletalMeshComponent*> Morceaux;

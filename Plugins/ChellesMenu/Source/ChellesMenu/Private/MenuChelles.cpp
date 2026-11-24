@@ -32,6 +32,7 @@
 #include "UObject/UObjectIterator.h"
 #include "Blueprint/UserWidget.h"
 #include "HAL/IConsoleManager.h"
+#include "EngineUtils.h"
 
 namespace
 {
@@ -575,6 +576,37 @@ void AMenuChelles::OuvrirPause()
 void AMenuChelles::Reprendre()
 {
 	Fermer(true);
+}
+
+void AMenuChelles::OuvrirHabillage()
+{
+	OuvrirPause();
+	if (bOuvert && Widget.IsValid())
+	{
+		Widget->Afficher(EEcranMenu::Habillage);
+	}
+}
+
+namespace
+{
+	/** Console : Chelles.Habillage = ouvre l'ecran HABILLAGE (lobby) en pleine partie (onglet PERSONNAGE du menu ARMEMENTS). */
+	void CommandeHabillage(const TArray<FString>& Arguments, UWorld* Monde)
+	{
+		if (!Monde)
+		{
+			return;
+		}
+		for (TActorIterator<AMenuChelles> It(Monde); It; ++It)
+		{
+			It->OuvrirHabillage();
+			return;
+		}
+	}
+
+	FAutoConsoleCommandWithWorldAndArgs GCommandeHabillage(
+		TEXT("Chelles.Habillage"),
+		TEXT("Ouvre l'ecran HABILLAGE (personnage) du menu CHELLES 3D en pleine partie"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeHabillage));
 }
 
 bool AMenuChelles::SurveillerPause(float /*Delta*/)

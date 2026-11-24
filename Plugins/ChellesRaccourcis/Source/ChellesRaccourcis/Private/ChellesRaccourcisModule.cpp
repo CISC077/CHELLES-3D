@@ -1,4 +1,4 @@
-// CHELLES 3D - Module du plugin Touches F1-F12 (modes) + roue des armes TAB : ajoute les deux au lancement du jeu.
+// CHELLES 3D - Module du plugin Touches F1-F12 (modes) + roue des armes TAB + menu ARMEMENTS (I) : les ajoute au lancement du jeu.
 #include "CoreMinimal.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -6,6 +6,7 @@
 #include "Modules/ModuleManager.h"
 #include "RaccourcisF.h"
 #include "RoueArmes.h"
+#include "MenuArmements.h"
 
 namespace
 {
@@ -48,6 +49,28 @@ namespace
 		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeRoueArmes));
 }
 
+namespace
+{
+	/** Console : Chelles.Armements [Ouvrir|Fermer|Relire|0|1] (menu ARMEMENTS, touche I) */
+	void CommandeArmements(const TArray<FString>& Arguments, UWorld* Monde)
+	{
+		if (!Monde)
+		{
+			return;
+		}
+		for (TActorIterator<AMenuArmements> It(Monde); It; ++It)
+		{
+			It->Commande(Arguments);
+			return;
+		}
+	}
+
+	FAutoConsoleCommandWithWorldAndArgs GCommandeArmements(
+		TEXT("Chelles.Armements"),
+		TEXT("Menu ARMEMENTS (touche I) : Ouvrir, Fermer, Relire = relire Raccourcis.txt, 0 = couper, 1 = remettre"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeArmements));
+}
+
 class FChellesRaccourcisModule : public IModuleInterface
 {
 public:
@@ -78,6 +101,10 @@ private:
 		if (!TActorIterator<ARoueArmes>(Monde))
 		{
 			Monde->SpawnActor<ARoueArmes>(ARoueArmes::StaticClass(), FTransform::Identity, Params);
+		}
+		if (!TActorIterator<AMenuArmements>(Monde))
+		{
+			Monde->SpawnActor<AMenuArmements>(AMenuArmements::StaticClass(), FTransform::Identity, Params);
 		}
 	}
 
