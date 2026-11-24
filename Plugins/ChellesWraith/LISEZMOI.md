@@ -100,3 +100,7 @@ Journal : lignes `[Wraith]` dans `Saved\Logs\FPS_Chelles.log`.
 - Meme principe que LENA : `Heros=Sofia|Anims:...` + `Skin=SOFIA`, bouton SOFIA dans HABILLAGE.
 - Animations nommees `A_<Nom>_<Etat>_Anim` (nom donne par Unreal a l'import). Saut (chute) joue une fois, comme accroupi.
 - Import des personnages : `Tools\Personnages\creer_personnages.py` (remplace `Tools\Lena\creer_lena.py`).
+
+## LUCIA (24/11/2026)
+
+- Meme principe : `Heros=Lucia` + `Skin=LUCIA`, bouton LUCIA dans HABILLAGE, fichiers Mixamo dans `Bureau\LUCIA 3D\Animations`.

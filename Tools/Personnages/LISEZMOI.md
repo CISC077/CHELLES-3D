@@ -1,6 +1,6 @@
-# Personnages jouables de MERIDJA : LENA, SOFIA... (24/11/2026)
+# Personnages jouables de MERIDJA : LENA, SOFIA, LUCIA... (24/11/2026)
 
-Ils se choisissent dans **JOUER > HABILLAGE** (2e rangee de boutons : LENA, SOFIA).
+Ils se choisissent dans **JOUER > HABILLAGE** (2e rangee de boutons : LENA, SOFIA, LUCIA).
 Toutes les armes du soldat (TAB) et tous les pouvoirs (ESPACE en l'air = vol, X = flash, O = changer de tir).
 
 ## A faire (une fois, et a chaque nouveau personnage)

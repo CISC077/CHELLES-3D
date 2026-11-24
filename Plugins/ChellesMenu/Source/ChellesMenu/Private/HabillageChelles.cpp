@@ -48,6 +48,7 @@ namespace HabillageInterne
 	{
 		{ ChellesHabillage::Lena,  TEXT("LENA"),  TEXT("LENA"),  TEXT("Lena") },
 		{ ChellesHabillage::Sofia, TEXT("SOFIA"), TEXT("SOFIA"), TEXT("Sofia") },
+		{ ChellesHabillage::Lucia, TEXT("LUCIA"), TEXT("LUCIA"), TEXT("Lucia") },
 	};
 	static const FPersoWraithInfo* InfoPerso(int32 Sexe)
 	{

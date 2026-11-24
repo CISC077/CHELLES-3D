@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# CHELLES 3D - personnages jouables de MERIDJA : LENA, SOFIA... (2026-11-24)
+# CHELLES 3D - personnages jouables de MERIDJA : LENA, SOFIA, LUCIA... (2026-11-24)
 #
 # A lancer dans Unreal : menu File > Execute Python Script... > Tools\Personnages\creer_personnages.py
 # On peut le relancer sans risque : ce qui est deja fait est garde.
@@ -50,6 +50,20 @@ PERSONNAGES = [
             ("Crouching.fbx", "Accroupi"),
             ("Jump2.fbx", "Saut"),
             ("Rumba Dancing.fbx", "Danse"),
+        ],
+    },
+    {
+        "nom": "Lucia", "dossier": "LUCIA", "taille_cm": 170.0,
+        "fbx": os.path.join(BUREAU, "LUCIA 3D", "Animations"),
+        "corps": "lod_basic_shaded.fbx",
+        "materiau": "/Game/Personnages/LUCIA/shaded_Mat",  # deja dans le projet
+        "anims": [
+            ("Walking.fbx", "Marche"),
+            ("Fast Run.fbx", "Course"),
+            ("Flying.fbx", "Vol"),
+            ("Crouching.fbx", "Accroupi"),
+            ("Jump.fbx", "Saut"),
+            ("Hip Hop Dancing.fbx", "Danse"),
         ],
     },
 ]

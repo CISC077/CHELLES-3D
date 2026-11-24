@@ -1,5 +1,5 @@
 ; =====================================================================
-;  CHELLES 3D - Wraith, Dekker, Sci-Fi Soldier, Aurora, Boris, LENA, SOFIA a la place du SOLDAT + tenues des heros
+;  CHELLES 3D - Wraith, Dekker, Sci-Fi Soldier, Aurora, Boris, LENA, SOFIA, LUCIA a la place du SOLDAT + tenues des heros
 ;  Plugin ChellesWraith. Modifiez ce fichier avec le Bloc-notes, puis
 ;  relancez le jeu (ou tapez  Chelles.Wraith Relire  dans la console, touche 2).
 ;  Oui / Non pour activer ou couper une option. Pas d'accents dans ce fichier.
@@ -19,12 +19,13 @@ Heros=Dekker|/Game/ParagonDekker/Characters/Heroes/Dekker/Dekker_AnimBlueprint.D
 Heros=SciFi|Soldat|||||||
 ; Aurora et Boris (collection Paragon) : ils gardent les armes du soldat en 1re personne (pas d'arme a feu dans leur pack)
 Heros=Aurora|/Game/ParagonAurora/Characters/Heroes/Aurora/Aurora_AnimBlueprint.Aurora_AnimBlueprint_C|/Game/ParagonAurora/Characters/Heroes/Aurora/Animations/Primary_Attack_A_Montage.Primary_Attack_A_Montage|/Game/ParagonAurora/Characters/Heroes/Aurora/Animations/Death.Death|/Game/ParagonAurora/Audio/Cues/|Aurora|||
-; LENA, SOFIA (personnages de MERIDJA, Mixamo) : pas d'Animation Blueprint, des animations simples choisies selon la vitesse.
+; LENA, SOFIA, LUCIA (personnages de MERIDJA, Mixamo) : pas d'Animation Blueprint, des animations simples choisies selon la vitesse.
 ;   Heros=Lena|Anims:repos;marche;course;vol;accroupi;chute|montage|mort|||||eclair|taille|rotation
 ;   chemin@0 = image figee au debut de l'animation. taille : 1 = taille du modele (reglee par Tools\Personnages\creer_personnages.py).
 ;   rotation : 180 si LENA marche a reculons, 90 ou -90 si elle marche de cote (puis console : Chelles.Wraith Relire).
 Heros=Lena|Anims:/Game/Personnages/LENA/Joueur/Anims/A_Lena_Accroupi_Anim.A_Lena_Accroupi_Anim@0;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Marche_Anim.A_Lena_Marche_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Course_Anim.A_Lena_Course_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Vol_Anim.A_Lena_Vol_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Accroupi_Anim.A_Lena_Accroupi_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Accroupi_Anim.A_Lena_Accroupi_Anim@0||/Game/Personnages/LENA/Joueur/Anims/A_Lena_Accroupi_Anim.A_Lena_Accroupi_Anim||||||0.921|0
 Heros=Sofia|Anims:/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Accroupi_Anim.A_Sofia_Accroupi_Anim@0;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Marche_Anim.A_Sofia_Marche_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Course_Anim.A_Sofia_Course_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Vol_Anim.A_Sofia_Vol_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Accroupi_Anim.A_Sofia_Accroupi_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Saut_Anim.A_Sofia_Saut_Anim||/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Accroupi_Anim.A_Sofia_Accroupi_Anim||||||1|0
+Heros=Lucia|Anims:/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Accroupi_Anim.A_Lucia_Accroupi_Anim@0;/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Marche_Anim.A_Lucia_Marche_Anim;/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Course_Anim.A_Lucia_Course_Anim;/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Vol_Anim.A_Lucia_Vol_Anim;/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Accroupi_Anim.A_Lucia_Accroupi_Anim;/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Saut_Anim.A_Lucia_Saut_Anim||/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Accroupi_Anim.A_Lucia_Accroupi_Anim||||||1|0
 Heros=Boris|/Game/ParagonBoris/Characters/Heroes/Boris/Boris_AnimBlueprint.Boris_AnimBlueprint_C|/Game/ParagonBoris/Characters/Heroes/Boris/Animations/Primary_A_Montage.Primary_A_Montage|/Game/ParagonBoris/Characters/Heroes/Boris/Animations/Death.Death|/Game/ParagonBoris/Audio/Cues/|Boris|||
 
 ; ---------------------------------------------------------------------
@@ -33,7 +34,7 @@ Heros=Boris|/Game/ParagonBoris/Characters/Heroes/Boris/Boris_AnimBlueprint.Boris
 ;   - corps : le modele du pack ("Soldat" = garder le soldat d'origine)
 ;   - recolorer : vide = couleurs du pack, sinon R,G,B (0 a 1) = nouvelle teinte
 ;   - assombrir : 1 = rien, 0.2 = les parties grises/blanches deviennent presque noires
-;   - heros : Wraith, Dekker, SciFi, Aurora, Boris, Lena ou Sofia (ses animations, sa voix, son arme)
+;   - heros : Wraith, Dekker, SciFi, Aurora, Boris, Lena, Sofia ou Lucia (ses animations, sa voix, son arme)
 ;   - tenue : facultatif, materiau pose sur tout le corps (couleurs du Sci-Fi Soldier)
 ; ---------------------------------------------------------------------
 Skin=WRAITH VERT MILITAIRE|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/ODGreen/Meshes/Wraith_ODGreen.Wraith_ODGreen||1|0.10,0.13,0.07|Wraith
@@ -58,6 +59,7 @@ Skin=AURORA PRINTEMPS|/Game/ParagonAurora/Characters/Heroes/Aurora/Skins/SpringC
 Skin=BORIS|/Game/ParagonBoris/Characters/Heroes/Boris/Meshes/Boris.Boris||1|0.25,0.17,0.10|Boris
 Skin=LENA|/Game/Personnages/LENA/Joueur/SK_Lena.SK_Lena||1||Lena
 Skin=SOFIA|/Game/Personnages/SOFIA/Joueur/SK_Sofia.SK_Sofia||1||Sofia
+Skin=LUCIA|/Game/Personnages/LUCIA/Joueur/SK_Lucia.SK_Lucia||1||Lucia
 Skin=SOLDAT D'ORIGINE|Soldat||1||
 
 ; ---------------------------------------------------------------------

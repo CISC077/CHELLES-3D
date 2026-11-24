@@ -33,10 +33,11 @@ namespace ChellesHabillage
 		/** PANTERA (2026-11-11) : comme Spider-Male on ne touche pas au soldat ; au lancement la roue TAB passe en PANTERA. */
 		Pantera = 3,
 		/** Personnages crees par MERIDJA (2026-11-24) : on ne touche pas au soldat, le plugin ChellesWraith
-		 *  pose le personnage sur lui (GameUserSettings [ChellesWraith] Demande=LENA / SOFIA).
+		 *  pose le personnage sur lui (GameUserSettings [ChellesWraith] Demande=LENA / SOFIA / LUCIA).
 		 *  Pour en ajouter un : une valeur ici + une ligne dans PersosWraith (HabillageChelles.cpp). */
 		Lena = 4,
-		Sofia = 5
+		Sofia = 5,
+		Lucia = 6
 	};
 
 	/** Nom du personnage pose par ChellesWraith pour ce choix (LENA, SOFIA...), nullptr pour les autres choix. */
