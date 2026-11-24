@@ -37,7 +37,9 @@ for %%P in (ChellesInventaire ChellesTourelle) do (
 
 echo.
 echo ===== ETAPE 2/2 : squelettes repares a chaque ouverture (2 a 10 minutes) =====
-"%UE%\Engine\Binaries\Win64\UE4Editor-Cmd.exe" "%PROJET%\FPS_Chelles.uproject" -run=pythonscript -script="%PROJET%\Tools\Optimisation\resauver_assets_lents.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -unattended -nosplash -stdout > "%PROJET%\Tools\out\optimisation_unreal.log" 2>&1
+rem Unreal lit mal un chemin avec des espaces : copie du script dans un dossier sans espace
+copy /y "%PROJET%\Tools\Optimisation\resauver_assets_lents.py" "%TEMP%\chelles_resauver.py" >nul
+"%UE%\Engine\Binaries\Win64\UE4Editor-Cmd.exe" "%PROJET%\FPS_Chelles.uproject" -run=pythonscript -script="%TEMP%\chelles_resauver.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -unattended -nosplash -stdout > "%PROJET%\Tools\out\optimisation_unreal.log" 2>&1
 findstr /L /C:"[Optim]" "%PROJET%\Tools\out\optimisation_unreal.log"
 
 echo.
