@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Touches F1-F12",
+	"Description": "Touches F1 a F12 : choisir un mode de la roue (Soldat, Spider-Male, POLICE...) avec un menu deroulant en haut de l ecran. Donnees dans le Data Table DT_Raccourcis (une ligne par touche). Reglages dans Raccourcis.txt.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesRaccourcis",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

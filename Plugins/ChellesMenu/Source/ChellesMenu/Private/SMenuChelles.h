@@ -97,11 +97,14 @@ public:
 		: _TaillePolice(56)
 		, _Actif(true)
 		, _Onglet(false)
+		, _LargeurNom(0.f)
 		{}
 		SLATE_ATTRIBUTE(FText, Texte)
 		SLATE_ARGUMENT(int32, TaillePolice)
 		SLATE_ARGUMENT(bool, Actif)
 		SLATE_ARGUMENT(bool, Onglet)
+		/** Largeur de la colonne du nom pour "NOM   < VALEUR >" (0 = 14 x taille de police). */
+		SLATE_ARGUMENT(float, LargeurNom)
 		SLATE_EVENT(FSimpleDelegate, OnClic)
 		SLATE_EVENT(FSimpleDelegate, OnClicDroit)
 	SLATE_END_ARGS()
@@ -186,6 +189,8 @@ private:
 	void Deplacer(int32 Sens);
 	TSharedRef<SBoutonMenu> Enregistrer(TSharedRef<SBoutonMenu> Nouveau);
 	AMenuChelles* LeMenu() const;
+	/** Menu ouvert en jeu par Echap (bouton REPRENDRE). */
+	bool EnPause() const;
 
 	TWeakObjectPtr<AMenuChelles> Menu;
 	EEcranMenu Ecran = EEcranMenu::Principal;
