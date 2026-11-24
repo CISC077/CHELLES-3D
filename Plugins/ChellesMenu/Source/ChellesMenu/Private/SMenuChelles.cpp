@@ -2430,7 +2430,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	if (TenueChoisie.EstPersoWraith())
 	{
 		NomGrand = ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe);
-		Description = TEXT("Toutes les armes du soldat (TAB = roue, I = ARMEMENTS) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir. K = apparence suivante.");
+		Description = TEXT("Toutes les armes du soldat (TAB = roue, I = ARMEMENTS) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir. Alt + D = danser (bouger pour arr\u00EAter). K = apparence suivante.");
 	}
 	else if (TenueChoisie.EstPantera())
 	{
