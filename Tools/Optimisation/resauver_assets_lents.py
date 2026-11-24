@@ -12,7 +12,7 @@ CONTENT = os.path.join(PROJET, "Content")
 SAUVE = os.path.join(PROJET, "_Sauvegardes", "avant_optim_2026-11-24")
 
 def log(t):
-    unreal.log("[Optim] " + t)
+    unreal.log_warning("[Optim] " + t)  # Warning : visible dans la fenetre du .bat
 
 def trouver_assets():
     vus = set()
