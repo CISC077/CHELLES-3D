@@ -57,6 +57,7 @@ struct FHerosWraith
 	FAnimSimpleWraith Anims[(int32)EEtatAnimWraith::Nombre];
 	float Taille = 1.f;             // taille du corps de ce heros (1 = celle du modele)
 	float Lacet = 0.f;              // rotation du corps (degres) si le modele regarde de cote
+	TArray<UAnimSequenceBase*> Danses; // ligne Danses=Nom|anim;anim... : jouees a la suite (touche des danses)
 	UAnimMontage* MontageTir = nullptr;
 	UAnimSequenceBase* AnimMort = nullptr;
 	UParticleSystem* EffetBouche = nullptr;
@@ -133,6 +134,10 @@ struct FSoldatWraith
 	// Animations simples (LENA)
 	TWeakObjectPtr<UAnimSequenceBase> AnimJouee;
 	int32 EtatAnim = -1;
+	bool bDanse = false;            // en train de danser
+	int32 DanseIndex = 0;
+	float DanseDebut = 0.f;
+	float DanseFin = 0.f;           // fin de la danse en cours (temps du jeu)
 
 	// Voix / effets
 	bool bEnLair = false;
@@ -200,6 +205,20 @@ private:
 	/** Corps d'origine du soldat : SK_Mannequin, ou SK_SpiderMan_UE4 (le soldat du jeu, BP_Character_SpiderMan). */
 	static bool EstCorpsDeSoldat(const USkeletalMesh* Corps);
 	void AnimerSimple(FSoldatWraith& S);
+	bool AnimerDanse(FSoldatWraith& S, const FHerosWraith& H, float Vitesse, bool bEnLair);
+
+	// ---- Danses (LENA, SOFIA, LUCIA...) ----
+	FKey ToucheDanse;
+	bool bDanseAlt = false;
+	bool bDanseCtrl = false;
+	bool bDanseShift = false;
+	bool bDanseArretSeulement = false;
+	bool bDanseLocale = false;
+	TMap<FString, TArray<FString>> DansesLues;    // Danses=Nom|... (relie aux heros a la fin de LireReglages)
+	bool DanseDe(ACharacter* C) const;
+	void Danser(bool bDanser, bool bAnnoncer);
+	bool ToucheDanseAppuyee(APlayerController* PC) const;
+	FString NomToucheDanse() const;
 	FTransform PlacementCorps(const FHerosWraith& H) const;
 	void Chercher();
 	void Suivre(FSoldatWraith& S, float Dt);

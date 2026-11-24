@@ -40,4 +40,11 @@ public:
 	/** Numero de la tenue du heros joue (ligne Tenue= de Wraith.txt, -1 = tenue d'origine). */
 	UPROPERTY(Replicated)
 	int32 Tenue = -1;
+
+	/** LENA, SOFIA, LUCIA... : le joueur danse (touche des danses) ; les autres joueurs la voient danser. */
+	UFUNCTION(Server, Reliable)
+	void ServeurDanse(bool bDanser);
+
+	UPROPERTY(Replicated)
+	bool bDanse = false;
 };

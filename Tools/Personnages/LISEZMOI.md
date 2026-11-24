@@ -25,3 +25,10 @@ Toutes les armes du soldat (TAB) et tous les pouvoirs (ESPACE en l'air = vol, X 
 
 - Avant-derniere valeur = **taille** (reglee par le script). Derniere = **rotation** : `180` si elle marche a reculons.
 - En jeu : touche ² puis `Chelles.Wraith Relire` apres une modification, ou `Chelles.Wraith Skin SOFIA`.
+
+## Danses
+
+**Alt + D** : LENA, SOFIA ou LUCIA enchainent leurs danses (bouger pour arreter, W pour changer de camera et la voir).
+LENA : hip-hop, rumba, twist, uprock, flair, twerk. SOFIA : rumba, northern soul, flair. LUCIA : hip-hop.
+Pour en ajouter : animation Mixamo dans `Bureau\<NOM> 3D\Animations`, une ligne dans `creer_personnages.py`
+et son chemin dans la ligne `Danses=` de `Plugins\ChellesWraith\Wraith.txt`.

@@ -228,6 +228,8 @@ AWraithChelles::AWraithChelles()
 	PrimaryActorTick.TickGroup = TG_PostPhysics;
 	SetActorHiddenInGame(true);
 	Touche = EKeys::K;
+	ToucheDanse = EKeys::D; // Alt+D (D seul = aller a droite, Y = pouvoirs)
+	bDanseAlt = true;
 }
 
 void AWraithChelles::BeginPlay()
@@ -334,6 +336,11 @@ void AWraithChelles::LireReglages()
 	Skins.Reset();
 	Heros.Reset();
 	Gardes.Reset();
+	DansesLues.Reset();
+	ToucheDanse = EKeys::D;
+	bDanseAlt = true;
+	bDanseCtrl = bDanseShift = false;
+	bDanseArretSeulement = false;
 
 	TArray<FString> Lignes;
 	if (!FFileHelper::LoadFileToStringArray(Lignes, *CheminReglages()))
@@ -379,6 +386,37 @@ void AWraithChelles::LireReglages()
 		{
 			const FKey K(*Valeur);
 			Touche = K.IsValid() ? K : EKeys::K;
+		}
+		else if (Cle.Equals(TEXT("ToucheDanse"), ESearchCase::IgnoreCase))
+		{
+			// Alt+D, T, Ctrl+D, Shift+D...
+			TArray<FString> Morceaux;
+			Valeur.ParseIntoArray(Morceaux, TEXT("+"), true);
+			bDanseAlt = bDanseCtrl = bDanseShift = false;
+			for (int32 i = 0; i + 1 < Morceaux.Num(); ++i)
+			{
+				const FString M = Morceaux[i].TrimStartAndEnd();
+				bDanseAlt |= M.Equals(TEXT("Alt"), ESearchCase::IgnoreCase);
+				bDanseCtrl |= M.Equals(TEXT("Ctrl"), ESearchCase::IgnoreCase);
+				bDanseShift |= M.Equals(TEXT("Shift"), ESearchCase::IgnoreCase) || M.Equals(TEXT("Maj"), ESearchCase::IgnoreCase);
+			}
+			const FKey K(Morceaux.Num() > 0 ? *Morceaux.Last().TrimStartAndEnd() : TEXT("D"));
+			ToucheDanse = K.IsValid() ? K : EKeys::D;
+		}
+		else if (Cle.Equals(TEXT("DanseArretSeulement"), ESearchCase::IgnoreCase))
+		{
+			bDanseArretSeulement = EstOui(Valeur); // la touche ne lance la danse que si on est immobile au sol
+		}
+		else if (Cle.Equals(TEXT("Danses"), ESearchCase::IgnoreCase))
+		{
+			// Danses=Nom du heros|anim;anim;anim
+			FString Nom, Liste;
+			if (Valeur.Split(TEXT("|"), &Nom, &Liste))
+			{
+				TArray<FString> Chemins;
+				Liste.ParseIntoArray(Chemins, TEXT(";"), true);
+				DansesLues.FindOrAdd(Nom.TrimStartAndEnd()).Append(Chemins);
+			}
 		}
 		else if (Cle.Equals(TEXT("Heros"), ESearchCase::IgnoreCase))
 		{
@@ -575,6 +613,29 @@ void AWraithChelles::LireReglages()
 		}
 	}
 
+	// Danses de chaque heros (LENA, SOFIA, LUCIA...)
+	for (FHerosWraith& H : Heros)
+	{
+		H.Danses.Reset();
+		if (const TArray<FString>* Liste = DansesLues.Find(H.Nom))
+		{
+			for (const FString& Chemin : *Liste)
+			{
+				UAnimSequenceBase* A = LoadObject<UAnimSequenceBase>(nullptr, *Chemin.TrimStartAndEnd());
+				if (A)
+				{
+					H.Danses.Add(A);
+					Gardes.Add(A);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : danse introuvable (%s)."), *H.Nom, *Chemin);
+				}
+			}
+			UE_LOG(LogTemp, Log, TEXT("[Wraith] %s : %d danses (touche %s)."), *H.Nom, H.Danses.Num(), *NomToucheDanse());
+		}
+	}
+
 	// Chaque skin retrouve son heros (Wraith par defaut)
 	for (FSkinWraith& Skin : Skins)
 	{
@@ -661,6 +722,26 @@ void AWraithChelles::Tick(float DeltaSeconds)
 
 	// Touche K : skin suivant (seulement quand on joue le soldat, hors menus)
 	APlayerController* PC = GetPC();
+
+	// Touche des danses (Alt+D) : LENA, SOFIA, LUCIA... dansent a la suite jusqu'a ce qu'on bouge
+	if (bActif && PC && !PC->bShowMouseCursor && !W->IsPaused() && ToucheDanseAppuyee(PC))
+	{
+		ACharacter* Moi = Cast<ACharacter>(PC->GetPawn());
+		const FSkinWraith* SkinMoi = Skins.IsValidIndex(SkinLocal) ? &Skins[SkinLocal] : nullptr;
+		const FHerosWraith* HerosMoi = (SkinMoi && !SkinMoi->bSoldat && Heros.IsValidIndex(SkinMoi->Heros)) ? &Heros[SkinMoi->Heros] : nullptr;
+		const bool bImmobile = Moi && Moi->GetVelocity().Size2D() < 15.f && Moi->GetCharacterMovement() && Moi->GetCharacterMovement()->IsMovingOnGround();
+		if (EstSoldat(Moi) && HerosMoi && HerosMoi->bAnimsSimples && (!bDanseArretSeulement || bImmobile || bDanseLocale))
+		{
+			if (HerosMoi->Danses.Num() > 0)
+			{
+				Danser(!bDanseLocale, true);
+			}
+			else
+			{
+				Annonce(FString::Printf(TEXT("%s n'a pas encore de danse (ligne Danses= de Wraith.txt)."), *SkinMoi->Nom));
+			}
+		}
+	}
 	if (bActif && PC && !PC->bShowMouseCursor && !W->IsPaused() && PC->WasInputKeyJustPressed(Touche))
 	{
 		ACharacter* Moi = Cast<ACharacter>(PC->GetPawn());
@@ -1365,6 +1446,7 @@ void AWraithChelles::ChangerSkin(int32 Nouveau, bool bAnnoncer)
 		return;
 	}
 	SkinLocal = ((Nouveau % N) + N) % N;
+	Danser(false, false);
 	if (GConfig)
 	{
 		GConfig->SetInt(Section, TEXT("Skin"), SkinLocal, GGameUserSettingsIni);
@@ -2028,6 +2110,11 @@ void AWraithChelles::AnimerSimple(FSoldatWraith& S)
 	}
 	const UCharacterMovementComponent* Mouvement = C->GetCharacterMovement();
 	const float Vitesse = C->GetVelocity().Size2D();
+	const bool bEnLair = Mouvement && (Mouvement->IsFlying() || Mouvement->IsFalling());
+	if (AnimerDanse(S, *H, Vitesse, bEnLair))
+	{
+		return;
+	}
 	EEtatAnimWraith Etat = EEtatAnimWraith::Repos;
 	if (Mouvement && Mouvement->IsFlying())
 	{
@@ -2104,6 +2191,124 @@ void AWraithChelles::AnimerSimple(FSoldatWraith& S)
 			Corps->SetPlayRate(Vitesse_);
 		}
 	}
+}
+
+bool AWraithChelles::ToucheDanseAppuyee(APlayerController* PC) const
+{
+	if (!PC || !ToucheDanse.IsValid() || !PC->WasInputKeyJustPressed(ToucheDanse))
+	{
+		return false;
+	}
+	auto Bas = [PC](const FKey& G, const FKey& D) { return PC->IsInputKeyDown(G) || PC->IsInputKeyDown(D); };
+	return (!bDanseAlt || Bas(EKeys::LeftAlt, EKeys::RightAlt))
+		&& (!bDanseCtrl || Bas(EKeys::LeftControl, EKeys::RightControl))
+		&& (!bDanseShift || Bas(EKeys::LeftShift, EKeys::RightShift));
+}
+
+FString AWraithChelles::NomToucheDanse() const
+{
+	FString Nom;
+	if (bDanseCtrl) Nom += TEXT("Ctrl+");
+	if (bDanseAlt) Nom += TEXT("Alt+");
+	if (bDanseShift) Nom += TEXT("Shift+");
+	return Nom + ToucheDanse.GetDisplayName().ToString();
+}
+
+bool AWraithChelles::DanseDe(ACharacter* C) const
+{
+	UWorld* W = GetWorld();
+	if (!C || !W)
+	{
+		return false;
+	}
+	if (C->IsLocallyControlled() || W->GetNetMode() == NM_Standalone)
+	{
+		return bDanseLocale;
+	}
+	APlayerState* PS = C->GetPlayerState();
+	for (TActorIterator<AWraithRelais> It(W); It; ++It)
+	{
+		if (PS && It->Joueur == PS)
+		{
+			return It->bDanse;
+		}
+	}
+	return false;
+}
+
+void AWraithChelles::Danser(bool bDanser, bool bAnnoncer)
+{
+	if (bDanseLocale == bDanser)
+	{
+		return;
+	}
+	bDanseLocale = bDanser;
+	if (AWraithRelais* R = MonRelais())
+	{
+		R->ServeurDanse(bDanser);
+	}
+	if (bAnnoncer)
+	{
+		Annonce(bDanser
+			? FString::Printf(TEXT("DANSE !   (%s ou bouger = arreter, W = camera pour la voir)"), *NomToucheDanse())
+			: FString(TEXT("Fin de la danse.")));
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Wraith] Danse : %s"), bDanser ? TEXT("oui") : TEXT("non"));
+}
+
+bool AWraithChelles::AnimerDanse(FSoldatWraith& S, const FHerosWraith& H, float Vitesse, bool bEnLair)
+{
+	ACharacter* C = S.Soldat.Get();
+	USkeletalMeshComponent* Corps = S.Corps.Get();
+	UWorld* W = GetWorld();
+	const bool bVeut = C && Corps && W && H.Danses.Num() > 0 && DanseDe(C);
+	if (!bVeut)
+	{
+		if (S.bDanse)
+		{
+			S.bDanse = false;
+			S.AnimJouee.Reset();
+			S.EtatAnim = -1; // reprend marche / repos
+		}
+		return false;
+	}
+	const float Maintenant = W->GetTimeSeconds();
+	if (!S.bDanse)
+	{
+		S.bDanse = true;
+		S.DanseIndex = 0;
+		S.DanseDebut = Maintenant;
+		S.DanseFin = 0.f;
+	}
+	// Le joueur bouge, saute ou s'envole : fin de la danse (0,7 s de marge au debut : l'appui sur D fait faire un petit pas)
+	if (C->IsLocallyControlled() && Maintenant - S.DanseDebut > 0.7f && (Vitesse > 40.f || bEnLair))
+	{
+		Danser(false, false);
+		S.bDanse = false;
+		S.AnimJouee.Reset();
+		S.EtatAnim = -1;
+		return false;
+	}
+	if (Corps->GetAnimationMode() != EAnimationMode::AnimationSingleNode)
+	{
+		Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+		S.DanseFin = 0.f;
+	}
+	// Danse suivante quand la precedente est finie (toutes a la suite, puis on recommence)
+	if (Maintenant >= S.DanseFin)
+	{
+		if (S.DanseFin > 0.f)
+		{
+			S.DanseIndex = (S.DanseIndex + 1) % H.Danses.Num();
+		}
+		UAnimSequenceBase* A = H.Danses[S.DanseIndex];
+		Corps->SetPlayRate(1.f);
+		Corps->PlayAnimation(A, false);
+		S.AnimJouee = A;
+		S.EtatAnim = 100 + S.DanseIndex;
+		S.DanseFin = Maintenant + FMath::Max(0.5f, A->GetPlayLength());
+	}
+	return true;
 }
 
 int32 AWraithChelles::SkinParNom(const FString& Nom) const

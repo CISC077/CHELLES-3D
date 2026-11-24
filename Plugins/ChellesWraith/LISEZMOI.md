@@ -104,3 +104,11 @@ Journal : lignes `[Wraith]` dans `Saved\Logs\FPS_Chelles.log`.
 ## LUCIA (24/11/2026)
 
 - Meme principe : `Heros=Lucia` + `Skin=LUCIA`, bouton LUCIA dans HABILLAGE, fichiers Mixamo dans `Bureau\LUCIA 3D\Animations`.
+
+## DANSES (24/11/2026)
+
+- `ToucheDanse=Alt+D` (D seul = aller a droite en ZQSD, Y = changer de pouvoir). Modificateurs Alt+, Ctrl+, Shift+.
+- `Danses=Lena|anim;anim...` : jouees a la suite en boucle ; bouger (apres 0,7 s), sauter ou voler arrete la danse.
+- `DanseArretSeulement=Oui` : la touche ne marche qu'immobile au sol.
+- Multijoueur : AWraithRelais::bDanse (RPC ServeurDanse), les autres joueurs voient la danse.
+- En 1re personne on ne voit pas son corps : W = camera pour la voir.

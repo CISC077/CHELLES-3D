@@ -36,6 +36,9 @@ PERSONNAGES = [
             ("Hip Hop Dancing.fbx", "Danse"),
             ("Rumba Dancing.fbx", "Rumba"),
             ("Twist Dance.fbx", "Twist"),
+            ("Brooklyn Uprock.fbx", "Uprock"),
+            ("Flair.fbx", "Flair"),
+            ("Dancing Twerk.fbx", "Twerk"),
         ],
     },
     {
@@ -50,6 +53,8 @@ PERSONNAGES = [
             ("Crouching.fbx", "Accroupi"),
             ("Jump2.fbx", "Saut"),
             ("Rumba Dancing.fbx", "Danse"),
+            ("Northern Soul Floor Combo.fbx", "Soul"),
+            ("Flair.fbx", "Flair"),
         ],
     },
     {
