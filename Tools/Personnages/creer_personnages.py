@@ -231,8 +231,60 @@ def creer(p):
     return "%s : pret(e), %d animations" % (nom.upper(), faites)
 
 
+# Doublons de l'import fait a la main de LUCIA (24/11) : un corps de 129 Mo + squelette + physique par animation,
+# inutilisables (chacun son squelette). Supprimes seulement quand LUCIA est prete (SK_Lucia + ses animations),
+# et seulement s'ils ne sont utilises nulle part ailleurs (carte Rachid, blueprint...). Accord de MERIDJA le 24/11.
+DOUBLONS = {
+    "LUCIA": ["Walking", "Crouching", "Fast_Run", "Flying", "Flying_1_", "Flying_Kick",
+              "Hip_Hop_Dancing", "Jump", "T-Pose", "lod_basic_shaded"],
+}
+SUFFIXES = ["", "_Anim", "_Skeleton", "_PhysicsAsset"]
+
+
+def nettoyer_doublons(dossier, noms, nom_perso):
+    base = "/Game/Personnages/" + dossier
+    if not EAL.does_asset_exist("%s/Joueur/SK_%s" % (base, nom_perso)) or \
+            not EAL.does_asset_exist("%s/Joueur/Anims/A_%s_Marche_Anim" % (base, nom_perso)):
+        dire("%s pas encore prete : doublons gardes." % nom_perso)
+        return ""
+    candidats = []
+    for n in noms:
+        for suf in SUFFIXES:
+            chemin = "%s/%s%s" % (base, n, suf)
+            if EAL.does_asset_exist(chemin):
+                candidats.append(chemin)
+    paquets = set(candidats)
+    gardes, supprimes = [], 0
+    for chemin in candidats:
+        try:
+            refs = EAL.find_package_referencers_for_asset(chemin, False) or []
+        except Exception:
+            refs = []
+        autres = [r for r in refs if r.split(".")[0] not in paquets]
+        if autres:
+            gardes.append("%s (utilise par %s)" % (chemin, autres[0]))
+    if gardes:
+        # Un doublon sert ailleurs : on ne supprime rien (ils dependent les uns des autres)
+        for g in gardes:
+            unreal.log_warning("[Personnages] Utilise ailleurs : " + g)
+        texte = "%s : doublons gardes, %d sont utilises ailleurs (voir Output Log)" % (dossier, len(gardes))
+        dire(texte)
+        return texte
+    for chemin in candidats:
+        if EAL.does_asset_exist(chemin) and EAL.delete_asset(chemin):
+            supprimes += 1
+    texte = "%s : %d doublons supprimes (environ 1,3 Go)" % (dossier, supprimes)
+    dire(texte)
+    return texte
+
+
 for perso in PERSONNAGES:
     resultats.append(creer(perso))
+for perso in PERSONNAGES:
+    if perso["dossier"] in DOUBLONS:
+        t = nettoyer_doublons(perso["dossier"], DOUBLONS[perso["dossier"]], perso["nom"])
+        if t:
+            resultats.append(t)
 EAL.save_directory("/Game/Personnages", only_if_is_dirty=True, recursive=True)
 
 texte = "\n".join(resultats)
