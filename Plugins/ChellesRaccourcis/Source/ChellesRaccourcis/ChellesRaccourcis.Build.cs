@@ -14,6 +14,7 @@ public class ChellesRaccourcis : ModuleRules
 			"InputCore", // EKeys / FKey (touches F1 a F12)
 			"Slate",
 			"SlateCore", // petit message a l'ecran
+			"ApplicationCore", // F11 plein ecran (pre-processeur de touches)
 			"UMG"        // menu ARMEMENTS : fermer l'ancien menu d'inventaire du kit FPS (UUserWidget)
 		});
 	}

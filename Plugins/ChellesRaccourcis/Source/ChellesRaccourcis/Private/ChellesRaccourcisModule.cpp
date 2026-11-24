@@ -1,4 +1,4 @@
-// CHELLES 3D - Module du plugin Touches F1-F12 (modes) + roue des armes TAB + menu ARMEMENTS (I) : les ajoute au lancement du jeu.
+// CHELLES 3D - Module du plugin Touches F1-F12 (modes) + F11 plein ecran + roue des armes TAB + menu ARMEMENTS (I) : les ajoute au lancement du jeu.
 #include "CoreMinimal.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -7,6 +7,13 @@
 #include "RaccourcisF.h"
 #include "RoueArmes.h"
 #include "MenuArmements.h"
+
+// PleinEcranChelles.cpp : F11 / Alt + Entree = plein ecran <-> fenetre
+namespace ChellesPleinEcran
+{
+	void Demarrer();
+	void Arreter();
+}
 
 namespace
 {
@@ -82,6 +89,7 @@ public:
 	virtual void ShutdownModule() override
 	{
 		FWorldDelegates::OnWorldInitializedActors.Remove(Abonnement);
+		ChellesPleinEcran::Arreter();
 	}
 
 private:
@@ -92,6 +100,7 @@ private:
 		{
 			return; // les touches n'existent que sur la machine d'un joueur
 		}
+		ChellesPleinEcran::Demarrer(); // une seule fois (F11 = plein ecran, meme menus ouverts)
 		FActorSpawnParameters Params;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		if (!TActorIterator<ARaccourcisF>(Monde))
