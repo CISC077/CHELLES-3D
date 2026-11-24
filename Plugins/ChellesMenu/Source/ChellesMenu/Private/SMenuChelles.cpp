@@ -2209,9 +2209,9 @@ public:
 		if (!Titre.IsEmpty())
 		{
 			const FString Initiale = Titre.Left(1);
-			const FSlateFontInfo PI = LobPolice(FMath::RoundToInt(L.Y * 0.62f));
-			const FVector2D TI = LobMesure(Initiale, PI);
-			LobTexte(Sortie, Couche + 3, G, FVector2D(L.X - TI.X - 8.f, (L.Y - TI.Y) * 0.35f), Initiale, PI, FLinearColor(1.f, 1.f, 1.f, 0.16f), false);
+			const FSlateFontInfo PoliceInitiale = LobPolice(FMath::RoundToInt(L.Y * 0.62f));
+			const FVector2D TI = LobMesure(Initiale, PoliceInitiale);
+			LobTexte(Sortie, Couche + 3, G, FVector2D(L.X - TI.X - 8.f, (L.Y - TI.Y) * 0.35f), Initiale, PoliceInitiale, FLinearColor(1.f, 1.f, 1.f, 0.16f), false);
 		}
 		// Titre : la police retrecit si le nom est long
 		int32 Taille1 = TaillePolice;
