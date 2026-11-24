@@ -6,6 +6,9 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Animation/AnimationAsset.h"
 #include "Engine/DataTable.h"
 #include "Engine/Engine.h"
 #include "Engine/SkeletalMesh.h"
@@ -19,7 +22,11 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/Crc.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Net/UnrealNetwork.h"
 #include "UObject/UnrealType.h"
 
@@ -27,6 +34,152 @@
 namespace HabillageInterne
 {
 	static const TCHAR* SectionIni = TEXT("ChellesHabillage");
+	// PANTERA (2026-11-11) : corps cree par Tools\Pantera\creer_pantera.py
+	static const TCHAR* CheminPantera = TEXT("/Game/Personnages/SK_Pantera/SK_Pantera_Vol.SK_Pantera_Vol");
+	static const TCHAR* YeuxBlancs = TEXT("/Game/Personnages/SK_Pantera/M_Pantera_Yeux.M_Pantera_Yeux");
+	static const TCHAR* CheminSpiderMale = TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Vol.SK_SpiderMan_Vol");
+	static const TCHAR* AttentePantera = TEXT("/Game/SuperheroFlight/Characters/Mannequin/Animations/ThirdPerson_Idle.ThirdPerson_Idle");
+	// Personnages de MERIDJA (2026-11-24) : corps et animations crees par Tools\Personnages\creer_personnages.py
+	//  /Game/Personnages/<DOSSIER>/Joueur/SK_<Prefixe>  et  .../Joueur/Anims/A_<Prefixe>_<Danse|Marche>_Anim
+	struct FPersoWraithInfo
+	{
+		int32 Sexe;
+		const TCHAR* Nom;      // nom du skin dans Wraith.txt (Skin=LENA)
+		const TCHAR* Dossier;  // dossier sous /Game/Personnages
+		const TCHAR* Prefixe;  // SK_<Prefixe>, A_<Prefixe>_...
+	};
+	static const FPersoWraithInfo PersosWraithInfos[] =
+	{
+		{ ChellesHabillage::Lena,  TEXT("LENA"),  TEXT("LENA"),  TEXT("Lena") },
+		{ ChellesHabillage::Sofia, TEXT("SOFIA"), TEXT("SOFIA"), TEXT("Sofia") },
+		{ ChellesHabillage::Lucia, TEXT("LUCIA"), TEXT("LUCIA"), TEXT("Lucia") },
+	};
+	static const FPersoWraithInfo* InfoPerso(int32 Sexe)
+	{
+		for (const FPersoWraithInfo& P : PersosWraithInfos)
+		{
+			if (P.Sexe == Sexe)
+			{
+				return &P;
+			}
+		}
+		return nullptr;
+	}
+	// Heros de la touche K du SOLDAT (2026-11-24) : lus dans Plugins\ChellesWraith\Wraith.txt
+	//  Skin=NOM|corps|couleur|...|couleur carte|Heros|materiau   et   Heros=Heros|AnimBlueprint (ou Soldat)|...
+	// Le choix est enregistre par un numero tire du nom (1000 et plus) : il ne change pas si on ajoute des lignes.
+	struct FHerosSkin
+	{
+		int32 Sexe = 0;
+		FString Nom;
+		FString Corps;
+		FString Materiau;
+		FString Anim;       // classe d'Animation Blueprint, "Soldat", ou vide
+		FLinearColor Couleur = FLinearColor::Black;
+	};
+	static const TArray<FHerosSkin>& HerosSkins()
+	{
+		static TArray<FHerosSkin> Liste;
+		static bool bLu = false;
+		if (bLu)
+		{
+			return Liste;
+		}
+		bLu = true;
+		TArray<FString> Lignes;
+		const FString Fichier = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesWraith"), TEXT("Wraith.txt"));
+		if (!FFileHelper::LoadFileToStringArray(Lignes, *Fichier))
+		{
+			return Liste;
+		}
+		TMap<FString, FString> AnimDuHeros;
+		for (FString L : Lignes)
+		{
+			L.TrimStartAndEndInline();
+			if (L.StartsWith(TEXT("Heros=")))
+			{
+				TArray<FString> M;
+				L.Mid(6).ParseIntoArray(M, TEXT("|"), false);
+				if (M.Num() > 1)
+				{
+					AnimDuHeros.Add(M[0].TrimStartAndEnd(), M[1].TrimStartAndEnd());
+				}
+			}
+		}
+		for (FString L : Lignes)
+		{
+			L.TrimStartAndEndInline();
+			if (!L.StartsWith(TEXT("Skin=")))
+			{
+				continue;
+			}
+			TArray<FString> M;
+			L.Mid(5).ParseIntoArray(M, TEXT("|"), false);
+			if (M.Num() < 2)
+			{
+				continue;
+			}
+			FHerosSkin H;
+			H.Nom = M[0].TrimStartAndEnd();
+			H.Corps = M[1].TrimStartAndEnd();
+			if (H.Nom.IsEmpty() || !H.Corps.StartsWith(TEXT("/Game/")))
+			{
+				continue; // SOLDAT D'ORIGINE
+			}
+			bool bDejaLa = false;
+			for (const FPersoWraithInfo& P : PersosWraithInfos)
+			{
+				bDejaLa |= H.Nom.Equals(P.Nom, ESearchCase::IgnoreCase);
+			}
+			if (bDejaLa)
+			{
+				continue; // LENA, SOFIA, LUCIA ont deja leur carte
+			}
+			if (M.IsValidIndex(4))
+			{
+				TArray<FString> C;
+				M[4].ParseIntoArray(C, TEXT(","));
+				if (C.Num() >= 3)
+				{
+					H.Couleur = FLinearColor(FCString::Atof(*C[0]), FCString::Atof(*C[1]), FCString::Atof(*C[2]));
+				}
+			}
+			if (M.IsValidIndex(5))
+			{
+				if (const FString* A = AnimDuHeros.Find(M[5].TrimStartAndEnd()))
+				{
+					H.Anim = *A;
+				}
+			}
+			if (M.IsValidIndex(6))
+			{
+				H.Materiau = M[6].TrimStartAndEnd();
+			}
+			H.Sexe = 1000 + int32(FCrc::StrCrc32(*H.Nom.ToUpper()) % 1000000u);
+			while (Liste.ContainsByPredicate([&H](const FHerosSkin& X) { return X.Sexe == H.Sexe; }))
+			{
+				++H.Sexe;
+			}
+			Liste.Add(H);
+		}
+		return Liste;
+	}
+	static const FHerosSkin* InfoHeros(int32 Sexe)
+	{
+		if (Sexe < 1000)
+		{
+			return nullptr;
+		}
+		for (const FHerosSkin& H : HerosSkins())
+		{
+			if (H.Sexe == Sexe)
+			{
+				return &H;
+			}
+		}
+		return nullptr;
+	}
+	static void YeuxPantera(USkeletalMeshComponent* Corps, bool bAvecYeux);
 	static const TCHAR* TableTetes = TEXT("/Game/Action_Male_and_Female/Data/Heads/DT_Heads.DT_Heads");
 	static const TCHAR* TablesMannequin[] =
 	{
@@ -653,6 +806,32 @@ namespace ChellesHabillage
 		return Liste;
 	}
 
+	void PrechargerCatalogue()
+	{
+		// 2026-11-12 : le catalogue (tables + tous les vetements qu'elles referencent) mettait ~30 s a
+		// se charger au clic sur JOUER. On le charge en arriere-plan pendant que le menu est affiche.
+		static bool bLance = false;
+		if (bLance)
+		{
+			return;
+		}
+		bLance = true;
+		TArray<const TCHAR*> Chemins;
+		Chemins.Add(TableTetes);
+		for (const TCHAR* Chemin : TablesMannequin)
+		{
+			Chemins.Add(Chemin);
+		}
+		for (const TCHAR* Chemin : Chemins)
+		{
+			const FSoftObjectPath Objet(Chemin);
+			if (Objet.ResolveObject() == nullptr)
+			{
+				LoadPackageAsync(Objet.GetLongPackageName());
+			}
+		}
+	}
+
 	bool PacksPresents()
 	{
 		return Modeles().Num() > 0;
@@ -701,11 +880,49 @@ namespace ChellesHabillage
 		return E.Lignes.Num() > 0 && !E.Lignes[0].IsNone() ? E.Lignes[0].ToString() : FString();
 	}
 
+	const TCHAR* NomPersoWraith(int32 Sexe)
+	{
+		if (const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe))
+		{
+			return P->Nom;
+		}
+		const HabillageInterne::FHerosSkin* H = HabillageInterne::InfoHeros(Sexe);
+		return H ? *H->Nom : nullptr;
+	}
+
+	TArray<int32> PersosWraith()
+	{
+		TArray<int32> Liste;
+		for (const HabillageInterne::FPersoWraithInfo& P : HabillageInterne::PersosWraithInfos)
+		{
+			Liste.Add(P.Sexe);
+		}
+		for (const HabillageInterne::FHerosSkin& H : HabillageInterne::HerosSkins())
+		{
+			Liste.Add(H.Sexe);
+		}
+		return Liste;
+	}
+
+	bool EstPersoCree(int32 Sexe)
+	{
+		return HabillageInterne::InfoPerso(Sexe) != nullptr;
+	}
+
+	FLinearColor CouleurPersoWraith(int32 Sexe)
+	{
+		const HabillageInterne::FHerosSkin* H = HabillageInterne::InfoHeros(Sexe);
+		return H ? H->Couleur : FLinearColor::Black;
+	}
+
 	void Completer(FTenue& Tenue)
 	{
 		if (Tenue.EstSpiderMan())
 		{
-			Tenue.Sexe = SpiderMan;
+			if (Tenue.Sexe != Pantera && !NomPersoWraith(Tenue.Sexe))
+			{
+				Tenue.Sexe = SpiderMan;
+			}
 			return;
 		}
 		const FModele* M = TrouverModele(Tenue.Modele);
@@ -1376,6 +1593,7 @@ void AHabillageChelles::Tick(float Delta)
 	}
 	ProchainEnvoi -= Delta;
 	ProchainControle -= Delta;
+	DemanderPantera(Delta);
 	if (ProchainControle <= 0.f)
 	{
 		ProchainControle = 0.25f;
@@ -1416,6 +1634,10 @@ void AHabillageChelles::Tick(float Delta)
 		for (TActorIterator<APawn> It(Monde); It; ++It)
 		{
 			APawn* Pion = *It;
+			if (Pion->ActorHasTag(FName(TEXT("ChellesSansHabillage"))))
+			{
+				continue; // soldat en costume Spider-Male (roue TAB, ChellesRoue) : pas de tenue par-dessus
+			}
 			const FString* Texte = Pion->GetPlayerState() ? Tenues.Find(Pion->GetPlayerState()) : nullptr;
 			USkeletalMeshComponent* Chef = nullptr;
 			if (EstSoldat(Pion))
@@ -1452,6 +1674,146 @@ void AHabillageChelles::Tick(float Delta)
 		}
 	}
 	Suivre();
+}
+
+// ---------------------------------------------------------------- PANTERA
+
+namespace HabillageInterne
+{
+	/** Yeux blancs du masque, comme dans la roue TAB (ChellesRoue, meme reglage [ChellesRoue] YeuxPantera). */
+	static void YeuxPantera(USkeletalMeshComponent* Corps, bool bAvecYeux)
+	{
+		static const FName Tag(TEXT("ChellesYeuxMasque"));
+		if (!Corps || !Corps->GetOwner())
+		{
+			return;
+		}
+		TArray<USceneComponent*> Anciens;
+		for (USceneComponent* Enfant : Corps->GetAttachChildren())
+		{
+			if (IsValid(Enfant) && Enfant->ComponentHasTag(Tag))
+			{
+				Anciens.Add(Enfant);
+			}
+		}
+		for (USceneComponent* Oeil : Anciens)
+		{
+			Oeil->DestroyComponent();
+		}
+		if (!bAvecYeux || !Corps->SkeletalMesh)
+		{
+			return;
+		}
+		const FReferenceSkeleton& Squelette = Corps->SkeletalMesh->GetRefSkeleton();
+		const int32 Tete = Squelette.FindBoneIndex(TEXT("head"));
+		UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+		if (Tete == INDEX_NONE || !Sphere)
+		{
+			return;
+		}
+		FTransform TeteRepos = FTransform::Identity;
+		for (int32 Os = Tete; Os != INDEX_NONE; Os = Squelette.GetParentIndex(Os))
+		{
+			TeteRepos = TeteRepos * Squelette.GetRefBonePose()[Os];
+		}
+		// Avant, Haut, Ecart, Taille, Inclinaison, Ouverture (cm / degres, repere du corps au repos)
+		float V[6] = { 8.1f, 171.f, 3.6f, 1.f, 15.f, 35.f };
+		FString Texte;
+		if (GConfig && GConfig->GetString(TEXT("ChellesRoue"), TEXT("YeuxPantera"), Texte, GGameUserSettingsIni))
+		{
+			TArray<FString> Morceaux;
+			Texte.ParseIntoArray(Morceaux, TEXT(","), true);
+			for (int32 i = 0; i < Morceaux.Num() && i < 6; ++i)
+			{
+				V[i] = FCString::Atof(*Morceaux[i].TrimStartAndEnd());
+			}
+			V[3] = FMath::Clamp(V[3], 0.2f, 5.f);
+		}
+		UMaterialInterface* Blanc = LoadObject<UMaterialInterface>(nullptr, YeuxBlancs);
+		for (const float Cote : { -1.f, 1.f })
+		{
+			const FTransform OeilRepos(FRotator(Cote * V[4], -Cote * V[5], 0.f), FVector(Cote * V[2], V[0], V[1]), FVector(0.032f, 0.014f, 0.014f) * V[3]);
+			UStaticMeshComponent* Oeil = NewObject<UStaticMeshComponent>(Corps->GetOwner(), NAME_None, RF_Transient);
+			Oeil->ComponentTags.Add(Tag);
+			Oeil->SetStaticMesh(Sphere);
+			if (Blanc)
+			{
+				Oeil->SetMaterial(0, Blanc);
+			}
+			Oeil->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Oeil->SetCastShadow(false);
+			Oeil->SetupAttachment(Corps, TEXT("head"));
+			Oeil->SetRelativeTransform(OeilRepos.GetRelativeTransform(TeteRepos));
+			Oeil->RegisterComponent();
+		}
+	}
+}
+
+void AHabillageChelles::DemanderPantera(float Delta)
+{
+	ProchainPantera -= Delta;
+	if (ProchainPantera > 0.f || GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+	ProchainPantera = 1.f;
+	const bool bVeutPantera = ChellesHabillage::TenueLocale().EstPantera();
+	if (!bVeutPantera && !bPanteraFait)
+	{
+		EssaisPantera = 0;
+		return;
+	}
+	UWorld* Monde = GetWorld();
+	APlayerController* PC = Monde ? Monde->GetFirstPlayerController() : nullptr;
+	if ((bVeutPantera && bPanteraFait) || !PC || !PC->GetPawn() || PC->bShowMouseCursor || EssaisPantera >= 20)
+	{
+		return; // deja fait, ou menu encore ouvert
+	}
+	// La roue TAB (plugin ChellesRoue) : ChoisirModeParNom("PANTERA"), par reflexion (pas de lien entre plugins)
+	AActor* Roue = nullptr;
+	for (TActorIterator<AActor> It(Monde); It; ++It)
+	{
+		if (It->GetClass()->GetName() == TEXT("RoueModes"))
+		{
+			Roue = *It;
+			break;
+		}
+	}
+	UFunction* Fonction = Roue ? Roue->FindFunction(TEXT("ChoisirModeParNom")) : nullptr;
+	if (!Fonction)
+	{
+		return; // roue pas encore posee (ou plugin ChellesRoue pas recompile)
+	}
+	++EssaisPantera;
+	uint8* Parametres = (uint8*)FMemory_Alloca(FMath::Max<int32>(Fonction->ParmsSize, 1));
+	FMemory::Memzero(Parametres, FMath::Max<int32>(Fonction->ParmsSize, 1));
+	for (TFieldIterator<FProperty> It(Fonction); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+	{
+		It->InitializeValue_InContainer(Parametres);
+	}
+	if (FStrProperty* Nom = FindFProperty<FStrProperty>(Fonction, TEXT("NomMode")))
+	{
+		// Un autre choix que PANTERA dans HABILLAGE (SPIDER-MALE...) : on rend le soldat
+		Nom->SetPropertyValue_InContainer(Parametres, bVeutPantera ? FString(TEXT("PANTERA")) : FString(TEXT("Soldat")));
+	}
+	Roue->ProcessEvent(Fonction, Parametres);
+	if (FBoolProperty* Retour = FindFProperty<FBoolProperty>(Fonction, TEXT("ReturnValue")))
+	{
+		const bool bReussi = Retour->GetPropertyValue_InContainer(Parametres);
+		if (bReussi)
+		{
+			bPanteraFait = bVeutPantera; // revenu au soldat : plus rien a faire
+			EssaisPantera = 0;
+		}
+	}
+	for (TFieldIterator<FProperty> It(Fonction); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+	{
+		It->DestroyValue_InContainer(Parametres);
+	}
+	if (bPanteraFait && bVeutPantera)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Habillage] PANTERA choisi dans HABILLAGE : la roue TAB est passee en PANTERA."));
+	}
 }
 
 // ---------------------------------------------------------------- Apercu du menu
@@ -1503,6 +1865,22 @@ AApercuHabillage::AApercuHabillage()
 	Lampe2->SetAttenuationRadius(900.f);
 	Lampe2->SetLightColor(FLinearColor(0.35f, 0.85f, 1.f)); // contre-jour cyan, comme le menu
 	Lampe2->SetCastShadows(false);
+
+	// Decor du lobby : un mur bleu derriere le personnage et un sol (ils ne tournent pas avec lui)
+	Fond = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Fond"));
+	Fond->SetupAttachment(Racine);
+	Fond->SetRelativeLocation(FVector(-230.f, 0.f, 120.f));
+	Fond->SetRelativeScale3D(FVector(0.05f, 8.f, 9.f));
+	Sol = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sol"));
+	Sol->SetupAttachment(Racine);
+	Sol->SetRelativeLocation(FVector(0.f, 0.f, -3.f));
+	Sol->SetRelativeScale3D(FVector(6.f, 8.f, 0.05f));
+	for (UStaticMeshComponent* Decor : { Fond, Sol })
+	{
+		Decor->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Decor->SetCastShadow(false);
+		Decor->SetGenerateOverlapEvents(false);
+	}
 }
 
 void AApercuHabillage::BeginPlay()
@@ -1515,6 +1893,28 @@ void AApercuHabillage::BeginPlay()
 	Camera->TextureTarget = Cible;
 	Camera->ShowOnlyActors.Reset();
 	Camera->ShowOnlyActors.Add(this);
+
+	// Decor bleu du lobby (formes de base du moteur). Si elles manquent, le fond reste sombre comme avant.
+	UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	UMaterialInterface* Matiere = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+	const TPair<UStaticMeshComponent*, FLinearColor> Decors[] = {
+		TPair<UStaticMeshComponent*, FLinearColor>(Fond, FLinearColor(0.03f, 0.16f, 0.55f)),
+		TPair<UStaticMeshComponent*, FLinearColor>(Sol, FLinearColor(0.02f, 0.07f, 0.25f)),
+	};
+	for (const TPair<UStaticMeshComponent*, FLinearColor>& D : Decors)
+	{
+		if (!D.Key || !Cube)
+		{
+			continue;
+		}
+		D.Key->SetStaticMesh(Cube);
+		if (Matiere)
+		{
+			UMaterialInstanceDynamic* Dyn = UMaterialInstanceDynamic::Create(Matiere, this);
+			Dyn->SetVectorParameterValue(TEXT("Color"), D.Value);
+			D.Key->SetMaterial(0, Dyn);
+		}
+	}
 }
 
 void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalMesh* MeshSpiderMan, UClass* AnimSpiderMan)
@@ -1531,6 +1931,100 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 	TArray<ChellesHabillage::FPiece> Pieces;
 	UClass* Anim = nullptr;
 	USkeletalMesh* Squelette = nullptr;
+	HabillageInterne::YeuxPantera(Corps, false);
+	const HabillageInterne::FPersoWraithInfo* Perso = HabillageInterne::InfoPerso(Tenue.Sexe);
+	USkeletalMesh* MeshPerso = Perso ? LoadObject<USkeletalMesh>(nullptr,
+		*FString::Printf(TEXT("/Game/Personnages/%s/Joueur/SK_%s.SK_%s"), Perso->Dossier, Perso->Prefixe, Perso->Prefixe)) : nullptr;
+	if (MeshPerso)
+	{
+		// LENA, SOFIA... : son corps, qui danse dans l'apercu
+		Corps->SetSkeletalMesh(MeshPerso);
+		Corps->EmptyOverrideMaterials();
+		HabillageInterne::RenduCache(Corps, false, true);
+		Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+		static const TCHAR* const AnimsApercu[] = { TEXT("Danse"), TEXT("Marche") };
+		for (const TCHAR* Quoi : AnimsApercu)
+		{
+			const FString Nom = FString::Printf(TEXT("A_%s_%s_Anim"), Perso->Prefixe, Quoi);
+			if (UAnimationAsset* Danse = LoadObject<UAnimationAsset>(nullptr, *FString::Printf(TEXT("/Game/Personnages/%s/Joueur/Anims/%s.%s"), Perso->Dossier, *Nom, *Nom)))
+			{
+				Corps->PlayAnimation(Danse, true);
+				break;
+			}
+		}
+		return;
+	}
+	const HabillageInterne::FHerosSkin* Heros = HabillageInterne::InfoHeros(Tenue.Sexe);
+	USkeletalMesh* MeshHeros = Heros ? LoadObject<USkeletalMesh>(nullptr, *Heros->Corps) : nullptr;
+	if (MeshHeros)
+	{
+		// Heros de la touche K (Wraith, Aurora, Boris...) : son corps, avec son Animation Blueprint (il reste en attente)
+		Corps->SetSkeletalMesh(MeshHeros);
+		Corps->EmptyOverrideMaterials();
+		if (!Heros->Materiau.IsEmpty())
+		{
+			if (UMaterialInterface* Mat = LoadObject<UMaterialInterface>(nullptr, *Heros->Materiau))
+			{
+				for (int32 i = 0; i < Corps->GetNumMaterials(); ++i)
+				{
+					Corps->SetMaterial(i, Mat);
+				}
+			}
+		}
+		HabillageInterne::RenduCache(Corps, false, true);
+		UClass* ClasseAnim = nullptr;
+		if (Heros->Anim.Equals(TEXT("Soldat"), ESearchCase::IgnoreCase))
+		{
+			ClasseAnim = AnimSpiderMan;
+		}
+		else if (Heros->Anim.StartsWith(TEXT("/Game/")))
+		{
+			ClasseAnim = LoadClass<UAnimInstance>(nullptr, *Heros->Anim);
+		}
+		if (ClasseAnim)
+		{
+			Corps->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+			Corps->SetAnimInstanceClass(ClasseAnim);
+		}
+		else
+		{
+			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			if (UAnimationAsset* Attente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+			{
+				Corps->PlayAnimation(Attente, true);
+			}
+		}
+		return;
+	}
+	USkeletalMesh* MeshPantera = Tenue.EstPantera() ? LoadObject<USkeletalMesh>(nullptr, HabillageInterne::CheminPantera) : nullptr;
+	if (MeshPantera)
+	{
+		// PANTERA : son corps noir, debout (animation d'attente du pack SuperheroFlight), avec ses yeux blancs
+		Corps->SetSkeletalMesh(MeshPantera);
+		HabillageInterne::RenduCache(Corps, false, true);
+		Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+		if (UAnimationAsset* Attente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+		{
+			Corps->PlayAnimation(Attente, true);
+		}
+		HabillageInterne::YeuxPantera(Corps, true);
+		return;
+	}
+	if (Tenue.EstSpiderMan() && (!MeshSpiderMan || MeshSpiderMan->GetName().Contains(TEXT("Pantera"))))
+	{
+		// Le joueur est en PANTERA dans la carte : l'apercu SPIDER-MALE montre quand meme Spider-Male (rouge et bleu)
+		if (USkeletalMesh* Spider = LoadObject<USkeletalMesh>(nullptr, HabillageInterne::CheminSpiderMale))
+		{
+			Corps->SetSkeletalMesh(Spider);
+			HabillageInterne::RenduCache(Corps, false, true);
+			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			if (UAnimationAsset* Attente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+			{
+				Corps->PlayAnimation(Attente, true);
+			}
+			return;
+		}
+	}
 	if (!Tenue.EstSpiderMan() && ChellesHabillage::Assembler(Tenue, Pieces, Anim, Squelette) && Squelette)
 	{
 		Corps->SetSkeletalMesh(Squelette);

@@ -19,6 +19,13 @@ void AWraithRelais::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AWraithRelais, Joueur);
 	DOREPLIFETIME(AWraithRelais, Skin);
 	DOREPLIFETIME(AWraithRelais, Tenue);
+	DOREPLIFETIME(AWraithRelais, bDanse);
+}
+
+void AWraithRelais::ServeurDanse_Implementation(bool bDanser)
+{
+	bDanse = bDanser;
+	ForceNetUpdate();
 }
 
 void AWraithRelais::ServeurSkin_Implementation(int32 NouveauSkin)

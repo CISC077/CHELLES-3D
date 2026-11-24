@@ -80,3 +80,35 @@ Bloc-notes, puis relancer le jeu ou console (touche ²) `Chelles.Wraith Relire`.
 - `Chelles.Wraith Params` : écrit les couleurs des matériaux dans `Saved\Logs\FPS_Chelles.log`.
 
 Journal : lignes `[Wraith]` dans `Saved\Logs\FPS_Chelles.log`.
+
+## LENA (24/11/2026)
+
+- Ligne `Heros=Lena|Anims:...` : un heros SANS Animation Blueprint. Le plugin joue lui-meme ses animations Mixamo
+  selon le soldat : repos, marche, course, vol (pouvoir ESPACE), accroupi, chute. `chemin@0` = image figee.
+  Deux valeurs en plus a la fin de la ligne Heros= : taille et rotation (degres).
+- `Skin=LENA` (avant SOLDAT D'ORIGINE). Elle se choisit aussi dans **JOUER > HABILLAGE > LENA** (plugin ChellesMenu,
+  qui ecrit `[ChellesWraith] Demande=LENA` dans GameUserSettings.ini ; ce plugin la lit deux fois par seconde).
+- L'arme 3e personne du soldat est cachee sur LENA (ses mains ne visent pas). En 1re personne : armes du soldat.
+- Le soldat du jeu (BP_Character_SpiderMan, corps SK_SpiderMan_UE4) est maintenant reconnu : avant, seul un corps
+  "Mannequin" l'etait, et aucune apparence ne s'affichait. Sans choix enregistre, on reste en SOLDAT D'ORIGINE.
+  Sur ce soldat en tenue d'origine, K garde son role d'avant (couleurs de la tenue) ; une fois habille (LENA...),
+  K passe a l'apparence suivante.
+- Console : `Chelles.Wraith Skin LENA` (un nom marche aussi, pas seulement un numero).
+
+## SOFIA (24/11/2026)
+
+- Meme principe que LENA : `Heros=Sofia|Anims:...` + `Skin=SOFIA`, bouton SOFIA dans HABILLAGE.
+- Animations nommees `A_<Nom>_<Etat>_Anim` (nom donne par Unreal a l'import). Saut (chute) joue une fois, comme accroupi.
+- Import des personnages : `Tools\Personnages\creer_personnages.py` (remplace `Tools\Lena\creer_lena.py`).
+
+## LUCIA (24/11/2026)
+
+- Meme principe : `Heros=Lucia` + `Skin=LUCIA`, bouton LUCIA dans HABILLAGE, fichiers Mixamo dans `Bureau\LUCIA 3D\Animations`.
+
+## DANSES (24/11/2026)
+
+- `ToucheDanse=T` (D = aller a droite en ZQSD, Y = changer de pouvoir). Modificateurs Alt+, Ctrl+, Shift+.
+- `Danses=Lena|anim;anim...` : jouees a la suite en boucle ; bouger (apres 0,7 s), sauter ou voler arrete la danse.
+- `DanseArretSeulement=Oui` : la touche ne marche qu'immobile au sol.
+- Multijoueur : AWraithRelais::bDanse (RPC ServeurDanse), les autres joueurs voient la danse.
+- En 1re personne on ne voit pas son corps : W = camera pour la voir.
