@@ -30,6 +30,16 @@ class USkeletalMeshComponent;
 class UAudioComponent;
 class USoundBase;
 
+/** Une animation simple (heros sans Animation Blueprint, ex. LENA de Mixamo). Fige >= 0 : image figee a ce temps (en secondes). */
+struct FAnimSimpleWraith
+{
+	UAnimSequenceBase* Anim = nullptr;
+	float Fige = -1.f;
+};
+
+/** Etats des animations simples : repos, marche, course, vol, accroupi, chute (ordre de la ligne Heros=Nom|Anims:...). */
+enum class EEtatAnimWraith : uint8 { Repos, Marche, Course, Vol, Accroupi, Chute, Nombre };
+
 /** Un heros Paragon (ligne Heros= de Wraith.txt) : ses animations, sa voix, son arme. */
 struct FHerosWraith
 {
@@ -43,6 +53,10 @@ struct FHerosWraith
 	FName OsHaut;
 	UClass* ClasseAnim = nullptr;
 	bool bPoseSoldat = false;       // AnimBP "Soldat" : le corps copie les mouvements du soldat (squelette mannequin)
+	bool bAnimsSimples = false;     // "Anims:repos;marche;course;vol;accroupi;chute" : animations jouees selon la vitesse (LENA)
+	FAnimSimpleWraith Anims[(int32)EEtatAnimWraith::Nombre];
+	float Taille = 1.f;             // taille du corps de ce heros (1 = celle du modele)
+	float Lacet = 0.f;              // rotation du corps (degres) si le modele regarde de cote
 	UAnimMontage* MontageTir = nullptr;
 	UAnimSequenceBase* AnimMort = nullptr;
 	UParticleSystem* EffetBouche = nullptr;
@@ -116,6 +130,10 @@ struct FSoldatWraith
 	int32 SkinBras = -1;
 	bool bIntroJouee = false;
 
+	// Animations simples (LENA)
+	TWeakObjectPtr<UAnimSequenceBase> AnimJouee;
+	int32 EtatAnim = -1;
+
 	// Voix / effets
 	bool bEnLair = false;
 	float VitesseZMin = 0.f;
@@ -167,6 +185,10 @@ private:
 	// ---- Skin choisi par ce joueur ----
 	int32 SkinLocal = 0;
 	void ChangerSkin(int32 Nouveau, bool bAnnoncer);
+	/** Choix venu du menu HABILLAGE (plugin ChellesMenu) : GameUserSettings [ChellesWraith] Demande=NOM DU SKIN. */
+	void LireDemandeMenu();
+	float ProchaineDemande = 0.f;
+	int32 SkinParNom(const FString& Nom) const;
 	int32 SkinDe(ACharacter* Soldat) const;
 	AWraithRelais* MonRelais() const;
 	float ProchainEnvoi = 0.f;
@@ -175,6 +197,10 @@ private:
 
 	// ---- Habillage ----
 	bool EstSoldat(ACharacter* C) const;
+	/** Corps d'origine du soldat : SK_Mannequin, ou SK_SpiderMan_UE4 (le soldat du jeu, BP_Character_SpiderMan). */
+	static bool EstCorpsDeSoldat(const USkeletalMesh* Corps);
+	void AnimerSimple(FSoldatWraith& S);
+	FTransform PlacementCorps(const FHerosWraith& H) const;
 	void Chercher();
 	void Suivre(FSoldatWraith& S, float Dt);
 	void Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 Index);

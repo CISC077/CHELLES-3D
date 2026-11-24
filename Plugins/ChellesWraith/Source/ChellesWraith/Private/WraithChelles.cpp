@@ -240,6 +240,18 @@ void AWraithChelles::BeginPlay()
 	{
 		SkinLocal = Skins.Num() > 0 ? FMath::Clamp(Garde, 0, Skins.Num() - 1) : 0;
 	}
+	else
+	{
+		// Rien de choisi : on garde le soldat d'origine (K ou le menu HABILLAGE pour changer)
+		for (int32 i = 0; i < Skins.Num(); ++i)
+		{
+			if (Skins[i].bSoldat)
+			{
+				SkinLocal = i;
+				break;
+			}
+		}
+	}
 	if (GConfig)
 	{
 		for (const FTenueHeros& T : Tenues)
@@ -377,7 +389,7 @@ void AWraithChelles::LireReglages()
 			{
 				continue;
 			}
-			while (M.Num() < 9)
+			while (M.Num() < 11)
 			{
 				M.Add(FString());
 			}
@@ -388,7 +400,48 @@ void AWraithChelles::LireReglages()
 			FHerosWraith H;
 			H.Nom = M[0];
 			H.bPoseSoldat = M[1].Equals(TEXT("Soldat"), ESearchCase::IgnoreCase);
-			H.ClasseAnim = H.bPoseSoldat ? nullptr : LoadObject<UClass>(nullptr, *M[1]);
+			H.bAnimsSimples = M[1].StartsWith(TEXT("Anims:"), ESearchCase::IgnoreCase);
+			H.ClasseAnim = (H.bPoseSoldat || H.bAnimsSimples) ? nullptr : LoadObject<UClass>(nullptr, *M[1]);
+			if (H.bAnimsSimples)
+			{
+				// Anims:repos;marche;course;vol;accroupi;chute   (chemin@0 = image figee au temps 0)
+				TArray<FString> Liste;
+				M[1].Mid(6).ParseIntoArray(Liste, TEXT(";"), false);
+				int32 Trouvees = 0;
+				for (int32 i = 0; i < (int32)EEtatAnimWraith::Nombre && i < Liste.Num(); ++i)
+				{
+					const FString Texte = Liste[i].TrimStartAndEnd();
+					FString Chemin = Texte;
+					FString Avant, Temps;
+					if (Texte.Split(TEXT("@"), &Avant, &Temps, ESearchCase::IgnoreCase, ESearchDir::FromEnd))
+					{
+						Chemin = Avant.TrimStartAndEnd();
+						H.Anims[i].Fige = FMath::Max(0.f, FCString::Atof(*Temps));
+					}
+					if (!Chemin.IsEmpty())
+					{
+						H.Anims[i].Anim = LoadObject<UAnimSequenceBase>(nullptr, *Chemin);
+						if (H.Anims[i].Anim)
+						{
+							Gardes.Add(H.Anims[i].Anim);
+							++Trouvees;
+						}
+						else
+						{
+							UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : animation introuvable (%s). Lancez Tools\\Lena\\creer_lena.py dans Unreal."), *H.Nom, *Chemin);
+						}
+					}
+				}
+				UE_LOG(LogTemp, Log, TEXT("[Wraith] %s : %d animations simples."), *H.Nom, Trouvees);
+			}
+			if (!M[9].IsEmpty())
+			{
+				H.Taille = FMath::Clamp(FCString::Atof(*M[9]), 0.1f, 10.f);
+			}
+			if (!M[10].IsEmpty())
+			{
+				H.Lacet = FCString::Atof(*M[10]);
+			}
 			H.MontageTir = M[2].IsEmpty() ? nullptr : LoadObject<UAnimMontage>(nullptr, *M[2]);
 			H.AnimMort = M[3].IsEmpty() ? nullptr : LoadObject<UAnimSequenceBase>(nullptr, *M[3]);
 			H.DossierVoix = M[4];
@@ -413,7 +466,7 @@ void AWraithChelles::LireReglages()
 					Gardes.Add(O);
 				}
 			}
-			if (!H.ClasseAnim && !H.bPoseSoldat)
+			if (!H.ClasseAnim && !H.bPoseSoldat && !H.bAnimsSimples)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : Animation Blueprint introuvable (%s)"), *H.Nom, *M[1]);
 			}
@@ -599,12 +652,23 @@ void AWraithChelles::Tick(float DeltaSeconds)
 		}
 	}
 
+	// Choix fait dans le menu HABILLAGE (LENA...)
+	if (Maintenant > ProchaineDemande)
+	{
+		ProchaineDemande = Maintenant + 0.5f;
+		LireDemandeMenu();
+	}
+
 	// Touche K : skin suivant (seulement quand on joue le soldat, hors menus)
 	APlayerController* PC = GetPC();
 	if (bActif && PC && !PC->bShowMouseCursor && !W->IsPaused() && PC->WasInputKeyJustPressed(Touche))
 	{
 		ACharacter* Moi = Cast<ACharacter>(PC->GetPawn());
-		if (EstSoldat(Moi) && !Moi->Tags.Contains(TagSansHabillage))
+		// Soldat au corps Spider-Male (SK_SpiderMan_UE4) en tenue d'origine : K garde son ancien role (couleurs de la tenue).
+		// Deja habille (LENA choisie dans HABILLAGE...) : K passe a l'apparence suivante.
+		const bool bCorpsMannequin = EstSoldat(Moi) && Moi->GetMesh()->SkeletalMesh->GetName().Contains(TEXT("Mannequin"));
+		const bool bDejaHabille = Skins.IsValidIndex(SkinLocal) && !Skins[SkinLocal].bSoldat;
+		if (EstSoldat(Moi) && !Moi->Tags.Contains(TagSansHabillage) && (bCorpsMannequin || bDejaHabille))
 		{
 			ChangerSkin(SkinLocal + 1, true);
 		}
@@ -692,7 +756,7 @@ bool AWraithChelles::EstSoldat(ACharacter* C) const
 		}
 	}
 	// Le corps du soldat d'origine (pas Spider-Man / PANTERA de la roue TAB)
-	return bSoldat && C->GetMesh()->SkeletalMesh->GetName().Contains(TEXT("Mannequin"));
+	return bSoldat && EstCorpsDeSoldat(C->GetMesh()->SkeletalMesh);
 }
 
 void AWraithChelles::Chercher()
@@ -747,7 +811,7 @@ void AWraithChelles::Suivre(FSoldatWraith& S, float Dt)
 	const int32 Index = SkinDe(C);
 	const bool bVeut = bActif && C && Skins.IsValidIndex(Index) && !Skins[Index].bSoldat
 		&& !C->Tags.Contains(TagSansHabillage)
-		&& C->GetMesh() && C->GetMesh()->SkeletalMesh && C->GetMesh()->SkeletalMesh->GetName().Contains(TEXT("Mannequin"));
+		&& C->GetMesh() && EstCorpsDeSoldat(C->GetMesh()->SkeletalMesh);
 	if (!bVeut)
 	{
 		if (S.Corps.IsValid() || S.CachesCorps.Num() > 0 || S.Teintes.Num() > 0)
@@ -763,6 +827,7 @@ void AWraithChelles::Suivre(FSoldatWraith& S, float Dt)
 		return;
 	}
 	SuivreVoix(S, Dt);
+	AnimerSimple(S);
 	if (C->IsLocallyControlled())
 	{
 		SuivreTirs(S);
@@ -821,12 +886,18 @@ void AWraithChelles::Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 
 		W->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones; // ombre juste en 1re personne
 		W->SetCastShadow(Mesh->CastShadow);
 		W->bCastHiddenShadow = Mesh->bCastHiddenShadow;
-		W->SetRelativeScale3D(FVector(Echelle));
+		W->SetRelativeTransform(PlacementCorps(H));
 		W->SetSkeletalMesh(Corps);
 		W->RegisterComponent();
 		if (H.bPoseSoldat)
 		{
 			W->SetMasterPoseComponent(Mesh); // memes os que le soldat : il fait exactement ses gestes
+		}
+		else if (H.bAnimsSimples)
+		{
+			W->SetAnimationMode(EAnimationMode::AnimationSingleNode); // marche, course, vol... (AnimerSimple)
+			S.AnimJouee.Reset();
+			S.EtatAnim = -1;
 		}
 		else if (H.ClasseAnim)
 		{
@@ -954,7 +1025,10 @@ void AWraithChelles::CacherCorpsSoldat(FSoldatWraith& S)
 
 	// Arme 3e personne du soldat : Wraith tient son propre fusil
 	const FHerosWraith* H = HerosDe(S);
-	if (!bArmeWraith || !H || H->MotsArme.Num() == 0)
+	// Heros a animations simples (LENA) : ses mains ne visent pas, l'arme 3e personne du soldat flotterait a cote d'elle.
+	// On la cache (vue par les autres / en 3e personne). En 1re personne, les armes du soldat restent a l'ecran.
+	const bool bCacherArmeSoldat = H && H->bAnimsSimples;
+	if (!H || (!bCacherArmeSoldat && (!bArmeWraith || H->MotsArme.Num() == 0)))
 	{
 		return;
 	}
@@ -1275,6 +1349,8 @@ void AWraithChelles::Retirer(FSoldatWraith& S)
 	S.Skin = -1;
 	S.bMort = false;
 	S.SanteVue = -1.f;
+	S.AnimJouee.Reset();
+	S.EtatAnim = -1;
 }
 
 // ======================================================================
@@ -1527,8 +1603,10 @@ void AWraithChelles::SuivreVoix(FSoldatWraith& S, float Dt)
 		if (Corps && C->GetMesh() && !(HV && HV->bPoseSoldat))
 		{
 			Corps->AttachToComponent(C->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-			Corps->SetRelativeTransform(FTransform(FQuat::Identity, FVector::ZeroVector, FVector(Echelle)));
 			const FHerosWraith* H = HerosDe(S);
+			Corps->SetRelativeTransform(H ? PlacementCorps(*H) : FTransform(FQuat::Identity, FVector::ZeroVector, FVector(Echelle)));
+			S.AnimJouee.Reset();
+			S.EtatAnim = -1;
 			if (H && H->ClasseAnim)
 			{
 				Corps->SetAnimationMode(EAnimationMode::AnimationBlueprint);
@@ -1920,6 +1998,150 @@ void AWraithChelles::RetirerAnnonce()
 //  Console : Chelles.Wraith ...
 // ======================================================================
 
+// ======================================================================
+//  Heros a animations simples (LENA) et choix depuis le menu HABILLAGE
+// ======================================================================
+
+bool AWraithChelles::EstCorpsDeSoldat(const USkeletalMesh* Corps)
+{
+	if (!Corps)
+	{
+		return false;
+	}
+	const FString Nom = Corps->GetName();
+	return Nom.Contains(TEXT("Mannequin")) || Nom.Equals(TEXT("SK_SpiderMan_UE4"), ESearchCase::IgnoreCase);
+}
+
+FTransform AWraithChelles::PlacementCorps(const FHerosWraith& H) const
+{
+	return FTransform(FRotator(0.f, H.Lacet, 0.f), FVector::ZeroVector, FVector(Echelle * H.Taille));
+}
+
+void AWraithChelles::AnimerSimple(FSoldatWraith& S)
+{
+	const FHerosWraith* H = HerosDe(S);
+	USkeletalMeshComponent* Corps = S.Corps.Get();
+	ACharacter* C = S.Soldat.Get();
+	if (!H || !H->bAnimsSimples || !Corps || !C || S.bMort)
+	{
+		return;
+	}
+	const UCharacterMovementComponent* Mouvement = C->GetCharacterMovement();
+	const float Vitesse = C->GetVelocity().Size2D();
+	EEtatAnimWraith Etat = EEtatAnimWraith::Repos;
+	if (Mouvement && Mouvement->IsFlying())
+	{
+		Etat = EEtatAnimWraith::Vol;
+	}
+	else if (Mouvement && Mouvement->IsFalling())
+	{
+		Etat = EEtatAnimWraith::Chute;
+	}
+	else if (Mouvement && Mouvement->IsCrouching())
+	{
+		Etat = EEtatAnimWraith::Accroupi;
+	}
+	else if (Vitesse > 380.f)
+	{
+		Etat = EEtatAnimWraith::Course;
+	}
+	else if (Vitesse > 15.f)
+	{
+		Etat = EEtatAnimWraith::Marche;
+	}
+
+	// Animation manquante : on prend la plus proche
+	auto Anim = [H](EEtatAnimWraith E) { return H->Anims[(int32)E].Anim; };
+	if (!Anim(Etat))
+	{
+		switch (Etat)
+		{
+		case EEtatAnimWraith::Chute:    Etat = Anim(EEtatAnimWraith::Vol) ? EEtatAnimWraith::Vol : EEtatAnimWraith::Repos; break;
+		case EEtatAnimWraith::Vol:      Etat = Anim(EEtatAnimWraith::Course) ? EEtatAnimWraith::Course : EEtatAnimWraith::Marche; break;
+		case EEtatAnimWraith::Course:   Etat = EEtatAnimWraith::Marche; break;
+		case EEtatAnimWraith::Accroupi: Etat = EEtatAnimWraith::Repos; break;
+		case EEtatAnimWraith::Repos:    Etat = EEtatAnimWraith::Marche; break;
+		default: break;
+		}
+	}
+	const FAnimSimpleWraith& A = H->Anims[(int32)Etat];
+	if (!A.Anim)
+	{
+		return;
+	}
+	if (Corps->GetAnimationMode() != EAnimationMode::AnimationSingleNode)
+	{
+		Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+		S.AnimJouee.Reset();
+	}
+	if (S.AnimJouee.Get() != A.Anim || S.EtatAnim != (int32)Etat)
+	{
+		// Accroupi : on se baisse une fois et on reste baisse ; le reste tourne en boucle
+		const bool bBoucle = Etat != EEtatAnimWraith::Accroupi && A.Fige < 0.f;
+		Corps->PlayAnimation(A.Anim, bBoucle);
+		if (A.Fige >= 0.f)
+		{
+			Corps->SetPosition(A.Fige, false);
+			Corps->Stop();
+		}
+		S.AnimJouee = A.Anim;
+		S.EtatAnim = (int32)Etat;
+	}
+	// Les pieds suivent la vitesse du soldat
+	if (A.Fige < 0.f)
+	{
+		float Vitesse_ = 1.f;
+		if (Etat == EEtatAnimWraith::Marche)
+		{
+			Vitesse_ = FMath::Clamp(Vitesse / 160.f, 0.6f, 1.6f);
+		}
+		else if (Etat == EEtatAnimWraith::Course)
+		{
+			Vitesse_ = FMath::Clamp(Vitesse / 520.f, 0.7f, 1.5f);
+		}
+		if (!FMath::IsNearlyEqual(Corps->GetPlayRate(), Vitesse_, 0.02f))
+		{
+			Corps->SetPlayRate(Vitesse_);
+		}
+	}
+}
+
+int32 AWraithChelles::SkinParNom(const FString& Nom) const
+{
+	const FString Cherche = Nom.TrimStartAndEnd();
+	for (int32 i = 0; i < Skins.Num(); ++i)
+	{
+		if (Skins[i].Nom.Equals(Cherche, ESearchCase::IgnoreCase))
+		{
+			return i;
+		}
+	}
+	return INDEX_NONE;
+}
+
+void AWraithChelles::LireDemandeMenu()
+{
+	FString Demande;
+	if (!GConfig || !GConfig->GetString(Section, TEXT("Demande"), Demande, GGameUserSettingsIni) || Demande.TrimStartAndEnd().IsEmpty())
+	{
+		return;
+	}
+	GConfig->RemoveKey(Section, TEXT("Demande"), GGameUserSettingsIni);
+	GConfig->Flush(false, GGameUserSettingsIni);
+	const int32 Trouve = SkinParNom(Demande);
+	if (Trouve == INDEX_NONE)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Wraith] Menu : apparence \"%s\" absente de Wraith.txt."), *Demande);
+		return;
+	}
+	if (!bActif)
+	{
+		bActif = true;
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Wraith] Menu HABILLAGE : %s"), *Skins[Trouve].Nom);
+	ChangerSkin(Trouve, false);
+}
+
 void AWraithChelles::Commande(const TArray<FString>& Arguments)
 {
 	const FString Quoi = Arguments.Num() > 0 ? Arguments[0] : TEXT("Info");
@@ -1938,6 +2160,18 @@ void AWraithChelles::Commande(const TArray<FString>& Arguments)
 	}
 	else if (Quoi.Equals(TEXT("Skin"), ESearchCase::IgnoreCase))
 	{
+		// Chelles.Wraith Skin 3   ou   Chelles.Wraith Skin LENA
+		if (Arguments.IsValidIndex(1) && !Arguments[1].IsNumeric())
+		{
+			TArray<FString> Mots(Arguments);
+			Mots.RemoveAt(0);
+			const int32 Trouve = SkinParNom(FString::Join(Mots, TEXT(" ")));
+			if (Trouve != INDEX_NONE)
+			{
+				ChangerSkin(Trouve, true);
+				return;
+			}
+		}
 		ChangerSkin(int32(Nombre(1, 0.f)) - 1, true);
 		return;
 	}

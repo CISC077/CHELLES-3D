@@ -29,7 +29,12 @@ namespace ChellesHabillage
 	{
 		SpiderMan = 0,
 		Feminin = 1,
-		Masculin = 2
+		Masculin = 2,
+		/** PANTERA (2026-11-11) : comme Spider-Male on ne touche pas au soldat ; au lancement la roue TAB passe en PANTERA. */
+		Pantera = 3,
+		/** LENA (2026-11-24) : personnage cree par MERIDJA (Content/Personnages/LENA). On ne touche pas au soldat :
+		 *  le plugin ChellesWraith pose LENA sur lui (GameUserSettings [ChellesWraith] Demande=LENA). */
+		Lena = 4
 	};
 
 	/** Le choix du joueur, enregistre dans GameUserSettings.ini (section ChellesHabillage, cle Tenue). */
@@ -42,6 +47,8 @@ namespace ChellesHabillage
 		FString VersTexte() const;
 		static FTenue DepuisTexte(const FString& Texte);
 		bool EstSpiderMan() const { return Sexe != Feminin && Sexe != Masculin; }
+		bool EstPantera() const { return Sexe == Pantera; }
+		bool EstLena() const { return Sexe == Lena; }
 	};
 
 	/** Un emplacement de vetement (HAUT, BAS...) et ses choix possibles. */
@@ -97,6 +104,8 @@ namespace ChellesHabillage
 	CHELLESMENU_API void EnregistrerTenue(const FTenue& Tenue);
 	/** Les packs sont-ils dans le projet ? */
 	CHELLESMENU_API bool PacksPresents();
+	/** Lance le chargement du catalogue en arriere-plan (appele a l'ouverture du menu). */
+	CHELLESMENU_API void PrechargerCatalogue();
 }
 
 /**
@@ -158,6 +167,11 @@ private:
 	void Deshabiller(APawn* Pion);
 	void Suivre();
 	bool EstSoldat(APawn* Pion) const;
+	/** PANTERA choisi dans HABILLAGE : demande a la roue TAB (plugin ChellesRoue, par reflexion) de passer en PANTERA. */
+	void DemanderPantera(float Delta);
+	bool bPanteraFait = false;
+	int32 EssaisPantera = 0;
+	float ProchainPantera = 0.f;
 
 	TMap<TWeakObjectPtr<APawn>, FHabille> Habilles;
 	float ProchainControle = 0.f;
