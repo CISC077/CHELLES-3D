@@ -21,6 +21,24 @@
 #include "Misc/Paths.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/UnrealType.h"
+#include "UObject/UObjectHash.h"
+
+// Optimisation 24/11/2026 : liste rapide des widgets (table par classe d'Unreal)
+// au lieu de parcourir TOUS les objets du jeu (TObjectIterator) 5 fois par seconde.
+static void ChellesListerWidgets(TArray<UUserWidget*>& Sortie)
+{
+	TArray<UObject*> Objets;
+	GetObjectsOfClass(UUserWidget::StaticClass(), Objets, true, RF_ClassDefaultObject | RF_ArchetypeObject, EInternalObjectFlags::PendingKill);
+	Sortie.Reset(Objets.Num());
+	for (UObject* O : Objets)
+	{
+		if (UUserWidget* W = Cast<UUserWidget>(O))
+		{
+			Sortie.Add(W);
+		}
+	}
+}
+
 
 namespace
 {
@@ -323,9 +341,10 @@ void AInventaireCyber::Tick(float DeltaSeconds)
 	BoutonsQuitter.Reset();
 	BoutonsMenus.Reset();
 	UWorld* Monde = GetWorld();
-	for (TObjectIterator<UUserWidget> It; It; ++It)
+	TArray<UUserWidget*> Widgets;
+	ChellesListerWidgets(Widgets);
+	for (UUserWidget* W : Widgets)
 	{
-		UUserWidget* W = *It;
 		if (!IsValid(W) || W->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) || W->GetWorld() != Monde)
 		{
 			continue;
@@ -491,11 +510,13 @@ void AInventaireCyber::FermerInventaire()
 	if (AFermer.Num() == 0)
 	{
 		UWorld* Monde = GetWorld();
-		for (TObjectIterator<UUserWidget> It; It; ++It)
+		TArray<UUserWidget*> Widgets;
+		ChellesListerWidgets(Widgets);
+		for (UUserWidget* W : Widgets)
 		{
-			if (IsValid(*It) && It->GetWorld() == Monde && EstMenuInventaire(*It) && (It->IsInViewport() || It->GetParent()))
+			if (IsValid(W) && W->GetWorld() == Monde && EstMenuInventaire(W) && (W->IsInViewport() || W->GetParent()))
 			{
-				AFermer.Add(*It);
+				AFermer.Add(W);
 			}
 		}
 	}
