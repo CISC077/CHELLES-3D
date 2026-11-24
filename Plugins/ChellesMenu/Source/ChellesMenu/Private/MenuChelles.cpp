@@ -289,6 +289,24 @@ void AMenuChelles::Solo()
 	Fermer(true);
 	LancerMusiqueJeu();
 	DebutSolo = FPlatformTime::Seconds();
+	LancerModeLobby();
+}
+
+void AMenuChelles::LancerModeLobby()
+{
+	// Le lobby a ecrit le mode choisi ; c'est ChellesRaccourcis qui pilote la roue des modes (console, pas de lien entre plugins)
+	UWorld* Monde = GetWorld();
+	FString Mode;
+	if (GConfig)
+	{
+		GConfig->GetString(TEXT("ChellesLobby"), TEXT("ModeDepart"), Mode, GGameUserSettingsIni);
+	}
+	Mode.TrimStartAndEndInline();
+	if (Mode.IsEmpty() || !Monde || !GEngine || !IConsoleManager::Get().FindConsoleObject(TEXT("Chelles.Raccourcis")))
+	{
+		return;
+	}
+	GEngine->Exec(Monde, *FString::Printf(TEXT("Chelles.Raccourcis Mode %s"), *Mode));
 }
 
 void AMenuChelles::SandBox()
@@ -296,6 +314,7 @@ void AMenuChelles::SandBox()
 	Fermer(true);
 	LancerMusiqueJeu();
 	// Pas de DebutSolo : le joueur est deplace dans la zone SANDBOX, ce n'est pas un depart a memoriser
+	LancerModeLobby();
 	if (UWorld* Monde = GetWorld())
 	{
 		if (GEngine)

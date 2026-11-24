@@ -28,6 +28,8 @@ void APouvoirsRelais::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(APouvoirsRelais, FinRecharge);
 	DOREPLIFETIME(APouvoirsRelais, CibleGel);
 	DOREPLIFETIME(APouvoirsRelais, Deguisement);
+	DOREPLIFETIME(APouvoirsRelais, PouvoirPerso);
+	DOREPLIFETIME(APouvoirsRelais, FonctionPerso);
 }
 
 float APouvoirsRelais::Maintenant() const
@@ -84,6 +86,29 @@ void APouvoirsRelais::ServeurPouvoir_Implementation(uint8 Quel, FVector Origine,
 	if (APouvoirsChelles* Gestionnaire = TrouverGestionnaire())
 	{
 		Gestionnaire->ExecuterServeur(this, int32(Quel), Origine, Visee);
+	}
+}
+
+void APouvoirsRelais::ServeurPerso_Implementation(uint8 NouveauPouvoir, uint8 NouvelleFonction)
+{
+	PouvoirPerso = NouveauPouvoir < ChellesPouvoirs::NombrePouvoirs ? NouveauPouvoir : 255;
+	FonctionPerso = NouvelleFonction < ChellesPouvoirs::NombreFonctions ? NouvelleFonction : 0;
+	ForceNetUpdate();
+}
+
+void APouvoirsRelais::ServeurFinEnvol_Implementation()
+{
+	if (APouvoirsChelles* Gestionnaire = TrouverGestionnaire())
+	{
+		Gestionnaire->FinirEnvol(this);
+	}
+}
+
+void APouvoirsRelais::ClientXPCombat_Implementation(int32 Quantite, bool bTue)
+{
+	if (APouvoirsChelles* Gestionnaire = TrouverGestionnaire())
+	{
+		Gestionnaire->GagnerXPCombat(FMath::Clamp(Quantite, 0, 1000), bTue);
 	}
 }
 

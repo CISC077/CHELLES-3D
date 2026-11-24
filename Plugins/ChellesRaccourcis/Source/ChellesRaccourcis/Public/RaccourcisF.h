@@ -50,7 +50,7 @@ public:
 	virtual void EndPlay(const EEndPlayReason::Type Raison) override;
 	virtual void Tick(float DeltaSeconds) override;
 
-	/** Console : Chelles.Raccourcis [Info|Relire|0|1|Menu|F1..F12] */
+	/** Console : Chelles.Raccourcis [Info|Relire|0|1|Menu|F1..F12|Mode <nom>] */
 	void Commande(const TArray<FString>& Arguments);
 
 private:
@@ -100,6 +100,11 @@ private:
 	/** F11 = plein ecran / fenetre (au cas ou Unreal ne l'aurait pas fait). */
 	void PleinEcranF11(APlayerController* PC);
 	float DureeMenu = 3.f;
+	/** 24/11/2026 : mode choisi dans le lobby ([ChellesLobby] ModeDepart), applique au debut de la partie. */
+	void ModeDuLobby();
+	bool bModeLobbyFini = false;
+	int32 EssaisLobby = 0;
+	float ProchainEssaiLobby = 0.f;
 	TArray<FRaccourciF> Raccourcis;
 
 	/** Noms et couleurs des modes de la roue (lus une fois qu'elle existe). */

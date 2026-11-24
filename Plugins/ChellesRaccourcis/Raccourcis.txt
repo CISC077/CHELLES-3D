@@ -3,8 +3,11 @@
 # En jeu, la console (touche ²) : Chelles.Raccourcis Relire  = relit ce fichier et le tableau.
 # Les lignes qui commencent par # sont des commentaires.
 
-# Oui = les touches F marchent, Non = elles ne font plus rien
-Actif=Oui
+# 24/11/2026 : le menu F1-F12 est SUPPRIME (demande MERIDJA). On choisit son personnage ou son
+# vehicule dans le LOBBY avant de jouer (menu JOUER, colonne PERSONNAGES), comme dans un jeu de lobby.
+# F11 (ou Alt + Entree) reste le plein ecran <-> fenetre.
+# Oui = les touches F changent de mode comme avant, Non = elles ne font plus rien (conseille)
+Actif=Non
 
 # --- DONNEES : ce que fait chaque touche ---
 # La liste des touches vient du TABLEAU DE DONNEES (Data Table) ci-dessous : une ligne par touche.
@@ -15,7 +18,7 @@ Tableau=/Game/Chelles/Donnees/DT_Raccourcis.DT_Raccourcis
 
 # Menu des touches en haut de l'ecran :
 #   Deroulant = il descend quand on appuie sur une touche F puis remonte, Toujours = toujours visible, Jamais
-Menu=Deroulant
+Menu=Jamais
 #   Verticale = liste en haut a gauche, Horizontale = barre en haut au centre (comme le schema)
 Disposition=Verticale
 # Secondes avant que le menu remonte
@@ -28,7 +31,7 @@ Animation=Oui
 
 # --- ROUE DES ARMES (maintenir TAB) ---
 # Maintenir TAB : la roue des armes apparait. Viser avec la souris, relacher TAB (ou clic gauche) pour prendre.
-# Clic droit : annuler. Les modes (Soldat, Spider-Male...) sont sur F1-F12.
+# Clic droit : annuler. Les personnages et vehicules (Soldat, Spider-Male...) se choisissent dans le LOBBY.
 # Oui = la roue des armes marche, Non = coupee
 RoueArmes=Oui
 # Touche a maintenir (Tab, CapsLock, Q...)

@@ -32,9 +32,21 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServeurPouvoir(uint8 Quel, FVector Origine, FRotator Visee);
 
+	/** Le joueur se pose (ou rappuie sur J) : fin du vol ENVOL. */
+	UFUNCTION(Server, Reliable)
+	void ServeurFinEnvol();
+
+	/** Le joueur annonce le pouvoir et la fonction de son personnage (choisi dans le casier). */
+	UFUNCTION(Server, Reliable)
+	void ServeurPerso(uint8 NouveauPouvoir, uint8 NouvelleFonction);
+
 	/** Le serveur affiche un message au joueur (sur son ecran seulement). */
 	UFUNCTION(Client, Reliable)
 	void ClientAvis(const FString& Texte);
+
+	/** Le serveur donne au joueur l'XP gagnee en combat (ennemi touche ou elimine). */
+	UFUNCTION(Client, Reliable)
+	void ClientXPCombat(int32 Quantite, bool bTue);
 
 	/** XP du joueur (connue de tous, pour afficher son niveau). */
 	UPROPERTY(Replicated)
@@ -59,6 +71,13 @@ public:
 	/** Apparence choisie avec CAMELEON (chemin d'un SkeletalMesh), vide = apparence d'origine. */
 	UPROPERTY(Replicated)
 	FString Deguisement;
+
+	/** Pouvoir du personnage de ce joueur (255 = tous les pouvoirs) et sa fonction (24/11/2026). */
+	UPROPERTY(Replicated)
+	uint8 PouvoirPerso = 255;
+
+	UPROPERTY(Replicated)
+	uint8 FonctionPerso = 0;
 
 	/** Serveur seulement : numero de l'apparence CAMELEON en cours (0 = origine). */
 	int32 IndexDeguisement = 0;

@@ -10,6 +10,8 @@
 #include "HAL/PlatformProcess.h"
 #include "GameFramework/GameUserSettings.h"
 #include "HAL/IConsoleManager.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerInput.h"
 #include "InputCoreTypes.h"
@@ -2255,6 +2257,109 @@ namespace LobbyChelles
 		return Liste;
 	}
 
+	/** 24/11/2026 : les anciens modes des touches F1-F12, choisis maintenant dans le lobby. */
+	struct FModeLobby
+	{
+		const TCHAR* Mode;      // nom du mode dans la roue (ChellesRoue)
+		const TCHAR* Nom;       // nom affiche
+		const TCHAR* SousTitre;
+		FLinearColor Couleur;
+		const TCHAR* Description;
+	};
+
+	const TArray<FModeLobby>& ModesLobby()
+	{
+		static const TArray<FModeLobby> Liste =
+		{
+			{ TEXT("Spider-Femelle"), TEXT("SPIDER-FEMELLE"), TEXT("HÉROS"), FLinearColor(0.85f, 0.10f, 0.35f), TEXT("L'héroïne araignée : elle vole et tire des mains comme Spider-Male.") },
+			{ TEXT("FLASH ECLAIR"), TEXT("FLASH ECLAIR"), TEXT("HÉROS"), FLinearColor(0.90f, 0.75f, 0.05f), TEXT("Le héros de l'éclair : rapide et électrique.") },
+			{ TEXT("FLAMME FIRE"), TEXT("FLAMME FIRE"), TEXT("HÉROS"), FLinearColor(0.95f, 0.30f, 0.03f), TEXT("Le héros de feu.") },
+			{ TEXT("SuperPowers"), TEXT("SUPERPOWERS"), TEXT("HÉROS"), FLinearColor(0.35f, 0.15f, 0.85f), TEXT("Le héros aux super-pouvoirs du pack SuperPowers.") },
+			{ TEXT("DYNAMIC COMBAT"), TEXT("DYNAMIC COMBAT"), TEXT("COMBATTANT"), FLinearColor(0.55f, 0.08f, 0.08f), TEXT("Combat au corps à corps : coups de poing, de pied et combos.") },
+			{ TEXT("Motoneige"), TEXT("MOTONEIGE"), TEXT("VÉHICULE"), FLinearColor(0.15f, 0.55f, 0.85f), TEXT("Tu pars en motoneige dans la neige de Chelles.") },
+			{ TEXT("VOITURE"), TEXT("VOITURE"), TEXT("VÉHICULE"), FLinearColor(0.20f, 0.60f, 0.25f), TEXT("Tu pars en voiture (H = klaxon).") },
+			{ TEXT("HORSE"), TEXT("CHEVAL"), TEXT("MONTURE"), FLinearColor(0.50f, 0.30f, 0.12f), TEXT("Tu pars à cheval.") },
+		};
+		return Liste;
+	}
+
+	const FModeLobby* TrouverModeLobby(const FString& Mode)
+	{
+		for (const FModeLobby& M : ModesLobby())
+		{
+			if (Mode.Equals(M.Mode, ESearchCase::IgnoreCase))
+			{
+				return &M;
+			}
+		}
+		return nullptr;
+	}
+
+	FString LobNormaliser(const FString& Brut)
+	{
+		FString R;
+		for (TCHAR C : Brut.ToUpper())
+		{
+			switch (C)
+			{
+			case 0x00C9: case 0x00C8: case 0x00CA: case 0x00CB: case 0x00E9: case 0x00E8: case 0x00EA: case 0x00EB: C = TEXT('E'); break;
+			case 0x00C0: case 0x00C2: case 0x00C4: case 0x00E0: case 0x00E2: case 0x00E4: C = TEXT('A'); break;
+			case 0x00D4: case 0x00D6: case 0x00F4: case 0x00F6: C = TEXT('O'); break;
+			case 0x00CE: case 0x00CF: case 0x00EE: case 0x00EF: C = TEXT('I'); break;
+			case 0x00D9: case 0x00DB: case 0x00DC: case 0x00F9: case 0x00FB: case 0x00FC: C = TEXT('U'); break;
+			case 0x00C7: case 0x00E7: C = TEXT('C'); break;
+			default: break;
+			}
+			if (FChar::IsAlnum(C))
+			{
+				R.AppendChar(C);
+			}
+		}
+		return R;
+	}
+
+	/** "Pouvoir : GEL (J)  ·  Fonction : SUPER SAUT  ·  tout le monde vole" lu dans Plugins/ChellesPouvoirs/Personnages.txt. */
+	FString PouvoirDuPersoLobby(const FString& Nom)
+	{
+		static TMap<FString, FString> Cache;
+		static bool bLu = false;
+		if (!bLu)
+		{
+			bLu = true;
+			TArray<FString> Lignes;
+			FFileHelper::LoadFileToStringArray(Lignes, *FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesPouvoirs"), TEXT("Personnages.txt")));
+			for (const FString& Brute : Lignes)
+			{
+				const FString Ligne = Brute.TrimStartAndEnd();
+				FString Cle, Reste, Pouvoir, Fonction;
+				if (Ligne.IsEmpty() || Ligne.StartsWith(TEXT("#")) || !Ligne.Split(TEXT("="), &Cle, &Reste))
+				{
+					continue;
+				}
+				if (!Reste.Split(TEXT("|"), &Pouvoir, &Fonction))
+				{
+					Pouvoir = Reste;
+				}
+				Pouvoir.TrimStartAndEndInline();
+				Fonction.TrimStartAndEndInline();
+				const bool bSansPouvoir = Pouvoir.IsEmpty() || LobNormaliser(Pouvoir) == TEXT("AUCUN");
+				FString Texte = bSansPouvoir ? FString(TEXT("Pas de pouvoir spécial")) : FString::Printf(TEXT("Pouvoir : %s (J)"), *Pouvoir.ToUpper());
+				if (!Fonction.IsEmpty() && LobNormaliser(Fonction) != TEXT("AUCUNE"))
+				{
+					Texte += FString::Printf(TEXT("   ·   Fonction : %s"), *Fonction.ToUpper());
+				}
+				Texte += TEXT("   ·   tout le monde vole (ESPACE en l'air)");
+				Cache.Add(LobNormaliser(Cle), Texte);
+			}
+		}
+		if (const FString* Trouve = Cache.Find(LobNormaliser(Nom)))
+		{
+			return *Trouve;
+		}
+		const FString* Defaut = Cache.Find(TEXT("DEFAUT"));
+		return Defaut ? *Defaut : FString();
+	}
+
 	/** Couleur d'une carte de tenue : une teinte par emplacement, un peu differente pour chaque choix. */
 	FLinearColor CouleurChoix(int32 Emplacement, int32 Index, bool bAucun)
 	{
@@ -2285,15 +2390,67 @@ void SMenuChelles::ChoisirSexeLobby(int32 Sexe)
 	});
 }
 
+FString SMenuChelles::NomPersoLobby() const
+{
+	if (const LobbyChelles::FModeLobby* M = LobbyChelles::TrouverModeLobby(ModeLobby))
+	{
+		return M->Nom;
+	}
+	const int32 Sexe = SexeLobby();
+	if (TenueChoisie.EstPersoWraith())
+	{
+		const TCHAR* Nom = ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe);
+		return Nom ? FString(Nom) : FString(TEXT("SOLDAT"));
+	}
+	if (TenueChoisie.EstPantera())
+	{
+		return TEXT("PANTERA");
+	}
+	if (Sexe == int32(ChellesHabillage::Feminin))
+	{
+		return TEXT("FÉMININ");
+	}
+	if (Sexe == int32(ChellesHabillage::Masculin))
+	{
+		return TEXT("MASCULIN");
+	}
+	return TEXT("SPIDER-MALE");
+}
+
+void SMenuChelles::EcrireChoixLobby()
+{
+	if (!GConfig)
+	{
+		return;
+	}
+	const FString Mode = LobbyChelles::TrouverModeLobby(ModeLobby) ? ModeLobby : FString(TEXT("Soldat"));
+	GConfig->SetString(TEXT("ChellesLobby"), TEXT("ModeDepart"), *Mode, GGameUserSettingsIni);
+	// Lu par ChellesPouvoirs : pouvoir + fonction du personnage (Personnages.txt)
+	GConfig->SetString(TEXT("ChellesPerso"), TEXT("Nom"), *NomPersoLobby(), GGameUserSettingsIni);
+	GConfig->Flush(false, GGameUserSettingsIni);
+}
+
 void SMenuChelles::ChangerLobby(int32 Sens)
 {
-	// Fleches haut / bas : choix suivant dans la colonne active (gauche = personnages, droite = tenue)
+	// Fleches haut / bas : choix suivant dans la colonne active (gauche = personnages puis heros/vehicules, droite = tenue)
 	if (RubanLobby == 0)
 	{
 		const TArray<LobbyChelles::FPersoLobby> Persos = LobbyChelles::PersosLobby();
-		int32 i = Persos.IndexOfByPredicate([this](const LobbyChelles::FPersoLobby& P) { return P.Sexe == SexeLobby(); });
-		i = ((FMath::Max(i, 0) + Sens) % Persos.Num() + Persos.Num()) % Persos.Num();
-		ChoisirSexeLobby(Persos[i].Sexe);
+		const TArray<LobbyChelles::FModeLobby>& Modes = LobbyChelles::ModesLobby();
+		const int32 Total = Persos.Num() + Modes.Num();
+		int32 i = Modes.IndexOfByPredicate([this](const LobbyChelles::FModeLobby& M) { return ModeLobby.Equals(M.Mode, ESearchCase::IgnoreCase); });
+		i = (i >= 0) ? Persos.Num() + i : Persos.IndexOfByPredicate([this](const LobbyChelles::FPersoLobby& P) { return P.Sexe == SexeLobby(); });
+		i = ((FMath::Max(i, 0) + Sens) % Total + Total) % Total;
+		if (i >= Persos.Num())
+		{
+			ModeLobby = Modes[i - Persos.Num()].Mode;
+			Afficher(EEcranMenu::Habillage);
+		}
+		else
+		{
+			ModeLobby = TEXT("Soldat");
+			ChoisirSexeLobby(Persos[i].Sexe);
+		}
 		return;
 	}
 	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
@@ -2333,12 +2490,14 @@ void SMenuChelles::ChangerLobby(int32 Sens)
 void SMenuChelles::JouerDepuisLobby()
 {
 	ChellesHabillage::EnregistrerTenue(TenueChoisie);
+	EcrireChoixLobby();
 	if (EnPause())
 	{
-		// En jeu (Echap) : la tenue est appliquee et on reprend la partie
+		// En jeu (Echap) : la tenue est appliquee, on passe sur le perso / vehicule choisi et on reprend la partie
 		if (AMenuChelles* M = LeMenu())
 		{
 			M->Reprendre();
+			M->LancerModeLobby();
 		}
 		return;
 	}
@@ -2358,8 +2517,18 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 		MontrerApercu();
 	}
 	const int32 SexeActuel = SexeLobby();
+	if (!bModeLobbyLu)
+	{
+		bModeLobbyLu = true;
+		ModeLobby = TEXT("Soldat");
+		if (GConfig)
+		{
+			GConfig->GetString(TEXT("ChellesLobby"), TEXT("ModeDepart"), ModeLobby, GGameUserSettingsIni);
+		}
+	}
+	const FModeLobby* ModeChoisi = TrouverModeLobby(ModeLobby);
 	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
-	const bool bLook = !TenueChoisie.EstSpiderMan() && Modele != nullptr;
+	const bool bLook = !ModeChoisi && !TenueChoisie.EstSpiderMan() && Modele != nullptr;
 
 	// Disposition "inversee" (demande du 24/11) : les onglets sont une colonne a gauche,
 	// les rubans de cartes deviennent des colonnes verticales (personnages a gauche, tenue a droite),
@@ -2409,10 +2578,15 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	// ---- Nom du personnage en grand ----
 	FString NomGrand;
 	FString Description;
-	if (TenueChoisie.EstPersoWraith())
+	if (ModeChoisi)
+	{
+		NomGrand = ModeChoisi->Nom;
+		Description = ModeChoisi->Description;
+	}
+	else if (TenueChoisie.EstPersoWraith())
 	{
 		NomGrand = ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe);
-		Description = TEXT("Toutes les armes du soldat (TAB = roue, I = ARMEMENTS) et tous les pouvoirs : ESPACE en l'air = s'envoler, X = flash, O = changer de tir. T = danser (bouger pour arrêter). K = apparence suivante.");
+		Description = TEXT("Toutes les armes du soldat (TAB = roue, I = ARMEMENTS). X = flash, O = changer de tir. T = danser (bouger pour arrêter). K = apparence suivante.");
 	}
 	else if (TenueChoisie.EstPantera())
 	{
@@ -2435,6 +2609,12 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	{
 		NomGrand = SexeActuel == ChellesHabillage::Feminin ? TEXT("FÉMININ") : TEXT("MASCULIN");
 		Description = TEXT("Packs de personnages introuvables (Action_Male_and_Female, Female_Mannequin) : tu restes en Spider-Male.");
+	}
+	// 24/11/2026 : chaque personnage a son pouvoir et sa fonction (Plugins/ChellesPouvoirs/Personnages.txt)
+	const FString PouvoirTexte = PouvoirDuPersoLobby(NomPersoLobby());
+	if (!PouvoirTexte.IsEmpty())
+	{
+		Description = PouvoirTexte + TEXT("\n") + Description;
 	}
 
 	auto Etiquette = [](const FString& Texte) -> TSharedRef<SWidget>
@@ -2478,7 +2658,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	for (const FPersoLobby& P : PersosLobby())
 	{
 		const int32 Sexe = P.Sexe;
-		const bool bChoisie = (Sexe == SexeActuel);
+		const bool bChoisie = !ModeChoisi && (Sexe == SexeActuel);
 		TSharedRef<SWidget> Carte = SNew(SCarteLobbyChelles)
 			.Titre(P.Nom)
 			.SousTitre(P.SousTitre)
@@ -2489,7 +2669,32 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 			.OnClic(FSimpleDelegate::CreateLambda([this, Sexe]()
 			{
 				RubanLobby = 0;
+				ModeLobby = TEXT("Soldat");
 				ChoisirSexeLobby(Sexe);
+			}));
+		if (bChoisie)
+		{
+			CartePersoChoisie = Carte;
+		}
+		Colonne1->AddSlot().HAlign(HAlign_Center).Padding(FMargin(4.f, 6.f))[ Carte ];
+	}
+	// Heros et vehicules (les anciens modes F1-F12) : on part directement avec
+	for (const FModeLobby& M : ModesLobby())
+	{
+		const FString Mode = M.Mode;
+		const bool bChoisie = (ModeChoisi == &M);
+		TSharedRef<SWidget> Carte = SNew(SCarteLobbyChelles)
+			.Titre(M.Nom)
+			.SousTitre(M.SousTitre)
+			.Couleur(M.Couleur)
+			.Taille(FVector2D(220.f, 100.f))
+			.Choisie(bChoisie)
+			.TaillePolice(24)
+			.OnClic(FSimpleDelegate::CreateLambda([this, Mode]()
+			{
+				RubanLobby = 0;
+				ModeLobby = Mode;
+				Afficher(EEcranMenu::Habillage);
 			}));
 		if (bChoisie)
 		{

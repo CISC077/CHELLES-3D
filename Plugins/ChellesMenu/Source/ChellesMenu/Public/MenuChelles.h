@@ -91,6 +91,8 @@ public:
 	void Solo();
 	/** Bouton SANDBOX : partie solo + mode bac a sable (plugin ChellesSandBox). */
 	void SandBox();
+	/** 24/11/2026 : passe sur le personnage / vehicule choisi dans le lobby ([ChellesLobby] ModeDepart). */
+	void LancerModeLobby();
 	void Quitter();
 	void HebergerLAN();
 	void Rechercher();

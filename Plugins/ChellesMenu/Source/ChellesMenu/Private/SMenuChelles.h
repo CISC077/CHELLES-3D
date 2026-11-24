@@ -173,6 +173,13 @@ private:
 	int32 RubanLobby = 0;
 	/** 0 = MODELE, 1.. = emplacement de vetement (HAUT, BAS...). */
 	int32 EmplacementLobby = 0;
+	/** 24/11/2026 : mode de depart choisi dans le lobby ("Soldat" = le soldat habille, sinon Spider-Femelle, Motoneige...). */
+	FString ModeLobby;
+	bool bModeLobbyLu = false;
+	/** Nom du personnage choisi (sert au pouvoir + fonction de Personnages.txt). */
+	FString NomPersoLobby() const;
+	/** Ecrit le choix dans le casier : [ChellesLobby] ModeDepart et [ChellesPerso] Nom. */
+	void EcrireChoixLobby();
 	/** Zone plein ecran (le lobby), au-dessus du decor. */
 	TSharedPtr<SBox> ZonePleinEcran;
 	TSharedRef<SWidget> EcranMulti();
