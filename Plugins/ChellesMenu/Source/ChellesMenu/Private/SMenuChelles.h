@@ -97,11 +97,14 @@ public:
 		: _TaillePolice(56)
 		, _Actif(true)
 		, _Onglet(false)
+		, _LargeurNom(0.f)
 		{}
 		SLATE_ATTRIBUTE(FText, Texte)
 		SLATE_ARGUMENT(int32, TaillePolice)
 		SLATE_ARGUMENT(bool, Actif)
 		SLATE_ARGUMENT(bool, Onglet)
+		/** Largeur de la colonne du nom pour "NOM   < VALEUR >" (0 = 14 x taille de police). */
+		SLATE_ARGUMENT(float, LargeurNom)
 		SLATE_EVENT(FSimpleDelegate, OnClic)
 		SLATE_EVENT(FSimpleDelegate, OnClicDroit)
 	SLATE_END_ARGS()
@@ -159,6 +162,26 @@ private:
 	bool bTenueLue = false;
 	TWeakObjectPtr<AApercuHabillage> ApercuActeur;
 	TSharedPtr<FSlateBrush> PinceauApercu;
+	// HABILLAGE facon lobby (2026-11-24) : rubans horizontaux de cartes
+	int32 SexeLobby() const;
+	void ChoisirSexeLobby(int32 Sexe);
+	/** Fleches : choix suivant / precedent dans le ruban actif. */
+	void ChangerLobby(int32 Sens);
+	/** JOUER / VALIDER : enregistre la tenue, puis ecran MODE (ou reprend la partie en pause). */
+	void JouerDepuisLobby();
+	/** 0 = ruban des personnages, 1 = ruban de la tenue. */
+	int32 RubanLobby = 0;
+	/** 0 = MODELE, 1.. = emplacement de vetement (HAUT, BAS...). */
+	int32 EmplacementLobby = 0;
+	/** 24/11/2026 : mode de depart choisi dans le lobby ("Soldat" = le soldat habille, sinon Spider-Femelle, Motoneige...). */
+	FString ModeLobby;
+	bool bModeLobbyLu = false;
+	/** Nom du personnage choisi (sert au pouvoir + fonction de Personnages.txt). */
+	FString NomPersoLobby() const;
+	/** Ecrit le choix dans le casier : [ChellesLobby] ModeDepart et [ChellesPerso] Nom. */
+	void EcrireChoixLobby();
+	/** Zone plein ecran (le lobby), au-dessus du decor. */
+	TSharedPtr<SBox> ZonePleinEcran;
 	TSharedRef<SWidget> EcranMulti();
 	TSharedRef<SWidget> EcranServeurs();
 	TSharedRef<SWidget> EcranAdresseIP();
@@ -186,6 +209,8 @@ private:
 	void Deplacer(int32 Sens);
 	TSharedRef<SBoutonMenu> Enregistrer(TSharedRef<SBoutonMenu> Nouveau);
 	AMenuChelles* LeMenu() const;
+	/** Menu ouvert en jeu par Echap (bouton REPRENDRE). */
+	bool EnPause() const;
 
 	TWeakObjectPtr<AMenuChelles> Menu;
 	EEcranMenu Ecran = EEcranMenu::Principal;
