@@ -1137,7 +1137,8 @@ void AWraithChelles::Suivre(FSoldatWraith& S, float Dt)
 		USkeletalMeshComponent* W = S.Corps.Get();
 		if (W && !(H && H->bPoseSoldat))
 		{
-			W->TickAnimation(0.f, false);
+			// 1/60 s et pas 0 : les Animation Blueprint Paragon divisent par le temps ("Divide by zero", test du 25/11)
+			W->TickAnimation(FMath::Max(Dt, 1.f / 60.f), false);
 			W->RefreshBoneTransforms();
 		}
 	}
