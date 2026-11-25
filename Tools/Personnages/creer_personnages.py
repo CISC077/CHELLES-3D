@@ -119,7 +119,7 @@ CLES_ANIMS = [
 ]
 MOTS_DANSE = ("danc", "dance", "rumba", "flair", "twerk", "soul", "uprock", "samba", "salsa", "hip hop", "hiphop",
               "breakdance", "twist", "shuffle", "macarena", "gangnam", "swing", "tango", "bboy", "robot", "thriller",
-              "belly", "chicken", "silly", "cheer", "victory")
+              "belly", "chicken", "silly", "cheer", "victory", "excited")
 NOMS_CORPS = ("lod_basic_shaded.fbx", "base_basic_shaded.fbx", "lod_basic_pbr.fbx", "base_basic_pbr.fbx",
               "lod_model.fbx", "base.fbx", "model.fbx", "t-pose.fbx", "t pose.fbx", "tpose.fbx")
 IMAGES_COULEURS = ("texture_diffuse", "diffuse", "basecolor", "base_color", "albedo", "color", "shaded", "texture_pbr")
@@ -151,9 +151,16 @@ def preparer_auto(p):
     racine = p["racine"]
     if not os.path.isdir(racine):
         return "%s : dossier %s introuvable" % (p["nom"], racine)
-    fbx = [f for f in _tous_les_fichiers(p["fbx"] if os.path.isdir(p["fbx"]) else racine, (".fbx",))]
-    if not fbx:
-        fbx = _tous_les_fichiers(racine, (".fbx",))
+    # Seulement les fichiers DIRECTEMENT dans Animations (pas les sous-dossiers : ex. "Capoeira Pack", sans peau)
+    def directs(d):
+        if not os.path.isdir(d):
+            return []
+        return [os.path.join(d, f) for f in os.listdir(d)
+                if os.path.isfile(os.path.join(d, f)) and f.lower().endswith(".fbx")]
+    fbx = directs(p["fbx"]) or directs(racine)
+    # "Walking (1).fbx", "Flair(1).fbx" = copies : apres l'original
+    import re
+    fbx.sort(key=lambda f: ("(" in os.path.basename(f), os.path.basename(f).lower()))
     if not fbx:
         return "%s : aucun fichier .fbx dans %s (exportez-le de Mixamo AVEC SKIN, en FBX)" % (p["nom"], racine)
     noms = dict((os.path.basename(f).lower(), f) for f in fbx)
@@ -179,6 +186,10 @@ def preparer_auto(p):
                 etat = e
                 break
         if not etat and any(d in b for d in MOTS_DANSE):
+            simple = re.sub(r"\s*\(\d+\)$", "", b).strip()
+            if simple in pris:
+                continue  # copie d'une danse deja prise
+            pris.add(simple)
             danses += 1
             etat = "Danse" if danses == 1 else "Danse%d" % danses
         if etat:
