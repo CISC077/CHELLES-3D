@@ -10,6 +10,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerStart.h"
 #include "GameFramework/WorldSettings.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformMemory.h"
@@ -452,38 +453,86 @@ void ATesteurChelles::AjouterMarche()
 	TSharedRef<float> VitesseMax = MakeShared<float>(0.f);
 	E.Debut = [this, Direction, Index]()
 	{
+		FEtapeTest& Moi = Etapes[Index];
 		APawn* P = Pion();
+		APlayerController* Joueur = PC();
 		DepartMarche = P ? P->GetActorLocation() : FVector::ZeroVector;
 		ZDepartEtape = DepartMarche.Z;
-		APlayerController* Joueur = PC();
-		if (!P || !Joueur)
+		if (!P || !Joueur || !GetWorld())
 		{
 			return;
 		}
-		// Direction degagee : on essaie 16 directions a partir de celle de la camera
-		const float Yaw0 = Joueur->GetControlRotation().Yaw;
-		FCollisionQueryParams Params(FName(TEXT("ChellesTesteurMarche")), false, P);
-		const FVector Depart = P->GetActorLocation();
-		bool bTrouve = false;
-		for (int32 i = 0; i < 16 && !bTrouve; ++i)
+		// 25/11 11h : la Zone 9 tombait sur un toit ou dans un objet (murs partout sur 6 m).
+		// La marche part donc d'un endroit sur : les departs joueur (PlayerStart), puis les zones visitees.
+		struct FDepart { FString Nom; FVector Lieu; };
+		TArray<FDepart> Departs;
+		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
 		{
-			const FRotator R(0.f, Yaw0 + 22.5f * i, 0.f);
-			const FVector Dir = R.Vector();
-			FHitResult Impact;
-			const bool bMur = GetWorld()->SweepSingleByChannel(Impact, Depart, Depart + Dir * 600.f, FQuat::Identity,
-				ECC_Pawn, FCollisionShape::MakeSphere(35.f), Params);
-			if (!bMur)
+			Departs.Add({ TEXT("depart du joueur"), It->GetActorLocation() });
+		}
+		for (const FEtapeTest& Autre : Etapes)
+		{
+			if (Autre.bPosition)
 			{
-				*Direction = Dir;
-				Joueur->SetControlRotation(R);
-				bTrouve = true;
+				Departs.Add({ Autre.Nom, Autre.Position + FVector(0.f, 0.f, 100.f) });
 			}
 		}
-		if (!bTrouve)
+		Departs.Add({ TEXT("fin de la derniere zone"), P->GetActorLocation() });
+
+		const float Yaw0 = Joueur->GetControlRotation().Yaw;
+		FCollisionQueryParams Params(FName(TEXT("ChellesTesteurMarche")), false, P);
+		const float Rayon = 35.f;
+		int32 Coinces = 0;
+		for (const FDepart& D : Departs)
 		{
-			*Direction = FRotator(0.f, Yaw0, 0.f).Vector();
-			Etapes[Index].Remarques.Add(TEXT("Murs tout autour du point de depart (aucune direction libre sur 6 m)."));
+			int32 Libres = 0;
+			FVector DirLibre = FVector::ZeroVector;
+			float YawLibre = 0.f;
+			for (int32 i = 0; i < 16; ++i)
+			{
+				const float Yaw = Yaw0 + 22.5f * i;
+				const FVector Dir = FRotator(0.f, Yaw, 0.f).Vector();
+				FHitResult Impact;
+				if (!GetWorld()->SweepSingleByChannel(Impact, D.Lieu, D.Lieu + Dir * 600.f, FQuat::Identity,
+					ECC_Pawn, FCollisionShape::MakeSphere(Rayon), Params))
+				{
+					if (Libres++ == 0)
+					{
+						DirLibre = Dir;
+						YawLibre = Yaw;
+					}
+				}
+			}
+			if (Libres == 0)
+			{
+				++Coinces;
+				continue;
+			}
+			// Endroit trouve : on y pose le personnage, face a la direction libre
+			P->SetActorLocation(D.Lieu, false, nullptr, ETeleportType::TeleportPhysics);
+			if (ACharacter* Perso = Cast<ACharacter>(P))
+			{
+				if (UCharacterMovementComponent* Mouvement = Perso->GetCharacterMovement())
+				{
+					Mouvement->StopMovementImmediately();
+					Mouvement->SetMovementMode(MOVE_Falling); // retombe au sol puis marche
+				}
+			}
+			Joueur->SetControlRotation(FRotator(0.f, YawLibre, 0.f));
+			*Direction = DirLibre;
+			DepartMarche = D.Lieu;
+			ZDepartEtape = D.Lieu.Z;
+			Moi.Position = D.Lieu;
+			Moi.bPosition = true;
+			Moi.Remarques.Add(FString::Printf(TEXT("Marche depuis : %s."), *D.Nom));
+			if (Coinces > 0)
+			{
+				Moi.Remarques.Add(FString::Printf(TEXT("%d point(s) de depart ecarte(s) : murs tout autour (toit, arbre ou objet)."), Coinces));
+			}
+			return;
 		}
+		*Direction = FRotator(0.f, Yaw0, 0.f).Vector();
+		Moi.Remarques.Add(TEXT("Murs tout autour de TOUS les points de depart (aucune direction libre sur 6 m)."));
 	};
 	E.Pendant = [this, Direction, VitesseMax](float)
 	{

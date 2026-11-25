@@ -41,7 +41,7 @@ if not "%RESULTAT%"=="0" (
     echo.
     echo  ECHEC de la compilation. Rien n'a change dans le jeu.
     findstr /i /c:": error" /c:": fatal error" "%PLUGIN%\Journal_compilation_complet.txt"
-    echo  Dis-le a Claude (il lit Plugins\ChellesTesteur\Journal_compilation_complet.txt).
+    echo  Dis-le a Claude, il lit Plugins\ChellesTesteur\Journal_compilation_complet.txt
     pause
     exit /b 1
 )

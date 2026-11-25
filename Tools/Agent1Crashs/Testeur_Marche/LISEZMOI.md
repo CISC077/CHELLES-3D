@@ -13,3 +13,11 @@ Correctif (dans `TesteurChelles.cpp`, fonction `AjouterMarche`, seule partie cha
 
 À placer dans `Plugins/ChellesTesteur/Source/ChellesTesteur/Private/` (déjà fait sur le PC,
 copie d'avant `TesteurChelles.cpp.avant_marche`), puis lancer `Tools\Testeur\REPARER_TEST_MARCHE.bat`.
+
+## Mise à jour 25/11 11h
+
+Le 1er essai donnait toujours 0,0 m avec « murs tout autour » en Zone 9 : le point de la zone est
+trouvé par un rayon tombé du ciel, il peut tomber sur un toit, un arbre ou dans un objet.
+La marche part maintenant d'un endroit sûr : d'abord le départ du joueur (PlayerStart), sinon une
+des zones visitées qui a une direction libre. Le rapport dit d'où le perso a marché et combien de
+points étaient coincés.
