@@ -10,5 +10,7 @@ for chemin in ("/Game/DV_Car_Horo/Blueprints/BP_Car_Hatchback_Horo",
     if bp is None:
         unreal.log("[HoroCode] introuvable")
         continue
-    unreal.BlueprintEditorLibrary.compile_blueprint(bp)
+    # UE 4.27 : pas de BlueprintEditorLibrary ; le Blueprint est compile a son chargement (le code s'affiche alors)
+    if hasattr(unreal, "BlueprintEditorLibrary"):
+        unreal.BlueprintEditorLibrary.compile_blueprint(bp)
     unreal.log("[HoroCode] ===== FIN %s" % chemin)
