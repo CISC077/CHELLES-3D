@@ -1,0 +1,94 @@
+# ===========================================================================
+#  CHELLES 3D - ACCESSOIRES : reglages (Bloc-notes, pas besoin de recompiler)
+#  Oui / Non ; distances en metres ; durees en secondes.
+#  Dans le jeu, console (touche ²) : Chelles.Accessoires Relire  pour relire ce fichier.
+#  Pour tester : Chelles.Accessoires Tout  (donne tout) ; Chelles.Accessoires Info
+# ===========================================================================
+Actif=Oui
+
+# ---------------------------------------------------------------------------
+# TOUCHES (noms anglais d'Unreal, plusieurs separees par des virgules)
+# Par defaut 7 8 9 0 : "Seven, E_AccentGrave" marche en QWERTY et en AZERTY (sans Maj).
+# Touches deja prises dans le jeu : P I J E F H N B O X K T ESPACE TAB ² F11 4 3 ...
+# ---------------------------------------------------------------------------
+Lampe.Touche=Seven, E_AccentGrave
+Jumelles.Touche=Eight, Underscore
+Grappin.Touche=Nine, C_Cedille
+Kit.Touche=Zero, A_AccentGrave
+
+# ---------------------------------------------------------------------------
+# DEPART : Oui = le joueur l'a des le debut ; Non = A GAGNER dans les coffres de butin
+# ---------------------------------------------------------------------------
+Lampe.Depart=Oui
+Jumelles.Depart=Oui
+Grappin.Depart=Non
+
+# ---------------------------------------------------------------------------
+# ICONES des cartes (pack FAB Craft Resources Icons). Pour changer : clic droit sur
+# une texture dans le Content Browser > Copy Reference, puis coller ici.
+# ---------------------------------------------------------------------------
+Lampe.Icone=/Game/CraftResourcesIcons/Textures/Tex_tools_08.Tex_tools_08
+Jumelles.Icone=/Game/CraftResourcesIcons/Textures/Tex_spare_parts_03.Tex_spare_parts_03
+Grappin.Icone=/Game/CraftResourcesIcons/Textures/Tex_tools_05.Tex_tools_05
+Kit.Icone=/Game/CraftResourcesIcons/Textures/Tex_container_06.Tex_container_06
+
+# ---------------------------------------------------------------------------
+# LAMPE TORCHE (les autres joueurs la voient aussi)
+# Couleur en hexadecimal (FFF2D0 = blanc chaud). Ombres=Oui est plus joli mais plus lourd.
+# ---------------------------------------------------------------------------
+Lampe.Intensite=15000
+Lampe.Angle=24
+Lampe.Portee=40
+Lampe.Couleur=FFF2D0
+Lampe.Ombres=Non
+
+# ---------------------------------------------------------------------------
+# JUMELLES : 1er appui = Zoom1, 2e appui = Zoom2, 3e appui = rangees. Molette = zoom.
+# Cache=Oui : bord noir en forme de jumelles.
+# ---------------------------------------------------------------------------
+Jumelles.Zoom1=4
+Jumelles.Zoom2=8
+Jumelles.Cache=Oui
+
+# ---------------------------------------------------------------------------
+# GRAPPIN : vise un mur ou un toit, appuie : tu es tire jusque-la. 2e appui = lacher.
+# Vitesse en metres par seconde.
+# ---------------------------------------------------------------------------
+Grappin.Portee=60
+Grappin.Vitesse=26
+Grappin.Attente=1.5
+
+# ---------------------------------------------------------------------------
+# KIT DE SOIN : rend de la vie (pas de resurrection). On en porte Kit.Max au maximum.
+# Kit.AuDepart = kits offerts la toute premiere partie du joueur.
+# ---------------------------------------------------------------------------
+Kit.Vie=50
+Kit.Attente=3
+Kit.AuDepart=2
+Kit.Max=5
+
+# ---------------------------------------------------------------------------
+# BUTIN : quand un joueur ouvre un coffre (plugin ChellesButin), il peut gagner
+# des kits de soin et un accessoire qu'il n'a pas encore. Chances en %.
+# ---------------------------------------------------------------------------
+Butin=Oui
+Butin.Distance=6
+Butin.ChanceKitCommun=60
+Butin.ChanceKitRare=100
+Butin.ChanceKitLegendaire=100
+Butin.KitsCommun=1
+Butin.KitsRare=1
+Butin.KitsLegendaire=2
+Butin.ChanceAccessoireCommun=10
+Butin.ChanceAccessoireRare=35
+Butin.ChanceAccessoireLegendaire=100
+
+# ---------------------------------------------------------------------------
+# ECRAN : colonne ACCESSOIRES affichee quand le menu ARMEMENTS (touche I) est ouvert.
+# Case = BasGauche, HautGauche, BasDroite, HautDroite, CentreGauche, CentreDroite
+# MenusInventaire = menus qui font apparaitre la colonne (S... = menu Slate, sinon Blueprint)
+# ---------------------------------------------------------------------------
+Case=BasGauche
+MenusInventaire=SMenuArmements, W_WeaponInventory, WBP_Inventory
+Son.Gain=/Game/Sounds/InterfaceAudio/Mono/UI_LapComplete_Cue.UI_LapComplete_Cue
+Son.Soin=

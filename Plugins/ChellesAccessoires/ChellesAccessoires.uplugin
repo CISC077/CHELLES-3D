@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Accessoires",
+	"Description": "Accessoires du joueur : lampe torche, jumelles, grappin et kit de soin. Touches 7 8 9 0, case ACCESSOIRES dans le menu ARMEMENTS (touche I), a gagner dans les coffres de butin. Solo et multijoueur.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesAccessoires",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
