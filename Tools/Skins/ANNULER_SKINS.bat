@@ -9,6 +9,7 @@ for %%F in (
   "Plugins\ChellesWraith\Source\ChellesWraith\Public\WraithChelles.h"
   "Plugins\ChellesMenu\Source\ChellesMenu\Private\HabillageChelles.cpp"
   "Plugins\ChellesMenu\Source\ChellesMenu\Public\HabillageChelles.h"
+  "Plugins\ChellesWraith\Wraith.txt"
 ) do (
   if exist "%PROJET%\%%~F.avant_skins" copy /y "%PROJET%\%%~F.avant_skins" "%PROJET%\%%~F" >nul && echo remis : %%~F
 )

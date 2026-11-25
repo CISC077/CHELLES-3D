@@ -61,6 +61,10 @@ struct FHerosWraith
 	float Taille = 1.f;             // taille du corps de ce heros (1 = celle du modele)
 	float Lacet = 0.f;              // rotation du corps (degres) si le modele regarde de cote
 	TArray<UAnimSequenceBase*> Danses; // ligne Danses=Nom|anim;anim... : jouees a la suite (touche des danses)
+	TArray<FString> CheminsDanses;  // chemins des danses (chargees avec le skin, plus au demarrage : 25/11)
+	FString CheminMontage;          // tir (charge avec le skin)
+	FString CheminMort;             // mort (charge avec le skin)
+	bool bExtrasPrets = false;      // tir, mort et danses deja pris
 	UAnimMontage* MontageTir = nullptr;
 	UAnimSequenceBase* AnimMort = nullptr;
 	UParticleSystem* EffetBouche = nullptr;
@@ -211,6 +215,10 @@ private:
 	static bool EstCorpsDeSoldat(const USkeletalMesh* Corps);
 	void AnimerSimple(FSoldatWraith& S);
 	bool AnimerDanse(FSoldatWraith& S, const FHerosWraith& H, float Vitesse, bool bEnLair);
+	/** Danses (touche J) des heros a Animation Blueprint (Paragon) : le corps passe en anim simple puis retrouve son AnimBP. */
+	void AnimerDanseHeros(FSoldatWraith& S);
+	/** Prend le tir, la mort et les danses d'un heros une fois son skin charge. */
+	void FinirHeros(FHerosWraith& H);
 
 	// ---- Danses (LENA, SOFIA, LUCIA...) ----
 	FKey ToucheDanse;

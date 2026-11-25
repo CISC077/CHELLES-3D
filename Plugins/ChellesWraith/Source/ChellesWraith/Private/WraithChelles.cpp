@@ -505,8 +505,11 @@ void AWraithChelles::LireReglages()
 			{
 				H.Lacet = FCString::Atof(*M[10]);
 			}
-			H.MontageTir = M[2].IsEmpty() ? nullptr : LoadObject<UAnimMontage>(nullptr, *M[2]);
-			H.AnimMort = M[3].IsEmpty() ? nullptr : LoadObject<UAnimSequenceBase>(nullptr, *M[3]);
+			// Tir et mort : charges avec le skin (25/11 : 15 heros Paragon, plus rien de lourd au demarrage)
+			H.CheminMontage = M[2];
+			H.CheminMort = M[3];
+			H.MontageTir = nullptr;
+			H.AnimMort = nullptr;
 			H.DossierVoix = M[4];
 			if (!H.DossierVoix.IsEmpty() && !H.DossierVoix.EndsWith(TEXT("/")))
 			{
@@ -521,7 +524,7 @@ void AWraithChelles::LireReglages()
 			if (Os.IsValidIndex(2) && !Os[2].IsEmpty()) H.OsAvant = FName(*Os[2].TrimStartAndEnd());
 			if (Os.IsValidIndex(3) && !Os[3].IsEmpty()) H.OsHaut = FName(*Os[3].TrimStartAndEnd());
 			H.EffetBouche = M[8].IsEmpty() ? nullptr : LoadObject<UParticleSystem>(nullptr, *M[8]);
-			UObject* AGarder[] = { H.MontageTir, H.AnimMort, H.EffetBouche };
+			UObject* AGarder[] = { H.EffetBouche };
 			for (UObject* O : AGarder)
 			{
 				if (O)
@@ -642,22 +645,19 @@ void AWraithChelles::LireReglages()
 	for (FHerosWraith& H : Heros)
 	{
 		H.Danses.Reset();
+		H.CheminsDanses.Reset();
+		H.bExtrasPrets = false;
 		if (const TArray<FString>* Liste = DansesLues.Find(H.Nom))
 		{
+			// Chargees avec le skin du heros (Precharger), pas au demarrage
 			for (const FString& Chemin : *Liste)
 			{
-				UAnimSequenceBase* A = LoadObject<UAnimSequenceBase>(nullptr, *Chemin.TrimStartAndEnd());
-				if (A)
+				if (!Chemin.TrimStartAndEnd().IsEmpty())
 				{
-					H.Danses.Add(A);
-					Gardes.Add(A);
-				}
-				else
-				{
-					UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : danse introuvable (%s)."), *H.Nom, *Chemin);
+					H.CheminsDanses.Add(Chemin.TrimStartAndEnd());
 				}
 			}
-			UE_LOG(LogTemp, Log, TEXT("[Wraith] %s : %d danses (touche %s)."), *H.Nom, H.Danses.Num(), *NomToucheDanse());
+			UE_LOG(LogTemp, Log, TEXT("[Wraith] %s : %d danses (touche %s)."), *H.Nom, H.CheminsDanses.Num(), *NomToucheDanse());
 		}
 	}
 
@@ -733,6 +733,20 @@ void AWraithChelles::Precharger(int32 Index)
 				Chemins.Add(CheminAnim);
 			}
 		}
+		if (!H.bExtrasPrets)
+		{
+			TArray<FString> Extras = H.CheminsDanses;
+			Extras.Add(H.CheminMontage);
+			Extras.Add(H.CheminMort);
+			for (const FString& E : Extras)
+			{
+				const FSoftObjectPath P(E);
+				if (!E.IsEmpty() && P.IsValid())
+				{
+					Chemins.Add(P);
+				}
+			}
+		}
 	}
 	if (Chemins.Num() == 0)
 	{
@@ -769,6 +783,7 @@ bool AWraithChelles::SkinPret(int32 Index)
 	const bool bAnimOk = H.ClasseAnim || H.bAnimIntrouvable || H.CheminAnim.IsEmpty();
 	if (Corps && bAnimOk)
 	{
+		FinirHeros(H);
 		return true;
 	}
 	TSharedPtr<FStreamableHandle>* Poignee = ChargementsSkins.Find(Index);
@@ -793,7 +808,45 @@ bool AWraithChelles::SkinPret(int32 Index)
 		H.bAnimIntrouvable = true;
 		AvisUneFois(TEXT("Anim ") + H.Nom, FString::Printf(TEXT("%s : Animation Blueprint introuvable (%s)."), *H.Nom, *H.CheminAnim), false);
 	}
+	FinirHeros(H);
 	return true;
+}
+
+void AWraithChelles::FinirHeros(FHerosWraith& H)
+{
+	if (H.bExtrasPrets)
+	{
+		return;
+	}
+	H.bExtrasPrets = true;
+	// Deja charges en arriere-plan par Precharger : ResolveObject suffit presque toujours
+	auto Prendre = [](const FString& Chemin) -> UObject*
+	{
+		if (Chemin.IsEmpty())
+		{
+			return nullptr;
+		}
+		const FSoftObjectPath P(Chemin);
+		UObject* O = P.ResolveObject();
+		return O ? O : P.TryLoad();
+	};
+	H.MontageTir = Cast<UAnimMontage>(Prendre(H.CheminMontage));
+	H.AnimMort = Cast<UAnimSequenceBase>(Prendre(H.CheminMort));
+	if (H.MontageTir) Gardes.Add(H.MontageTir);
+	if (H.AnimMort) Gardes.Add(H.AnimMort);
+	H.Danses.Reset();
+	for (const FString& Chemin : H.CheminsDanses)
+	{
+		if (UAnimSequenceBase* A = Cast<UAnimSequenceBase>(Prendre(Chemin)))
+		{
+			H.Danses.Add(A);
+			Gardes.Add(A);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : danse introuvable (%s)."), *H.Nom, *Chemin);
+		}
+	}
 }
 
 void AWraithChelles::NettoyerChargements()
@@ -871,7 +924,7 @@ void AWraithChelles::Tick(float DeltaSeconds)
 		const FSkinWraith* SkinMoi = Skins.IsValidIndex(SkinLocal) ? &Skins[SkinLocal] : nullptr;
 		const FHerosWraith* HerosMoi = (SkinMoi && !SkinMoi->bSoldat && Heros.IsValidIndex(SkinMoi->Heros)) ? &Heros[SkinMoi->Heros] : nullptr;
 		const bool bImmobile = Moi && Moi->GetVelocity().Size2D() < 15.f && Moi->GetCharacterMovement() && Moi->GetCharacterMovement()->IsMovingOnGround();
-		if (EstSoldat(Moi) && HerosMoi && HerosMoi->bAnimsSimples && (!bDanseArretSeulement || bImmobile || bDanseLocale))
+		if (EstSoldat(Moi) && HerosMoi && !HerosMoi->bPoseSoldat && (!bDanseArretSeulement || bImmobile || bDanseLocale))
 		{
 			if (HerosMoi->Danses.Num() > 0)
 			{
@@ -1075,6 +1128,7 @@ void AWraithChelles::Suivre(FSoldatWraith& S, float Dt)
 	}
 	SuivreVoix(S, Dt);
 	AnimerSimple(S);
+	AnimerDanseHeros(S);
 	if (S.bPoseAFaire)
 	{
 		// Corps tout neuf : sa pose est calculee tout de suite (sinon il apparait une image en T-pose)
@@ -1966,7 +2020,7 @@ void AWraithChelles::Tir(FSoldatWraith& S)
 			}
 		}
 	}
-	if (Corps && MontageTir)
+	if (Corps && MontageTir && !S.bDanse)
 	{
 		if (UAnimInstance* Anim = Corps->GetAnimInstance())
 		{
@@ -2472,6 +2526,32 @@ void AWraithChelles::Danser(bool bDanser, bool bAnnoncer)
 			: FString(TEXT("Fin de la danse.")));
 	}
 	UE_LOG(LogTemp, Log, TEXT("[Wraith] Danse : %s"), bDanser ? TEXT("oui") : TEXT("non"));
+}
+
+void AWraithChelles::AnimerDanseHeros(FSoldatWraith& S)
+{
+	const FHerosWraith* H = HerosDe(S);
+	USkeletalMeshComponent* Corps = S.Corps.Get();
+	ACharacter* C = S.Soldat.Get();
+	if (!H || H->bAnimsSimples || H->bPoseSoldat || !H->ClasseAnim || !Corps || !C || S.bMort)
+	{
+		return;
+	}
+	const UCharacterMovementComponent* Mouvement = C->GetCharacterMovement();
+	const float Vitesse = C->GetVelocity().Size2D();
+	const bool bEnLair = Mouvement && (Mouvement->IsFlying() || Mouvement->IsFalling());
+	if (AnimerDanse(S, *H, Vitesse, bEnLair))
+	{
+		return;
+	}
+	// Fin de la danse : le heros retrouve son Animation Blueprint (marche, course, tir...)
+	if (Corps->GetAnimationMode() != EAnimationMode::AnimationBlueprint)
+	{
+		Corps->SetPlayRate(1.f);
+		Corps->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+		Corps->SetAnimInstanceClass(H->ClasseAnim);
+		S.bPoseAFaire = true;
+	}
 }
 
 bool AWraithChelles::AnimerDanse(FSoldatWraith& S, const FHerosWraith& H, float Vitesse, bool bEnLair)

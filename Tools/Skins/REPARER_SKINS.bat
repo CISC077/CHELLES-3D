@@ -6,9 +6,12 @@ rem  1. Fermez Unreal.   2. Double-cliquez ici.   3. Attendez "TERMINE".
 rem  Ce fichier :
 rem    a) recompile ChellesWraith (touche K, LENA/SOFIA/LUCIA, heros Paragon)
 rem       et ChellesMenu (menu HABILLAGE)
-rem    b) verifie tous les skins (corps, squelettes, materiaux, animations)
+rem    b) ajoute les heros PARAGON de Content (Greystone, Zinx, Terra, Iggy, Yin,
+rem       Wukong, Kwang, Shinbi, Phase, Countess...) avec leurs skins et leurs
+rem       danses (touche J + apercu du menu) dans Plugins\ChellesWraith\Wraith.txt
+rem    c) verifie tous les skins (corps, squelettes, materiaux, animations)
 rem       et repare ce qui peut l'etre (materiaux, LOD, doublons de LUCIA)
-rem    c) ouvre le rapport RAPPORT_SKINS.txt
+rem    d) ouvre le rapport RAPPORT_SKINS.txt
 rem  Pour revenir en arriere : ANNULER_SKINS.bat
 rem =====================================================================
 setlocal
@@ -37,7 +40,7 @@ for %%P in (ChellesWraith ChellesMenu) do (
 )
 
 echo.
-echo ===== ETAPE 2/2 : verification des skins (2 a 15 minutes) =====
+echo ===== ETAPE 2/2 : heros Paragon + verification des skins (5 a 30 minutes) =====
 rem Unreal lit mal un chemin avec des espaces : copie du script dans un dossier sans espace
 copy /y "%PROJET%\Tools\Skins\verifier_skins.py" "%TEMP%\chelles_skins.py" >nul
 "%UE%\Engine\Binaries\Win64\UE4Editor-Cmd.exe" "%PROJET%\FPS_Chelles.uproject" -run=pythonscript -script="%TEMP%\chelles_skins.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -unattended -nosplash -stdout > "%PROJET%\Tools\out\skins_unreal.log" 2>&1

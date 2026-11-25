@@ -21,3 +21,7 @@ Changements dans le jeu :
   en mémoire tant que le menu est ouvert (plus d'à-coup en revenant dessus).
 
 Annuler : `ANNULER_SKINS.bat` (remet les sources `*.avant_skins`).
+
+## Heros Paragon (25/11)
+
+REPARER_SKINS.bat ajoute aussi dans Wraith.txt les heros Paragon presents dans Content (lecture de l'Asset Registry, aucun modele charge) : une ligne Heros=, jusqu'a 5 skins par heros (Skin=) et ses emotes Emote_* (Danses=). Dans le jeu : carte HEROS dans le lobby/HABILLAGE, le heros danse dans l'apercu, touche J = danse (nouvel appui = suivante, bouger = arreter). Le heros (corps, animations, danses) n'est charge qu'au moment ou on le choisit. Relancer le .bat ne rajoute rien en double ; Wraith.txt.avant_skins = version d'avant.

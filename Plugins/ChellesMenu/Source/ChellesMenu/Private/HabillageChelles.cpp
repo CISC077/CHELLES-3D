@@ -76,6 +76,7 @@ namespace HabillageInterne
 		FString Corps;
 		FString Materiau;
 		FString Anim;       // classe d'Animation Blueprint, "Soldat", ou vide
+		FString Danse;      // 1re danse du heros (ligne Danses=) : jouee en boucle dans l'apercu (25/11)
 		FLinearColor Couleur = FLinearColor::Black;
 	};
 	static const TArray<FHerosSkin>& HerosSkins()
@@ -94,10 +95,28 @@ namespace HabillageInterne
 			return Liste;
 		}
 		TMap<FString, FString> AnimDuHeros;
+		TMap<FString, FString> DanseDuHeros;
 		for (FString L : Lignes)
 		{
 			L.TrimStartAndEndInline();
-			if (L.StartsWith(TEXT("Heros=")))
+			if (L.StartsWith(TEXT("Danses=")))
+			{
+				FString Nom, Liste, Premiere, Reste;
+				if (L.Mid(7).Split(TEXT("|"), &Nom, &Liste))
+				{
+					Liste.TrimStartAndEndInline();
+					if (!Liste.Split(TEXT(";"), &Premiere, &Reste))
+					{
+						Premiere = Liste;
+					}
+					Premiere.TrimStartAndEndInline();
+					if (!Premiere.IsEmpty() && !DanseDuHeros.Contains(Nom.TrimStartAndEnd()))
+					{
+						DanseDuHeros.Add(Nom.TrimStartAndEnd(), Premiere);
+					}
+				}
+			}
+			else if (L.StartsWith(TEXT("Heros=")))
 			{
 				TArray<FString> M;
 				L.Mid(6).ParseIntoArray(M, TEXT("|"), false);
@@ -150,6 +169,10 @@ namespace HabillageInterne
 				if (const FString* A = AnimDuHeros.Find(M[5].TrimStartAndEnd()))
 				{
 					H.Anim = *A;
+				}
+				if (const FString* D = DanseDuHeros.Find(M[5].TrimStartAndEnd()))
+				{
+					H.Danse = *D;
 				}
 			}
 			if (M.IsValidIndex(6))
@@ -1980,6 +2003,15 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 			}
 		}
 		HabillageInterne::RenduCache(Corps, false, true);
+		// Le heros danse dans l'apercu comme LENA, SOFIA, LUCIA (25/11) ; sans danse : son Animation Blueprint
+		UAnimationAsset* DanseApercu = (!Heros->Danse.IsEmpty() && !Heros->Anim.Equals(TEXT("Soldat"), ESearchCase::IgnoreCase))
+			? LoadObject<UAnimationAsset>(nullptr, *Heros->Danse) : nullptr;
+		if (DanseApercu && DanseApercu->GetSkeleton() == MeshHeros->Skeleton)
+		{
+			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			Corps->PlayAnimation(DanseApercu, true);
+			return;
+		}
 		UClass* ClasseAnim = nullptr;
 		if (Heros->Anim.Equals(TEXT("Soldat"), ESearchCase::IgnoreCase))
 		{
