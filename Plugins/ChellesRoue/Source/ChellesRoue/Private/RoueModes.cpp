@@ -5,6 +5,7 @@
 #include "SRoueModes.h"
 
 #include "Blueprint/UserWidget.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
@@ -23,6 +24,12 @@
 #include "Misc/App.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/UnrealType.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/ConfigCacheIni.h"
 
 #define CHEMIN_MOTONEIGE TEXT("/Game/DV_Snowmobile/Blueprints/BP_Snowmobile.BP_Snowmobile_C")
 // Spider-Man volant (pack SuperheroFlight) : en solo c'est ChellesBasculeVol qui le gere, en multijoueur la roue
@@ -33,6 +40,18 @@
 // Spider-Man sur le squelette du pack DynamicCombatSystem (meme script)
 #define CHEMIN_COSTUME_COMBAT TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Combat.SK_SpiderMan_Combat")
 #define CHEMIN_COSTUME_CAVALIER TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Cavalier.SK_SpiderMan_Cavalier")
+// Corps du volant (squelette SuperheroFlight) : Spider-Male d'origine, et Spider-Femelle
+// (Spider-Femelle cree par Tools\SpiderFemelle\creer_spider_femelle.py, 2026-11-11)
+#define CHEMIN_COSTUME_SPIDER_MALE_VOL TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Vol.SK_SpiderMan_Vol")
+// Spider-Male sur le squelette du soldat FPS_Game (Tools\SpiderManJoueur\importer_spiderman.py) : soldat habille en Spider-Male
+#define CHEMIN_COSTUME_SPIDER_MALE_SOLDAT TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_UE4.SK_SpiderMan_UE4")
+// Spider-Femelle et PANTERA sur le squelette du soldat (Tools\SpiderMaleSoldat\corps_soldat_heros.py, 2026-11-11)
+#define CHEMIN_COSTUME_SPIDER_FEMELLE_SOLDAT TEXT("/Game/Personnages/SK_SpiderFemelle/SK_SpiderFemelle_Soldat.SK_SpiderFemelle_Soldat")
+#define CHEMIN_COSTUME_PANTERA_SOLDAT TEXT("/Game/Personnages/SK_Pantera/SK_Pantera_Soldat.SK_Pantera_Soldat")
+#define CHEMIN_COSTUME_SPIDER_FEMELLE_VOL TEXT("/Game/Personnages/SK_SpiderFemelle/SK_SpiderFemelle_Vol.SK_SpiderFemelle_Vol")
+// PANTERA (2026-11-11) : tenue noire, masque noir, yeux blancs. Cree par Tools\Pantera\creer_pantera.py
+#define CHEMIN_COSTUME_PANTERA_VOL TEXT("/Game/Personnages/SK_Pantera/SK_Pantera_Vol.SK_Pantera_Vol")
+#define CHEMIN_YEUX_PANTERA TEXT("/Game/Personnages/SK_Pantera/M_Pantera_Yeux.M_Pantera_Yeux")
 
 // ---------------------------------------------------------------------------
 // Appels par reflexion vers ChellesBasculeVol et ChellesMotoneige (aucune dependance)
@@ -131,12 +150,47 @@ ARoueModes::ARoueModes()
 	Modes.Add(Soldat);
 
 	FModeRoue Vol;
-	Vol.Nom = FText::FromString(TEXT("Spider-Man"));
+	Vol.Nom = FText::FromString(TEXT("Spider-Male")); // nom affiche (renomme le 2026-11-11, demande MERIDJA)
 	Vol.Type = ETypeModeRoue::Vol;
 	Vol.Icone = EIconeRoue::Toile;
 	Vol.Couleur = FLinearColor(0.95f, 0.18f, 0.22f);
 	Vol.ClasseVehicule = FSoftClassPath(FString(CHEMIN_SPIDERMAN_VOL)); // utilise en multijoueur seulement
+	Vol.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_MALE_VOL)); // remet son corps apres Spider-Femelle
+	// 2026-11-11 (demande MERIDJA) : Spider-Male garde le vol ET a les fonctions du soldat.
+	// Au sol = le soldat FPS_Game (armes, tir, visee, recharge, vie) en costume Spider-Male ; Espace en l'air = s'envoler.
+	Vol.bFonctionsSoldat = true;
+	Vol.CostumeSoldat = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_MALE_SOLDAT));
 	Modes.Add(Vol);
+
+	// Spider-Femelle (2026-11-11) : le meme volant, avec un corps feminin rouge et noir
+	FModeRoue VolFemelle;
+	VolFemelle.Nom = FText::FromString(TEXT("Spider-Femelle"));
+	VolFemelle.Type = ETypeModeRoue::Vol;
+	VolFemelle.Icone = EIconeRoue::Toile;
+	VolFemelle.Couleur = FLinearColor(1.f, 0.3f, 0.65f);
+	VolFemelle.ClasseVehicule = FSoftClassPath(FString(CHEMIN_SPIDERMAN_VOL)); // utilise en multijoueur seulement
+	VolFemelle.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_FEMELLE_VOL));
+	// Comme Spider-Male : armes du soldat au sol, vol en l'air (demande MERIDJA 2026-11-11)
+	VolFemelle.bFonctionsSoldat = true;
+	VolFemelle.CostumeSoldat = FSoftObjectPath(FString(CHEMIN_COSTUME_SPIDER_FEMELLE_SOLDAT));
+	Modes.Add(VolFemelle);
+
+	// PANTERA (2026-11-11, demande MERIDJA) : heros original tout en noir, masque noir et yeux blancs.
+	// Meme volant que Spider-Male, mais 20 secondes de vol maximum avant d'atterrir.
+	// Armes : clic gauche = tir special depuis les mains (plugin ChellesArmes), O = changer de tir.
+	FModeRoue Pantera;
+	Pantera.Nom = FText::FromString(TEXT("PANTERA"));
+	Pantera.Type = ETypeModeRoue::Vol;
+	Pantera.Icone = EIconeRoue::Griffes;
+	Pantera.Couleur = FLinearColor(0.72f, 0.55f, 1.f);
+	Pantera.ClasseVehicule = FSoftClassPath(FString(CHEMIN_SPIDERMAN_VOL)); // utilise en multijoueur seulement
+	Pantera.Costume = FSoftObjectPath(FString(CHEMIN_COSTUME_PANTERA_VOL));
+	Pantera.DureeVolMax = 20.f;
+	Pantera.bYeuxMasque = true;
+	// Comme Spider-Male : armes du soldat au sol, vol (20 s max) en l'air (demande MERIDJA 2026-11-11)
+	Pantera.bFonctionsSoldat = true;
+	Pantera.CostumeSoldat = FSoftObjectPath(FString(CHEMIN_COSTUME_PANTERA_SOLDAT));
+	Modes.Add(Pantera);
 
 	FModeRoue Moto;
 	Moto.Nom = FText::FromString(TEXT("Motoneige"));
@@ -146,15 +200,23 @@ ARoueModes::ARoueModes()
 	Moto.ClasseVehicule = FSoftClassPath(FString(CHEMIN_MOTONEIGE));
 	Modes.Add(Moto);
 
-	// SUV du pack DriveableCar_basic (remis sur la roue le 2026-11-09, seule voiture)
-	FModeRoue Suv;
-	Suv.Nom = FText::FromString(TEXT("SUV"));
-	Suv.Type = ETypeModeRoue::Vehicule;
-	Suv.Icone = EIconeRoue::Voiture;
-	Suv.Couleur = FLinearColor(0.2f, 0.85f, 0.6f);
-	Suv.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/DriveableCar_basic/Blueprints/Vehicles/SUV_BP_child.SUV_BP_child_C")));
-	Suv.LimiteCirculation = 10; // peu de voitures, une par rue : on roule sans accident (demande 2026-11-10)
-	Modes.Add(Suv);
+	// POLICE (2026-11-16, demande MERIDJA) : remplace le SUV (pack DriveableCar_basic retire).
+	// BP_Police_Drivable = voiture de police du pack "Sports and Police Cars - Drivable" (SportVehiclesPack),
+	// cree par Tools\Police\INSTALLER_POLICE.bat. Camera, commandes, sirene et route degagee : plugin ChellesPolice.
+	// Circulation normale (pas de limite) : les voitures devant la police se rangent toutes seules.
+	// 2026-11-21 (demande MERIDJA) : plus de voiture de police dans la roue -> voiture de sport normale du meme pack
+	// (BP_WheeledVehicle_Sportcar1). Camera / E / aide a la conduite gardees via ChellesPolice\Police.txt (Classes).
+	// Ancienne version : RoueModes.cpp.avant_sans_police
+	FModeRoue Police;
+	Police.Nom = FText::FromString(TEXT("VOITURE"));
+	Police.Type = ETypeModeRoue::Vehicule;
+	Police.Icone = EIconeRoue::Voiture;
+	Police.Couleur = FLinearColor(1.f, 0.55f, 0.1f);
+	// 2026-11-25 (demande MERIDJA) : pack SportVehiclesPack SUPPRIME (il faisait bugger le serveur).
+	// VOITURE = voiture de sport du pack VehicleVarietyPack (deja utilisee par le vol de voiture).
+	// Ancienne version : RoueModes.cpp.avant_suppression_police
+	Police.ClasseVehicule = FSoftClassPath(FString(TEXT("/Game/VehicleVarietyPack/Blueprints/SportsCar/BP_SportsCar.BP_SportsCar_C")));
+	Modes.Add(Police);
 
 	// Deux personnages du pack SuperPowers (a la place des voitures, 2026-11-08)
 	FModeRoue Flash;
@@ -246,27 +308,60 @@ void ARoueModes::BeginPlay()
 
 	Controleurs.SetNum(Modes.Num());
 	ClassesVehicules.SetNum(Modes.Num());
+	// 2026-11-12 : les vehicules / personnages (POLICE, super pouvoirs, combat, cheval...) sont de gros
+	// Blueprints. Les charger ici d'un coup bloquait le jeu ~11 s avant que le menu puisse s'afficher.
+	// On les charge maintenant en arriere-plan ; FinirChargementVehicules() termine au besoin.
 	for (int32 i = 0; i < Modes.Num(); ++i)
 	{
-		if (Modes[i].Type != ETypeModeRoue::Libre && Modes[i].ClasseVehicule.IsValid())
+		if (Modes[i].Type == ETypeModeRoue::Libre || !Modes[i].ClasseVehicule.IsValid())
 		{
-			ClassesVehicules[i] = Modes[i].ClasseVehicule.TryLoadClass<APawn>();
-			if (!ClassesVehicules[i])
-			{
-				UE_LOG(LogTemp, Warning, TEXT("[Roue] Vehicule introuvable pour \"%s\" : %s"),
-					*Modes[i].Nom.ToString(), *Modes[i].ClasseVehicule.ToString());
-			}
+			continue;
 		}
+		if (UClass* Deja = Modes[i].ClasseVehicule.ResolveClass())
+		{
+			ClassesVehicules[i] = Deja->IsChildOf(APawn::StaticClass()) ? Deja : nullptr;
+			continue;
+		}
+		TWeakObjectPtr<ARoueModes> Moi(this);
+		LoadPackageAsync(Modes[i].ClasseVehicule.GetLongPackageName(), FLoadPackageAsyncDelegate::CreateLambda(
+			[Moi, i](const FName&, UPackage*, EAsyncLoadingResult::Type)
+			{
+				if (!Moi.IsValid() || !Moi->Modes.IsValidIndex(i) || !Moi->ClassesVehicules.IsValidIndex(i) || Moi->ClassesVehicules[i])
+				{
+					return;
+				}
+				UClass* Classe = Moi->Modes[i].ClasseVehicule.ResolveClass();
+				Moi->ClassesVehicules[i] = (Classe && Classe->IsChildOf(APawn::StaticClass())) ? Classe : nullptr;
+				if (!Moi->ClassesVehicules[i])
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[Roue] Vehicule introuvable pour \"%s\" : %s"),
+						*Moi->Modes[i].Nom.ToString(), *Moi->Modes[i].ClasseVehicule.ToString());
+				}
+			}));
 	}
 
+	PreparerCasesSoldatVolant();
 	ChercherPlugins();
 	LierClavier();
+}
+
+void ARoueModes::FinirChargementVehicules()
+{
+	// Si le chargement en arriere-plan n'est pas fini, on termine maintenant (cas rare : roue ouverte tres tot).
+	for (int32 i = 0; i < Modes.Num() && i < ClassesVehicules.Num(); ++i)
+	{
+		if (!ClassesVehicules[i] && Modes[i].Type != ETypeModeRoue::Libre && Modes[i].ClasseVehicule.IsValid())
+		{
+			ClassesVehicules[i] = Modes[i].ClasseVehicule.TryLoadClass<APawn>();
+		}
+	}
 }
 
 void ARoueModes::EndPlay(const EEndPlayReason::Type Raison)
 {
 	Fermer();
 	RetablirTouches();
+	FinSoldatVolant();
 	Super::EndPlay(Raison);
 }
 
@@ -306,6 +401,13 @@ void ARoueModes::LierClavier()
 				Haut.bConsumeInput = false;
 				FInputKeyBinding& Bas = InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &ARoueModes::SortMoins);
 				Bas.bConsumeInput = false;
+			}
+
+			// Spider-Male soldat : Espace en l'air = s'envoler (le saut du soldat n'est pas bloque)
+			for (const FKey& K : { EKeys::SpaceBar, EKeys::Gamepad_FaceButton_Bottom })
+			{
+				FInputKeyBinding& Saut = InputComponent->BindKey(K, IE_Pressed, this, &ARoueModes::ToucheSaut);
+				Saut.bConsumeInput = false;
 			}
 
 			const FKey Azerty[] = { EKeys::Ampersand, EKeys::E_AccentAigu, EKeys::Quote, EKeys::Apostrophe, EKeys::LeftParantheses };
@@ -534,7 +636,29 @@ int32 ARoueModes::ModeActuel() const
 			return i;
 		}
 	}
+	// Spider-Male soldat : a pied (armes) comme en vol, c'est toujours sa case
+	if (Modes.IsValidIndex(ModeSoldatVol))
+	{
+		return ModeSoldatVol;
+	}
 	const ETypeModeRoue Cherche = EstEnVol() ? ETypeModeRoue::Vol : ETypeModeRoue::APied;
+	if (Cherche == ETypeModeRoue::Vol)
+	{
+		// Plusieurs cases de vol (Spider-Male, Spider-Femelle) : on reconnait la case a son corps
+		const ACharacter* Perso = Cast<ACharacter>(Pion);
+		const USkeletalMesh* Corps = (Perso && Perso->GetMesh()) ? Perso->GetMesh()->SkeletalMesh : nullptr;
+		if (Corps)
+		{
+			const FSoftObjectPath CheminCorps(Corps);
+			for (int32 i = 0; i < Modes.Num(); ++i)
+			{
+				if (Modes[i].Type == ETypeModeRoue::Vol && !Modes[i].Costume.IsNull() && Modes[i].Costume == CheminCorps)
+				{
+					return i;
+				}
+			}
+		}
+	}
 	for (int32 i = 0; i < Modes.Num(); ++i)
 	{
 		if (Modes[i].Type == Cherche)
@@ -581,13 +705,25 @@ void ARoueModes::HabillerPion(APawn* Pion, const FModeRoue& Mode, bool bAvertir)
 	{
 		if (bAvertir)
 		{
-			Message(TEXT("Costume Spider-Man introuvable : lance Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py dans Unreal."));
+			if (Mode.Costume.ToString().Contains(TEXT("Pantera")))
+			{
+				Message(TEXT("Costume PANTERA introuvable : lance Tools\\Pantera\\creer_pantera.py dans Unreal (File > Execute Python Script)."));
+			}
+			else if (Mode.Costume.ToString().Contains(TEXT("SpiderFemelle")))
+			{
+				Message(TEXT("Costume Spider-Femelle introuvable : lance Tools\\SpiderFemelle\\creer_spider_femelle.py dans Unreal."));
+			}
+			else
+			{
+				Message(TEXT("Costume Spider-Male introuvable : lance Tools\\SpiderManJoueur\\creer_spiderman_pouvoirs.py dans Unreal."));
+			}
 		}
 		return;
 	}
 	USkeletalMesh* Actuel = Corps->SkeletalMesh;
 	if (Actuel == Costume)
 	{
+		MettreYeuxMasque(Corps, Mode.bYeuxMasque);
 		return;
 	}
 	if (Actuel && Actuel->GetSkeleton() != Costume->GetSkeleton())
@@ -595,12 +731,13 @@ void ARoueModes::HabillerPion(APawn* Pion, const FModeRoue& Mode, bool bAvertir)
 		// Autre squelette : les animations du pack ne marcheraient plus, on garde le perso d'origine
 		if (bAvertir)
 		{
-			Message(TEXT("Costume Spider-Man : squelette different de celui du personnage, costume non applique."));
+			Message(FString::Printf(TEXT("Costume %s : squelette different de celui du personnage, costume non applique."), *Mode.Nom.ToString()));
 		}
 		return;
 	}
 	Corps->SetSkeletalMesh(Costume);
 	Corps->EmptyOverrideMaterials();
+	MettreYeuxMasque(Corps, Mode.bYeuxMasque); // PANTERA : yeux blancs ; autres costumes : yeux retires
 }
 
 APawn* ARoueModes::VehiculeDe(AActor* Controleur) const
@@ -850,8 +987,13 @@ void ARoueModes::EmpecherChute()
 	}
 	if (PionSurveille.Get() != Perso)
 	{
+		// Nouveau personnage (touche F1-F12 / roue) : il apparait la ou etait l'ancien, dont le point d'origine
+		// peut etre plus bas (motoneige, cheval, voiture...) : on le remet au-dessus du sol.
+		// On GARDE le dernier sol connu de l'ancien personnage : avant (2026-11-21), il etait oublie et un
+		// personnage tombe sous la carte juste apres le changement n'etait jamais rattrape.
+		AActor* Ancien = PionSurveille.Get();
 		PionSurveille = Perso;
-		bSolConnu = false;
+		RecalerAuSol(Perso, Ancien);
 	}
 	const FVector Ici = Perso->GetActorLocation();
 	if (Mouvement->IsMovingOnGround())
@@ -864,10 +1006,80 @@ void ARoueModes::EmpecherChute()
 	if (bSolConnu && Ici.Z < DernierSol.Z - 2500.f && Mouvement->Velocity.Z < 0.f)
 	{
 		Perso->SetActorLocation(DernierSol + FVector(0.f, 0.f, 150.f), false, nullptr, ETeleportType::ResetPhysics);
+		RecalerAuSol(Perso);
 		Mouvement->Velocity = FVector::ZeroVector;
 		Mouvement->SetMovementMode(MOVE_Falling);
 		Message(TEXT("Tu etais passe sous la carte : retour au dernier endroit sur."));
 	}
+}
+
+void ARoueModes::RecalerAuSol(APawn* Pion, AActor* Ignorer)
+{
+	UWorld* Monde = GetWorld();
+	if (!Pion || !Monde || GetNetMode() == NM_Client)
+	{
+		return; // le serveur decide de la position
+	}
+	// Bas et haut du personnage : capsule pour un personnage, boite de collision pour un vehicule
+	const FVector Ici = Pion->GetActorLocation();
+	float Bas = Ici.Z;
+	float Hauteur = 0.f;
+	ACharacter* Perso = Cast<ACharacter>(Pion);
+	if (Perso && Perso->GetCapsuleComponent())
+	{
+		Hauteur = Perso->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+		Bas = Ici.Z - Hauteur;
+		Hauteur *= 2.f;
+	}
+	else
+	{
+		FVector Centre, Etendue;
+		Pion->GetActorBounds(true, Centre, Etendue);
+		if (Etendue.Z <= 1.f || Etendue.Z > 2000.f)
+		{
+			return;
+		}
+		Bas = Centre.Z - Etendue.Z;
+		Hauteur = Etendue.Z * 2.f;
+	}
+	// Rayon vers le bas, depuis un peu au-dessus de la tete (pas trop haut : ne pas sortir d'un tunnel par le toit)
+	const FVector Depart(Ici.X, Ici.Y, Bas + FMath::Clamp(Hauteur, 100.f, 400.f) + 60.f);
+	const FVector Arrivee(Ici.X, Ici.Y, Bas - 3000.f);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(ChellesRecalerAuSol), false, Pion);
+	if (Ignorer)
+	{
+		Params.AddIgnoredActor(Ignorer);
+	}
+	if (APawn* Cache = PietonCache.Get())
+	{
+		Params.AddIgnoredActor(Cache);
+	}
+	FCollisionObjectQueryParams Objets;
+	Objets.AddObjectTypesToQuery(ECC_WorldStatic);
+	Objets.AddObjectTypesToQuery(ECC_WorldDynamic);
+	FHitResult Sol;
+	if (!Monde->LineTraceSingleByObjectType(Sol, Depart, Arrivee, Objets, Params) || Sol.Actor.Get() == Pion)
+	{
+		return; // pas de sol trouve dessous : on ne touche a rien (EmpecherChute rattrapera une chute)
+	}
+	const float Marge = 8.f;
+	if (Bas >= Sol.ImpactPoint.Z - 2.f)
+	{
+		return; // deja au-dessus du sol
+	}
+	const float Monter = Sol.ImpactPoint.Z + Marge - Bas;
+	Pion->SetActorLocation(Ici + FVector(0.f, 0.f, Monter), false, nullptr, ETeleportType::TeleportPhysics);
+	if (Perso && Perso->GetCharacterMovement())
+	{
+		Perso->GetCharacterMovement()->Velocity = FVector::ZeroVector;
+		if (Perso->GetCharacterMovement()->MovementMode != MOVE_None)
+		{
+			Perso->GetCharacterMovement()->SetMovementMode(MOVE_Falling); // retombe proprement sur le sol
+		}
+	}
+	DernierSol = Sol.ImpactPoint + FVector(0.f, 0.f, Marge + Hauteur * 0.5f);
+	bSolConnu = true;
+	UE_LOG(LogTemp, Log, TEXT("[Roue] %s apparu dans le sol : remonte de %.0f cm."), *Pion->GetName(), Monter);
 }
 
 void ARoueModes::RetablirTouches()
@@ -1014,7 +1226,7 @@ void ARoueModes::ChoisirMode(int32 Index)
 		}
 		else if (Mode.Type == ETypeModeRoue::Vol)
 		{
-			Message(TEXT("Spider-Man indisponible : l'acteur Bascule Vol n'est pas dans le niveau."));
+			Message(FString::Printf(TEXT("%s indisponible : l'acteur Bascule Vol n'est pas dans le niveau."), *Mode.Nom.ToString()));
 		}
 		else if (!ClasseMotoneige)
 		{
@@ -1056,6 +1268,13 @@ void ARoueModes::ChoisirMode(int32 Index)
 		CacherHudPack(RacinePack(Modes[Avant].ClasseVehicule));
 	}
 
+	// Quitter Spider-Male soldat : le soldat reprend son corps (et son HABILLAGE)
+	const bool bSoldatVolant = Mode.Type == ETypeModeRoue::Vol && Mode.bFonctionsSoldat;
+	if (!bSoldatVolant && ModeSoldatVol != INDEX_NONE)
+	{
+		FinSoldatVolant();
+	}
+
 	// 2. Nouveau mode
 	switch (Mode.Type)
 	{
@@ -1067,9 +1286,31 @@ void ARoueModes::ChoisirMode(int32 Index)
 		break;
 
 	case ETypeModeRoue::Vol:
+		if (bSoldatVolant)
+		{
+			// Spider-Male, Spider-Femelle, PANTERA : soldat au sol (armes du soldat), volant en l'air
+			ModeSoldatVol = Index;
+			bAvisCostumeSoldat = false;
+			bDemarrerVol = false;
+			TempsPose = 0.f;
+			if (EstEnVol())
+			{
+				MettreCostume(Mode); // deja en l'air : il garde le vol, il reprendra les armes en se posant
+			}
+			else if (APlayerController* PC = GetPC())
+			{
+				HabillerSoldat(PC->GetPawn(), true);
+			}
+			Message(FString::Printf(TEXT("%s : armes du soldat au sol. Saute puis rappuie sur Espace en l'air pour t'envoler ; pose-toi pour reprendre tes armes."), *Mode.Nom.ToString()));
+			break;
+		}
 		if (!EstEnVol())
 		{
 			Appeler(Bascule, TEXT("Basculer"));
+		}
+		if (EstEnVol())
+		{
+			MettreCostume(Mode); // Spider-Male ou Spider-Femelle : meme volant, corps different
 		}
 		break;
 
@@ -1160,6 +1401,7 @@ bool ARoueModes::EntrerPersonnage(int32 Index)
 	}
 	APlayerController* PC = GetPC();
 	APawn* Pieton = PC ? PC->GetPawn() : nullptr;
+	FinirChargementVehicules();
 	UClass* Classe = ClassesVehicules.IsValidIndex(Index) ? ClassesVehicules[Index] : nullptr;
 	if (!Pieton || !Classe)
 	{
@@ -1309,6 +1551,7 @@ void ARoueModes::Ouvrir()
 	{
 		return;
 	}
+	FinirChargementVehicules();
 	ChercherPlugins();
 
 	Widget = SNew(SRoueModes);
@@ -1528,6 +1771,9 @@ void ARoueModes::Tick(float DeltaSeconds)
 		SortirPersonnage(); // le perso du pack a disparu : on rend le soldat
 	}
 	EmpecherChute();
+	LimiterVol(DeltaSeconds);
+	SuivreSoldatVolant(DeltaSeconds);
+	DonnerGuideCommandes();
 	if (!bOuverte)
 	{
 		AppliquerTouchesDuMode();
@@ -1694,6 +1940,7 @@ void ARoueModes::ChoisirModeReseau(ARoueRelais* Relais, int32 Index)
 		}
 		else if (ClassesVehicules.IsValidIndex(Index))
 		{
+			FinirChargementVehicules();
 			Classe = ClassesVehicules[Index];
 		}
 		if (!Classe)
@@ -1716,6 +1963,7 @@ void ARoueModes::ChoisirModeReseau(ARoueRelais* Relais, int32 Index)
 	PC->Possess(Nouveau);
 	PC->SetControlRotation(Rot);
 	PC->ClientSetRotation(Rot);
+	RecalerAuSol(Nouveau, Ancien); // pas sous la carte (2026-11-21)
 
 	// L'ancien personnage : le soldat est cache (on le garde avec sa vie et ses armes), les autres disparaissent
 	if (Ancien == Soldat)
@@ -1838,13 +2086,13 @@ void ARoueModes::SuivreJoueursReseau()
 }
 
 // ---------------------------------------------------------------------------
-// Circulation (plugin ChellesCirculation, par reflexion) : moins de voitures dans certains modes (SUV)
+// Circulation (plugin ChellesCirculation, par reflexion) : moins de voitures dans certains modes (LimiteCirculation)
 // ---------------------------------------------------------------------------
 
 void ARoueModes::ReglerCirculation()
 {
 	// La limite la plus basse parmi les modes joues. En multijoueur on regarde tous les joueurs :
-	// deux joueurs en SUV = la meme limite qu'un seul (elle ne s'additionne pas).
+	// deux joueurs dans le meme mode = la meme limite qu'un seul (elle ne s'additionne pas).
 	int32 Limite = 0;
 	auto Prendre = [this, &Limite](int32 Index)
 	{
@@ -1884,7 +2132,7 @@ void ARoueModes::ReglerCirculation()
 		if (!bDejaDit)
 		{
 			bDejaDit = true;
-			UE_LOG(LogTemp, Warning, TEXT("[Roue] Circulation : recompiler ChellesCirculation pour limiter les voitures en SUV."));
+			UE_LOG(LogTemp, Warning, TEXT("[Roue] Circulation : recompiler ChellesCirculation pour limiter les voitures."));
 		}
 		LimiteCirculationAppliquee = Limite;
 		return;
@@ -1900,4 +2148,724 @@ void ARoueModes::ReglerCirculation()
 	LimiteCirculationAppliquee = Limite;
 	UE_LOG(LogTemp, Log, TEXT("[Roue] Circulation : %s."), Limite > 0
 		? *FString::Printf(TEXT("%d voitures maximum, une par rue"), Limite) : TEXT("normale"));
+}
+
+// ---------------------------------------------------------------------------
+// PANTERA (2026-11-11) : choisir un mode par son nom, yeux blancs du masque, limite de vol
+// ---------------------------------------------------------------------------
+
+bool ARoueModes::ChoisirModeParNom(const FString& NomMode)
+{
+	for (int32 i = 0; i < Modes.Num(); ++i)
+	{
+		if (Modes[i].Nom.ToString().Equals(NomMode, ESearchCase::IgnoreCase))
+		{
+			if (ModeActuel() != i)
+			{
+				ChoisirMode(i);
+			}
+			return ModeActuel() == i;
+		}
+	}
+	UE_LOG(LogTemp, Warning, TEXT("[Roue] Aucun mode ne s'appelle \"%s\"."), *NomMode);
+	return false;
+}
+
+namespace RouePantera
+{
+	static const FName TagYeux(TEXT("ChellesYeuxMasque"));
+
+	/**
+	 * Reglage des yeux, en cm, dans le repere du corps au repos (face vers +Y, haut = +Z).
+	 * Valeurs mesurees sur le mannequin du pack SuperheroFlight : tete a Z 165, visage a Y 8 / 9 au niveau des yeux.
+	 * Modifiables en jeu (console) : Chelles.PanteraYeux Avant Haut Ecart Taille Inclinaison Ouverture
+	 * Enregistres dans GameUserSettings.ini, section [ChellesRoue], cle YeuxPantera.
+	 */
+	struct FReglageYeux
+	{
+		float Avant = 8.1f;        // vers l'avant du visage
+		float Haut = 171.f;        // hauteur depuis les pieds
+		float Ecart = 3.6f;        // distance entre le milieu du visage et le centre d'un oeil
+		float Taille = 1.f;        // multiplie la taille (oeil = 3,2 x 1,4 cm)
+		float Inclinaison = 15.f;  // degres : coin exterieur releve (regard de felin)
+		float Ouverture = 35.f;    // degres : l'oeil suit l'arrondi de la tete
+
+		FString VersTexte() const
+		{
+			return FString::Printf(TEXT("%g,%g,%g,%g,%g,%g"), Avant, Haut, Ecart, Taille, Inclinaison, Ouverture);
+		}
+		void DepuisTexte(const FString& Texte)
+		{
+			TArray<FString> Morceaux;
+			Texte.ParseIntoArray(Morceaux, TEXT(","), true);
+			float* Champs[] = { &Avant, &Haut, &Ecart, &Taille, &Inclinaison, &Ouverture };
+			for (int32 i = 0; i < Morceaux.Num() && i < 6; ++i)
+			{
+				*Champs[i] = FCString::Atof(*Morceaux[i].TrimStartAndEnd());
+			}
+			Taille = FMath::Clamp(Taille, 0.2f, 5.f);
+		}
+	};
+
+	static FReglageYeux& Reglage()
+	{
+		static FReglageYeux R;
+		static bool bLu = false;
+		if (!bLu && GConfig)
+		{
+			bLu = true;
+			FString Texte;
+			if (GConfig->GetString(TEXT("ChellesRoue"), TEXT("YeuxPantera"), Texte, GGameUserSettingsIni))
+			{
+				R.DepuisTexte(Texte);
+			}
+		}
+		return R;
+	}
+
+	static void YeuxDe(USkeletalMeshComponent* Corps, TArray<USceneComponent*>& Yeux)
+	{
+		Yeux.Reset();
+		if (!Corps)
+		{
+			return;
+		}
+		for (USceneComponent* Enfant : Corps->GetAttachChildren())
+		{
+			if (IsValid(Enfant) && Enfant->ComponentHasTag(TagYeux))
+			{
+				Yeux.Add(Enfant);
+			}
+		}
+	}
+
+	/** Les yeux suivent le corps : caches s'il est cache (vol bascule, effet verre...). */
+	static void SuivreVisibilite(USkeletalMeshComponent* Corps, const TArray<USceneComponent*>& Yeux)
+	{
+		const bool bCache = !Corps->IsVisible() || Corps->bHiddenInGame;
+		for (USceneComponent* Oeil : Yeux)
+		{
+			if (Oeil->bHiddenInGame != bCache)
+			{
+				Oeil->SetHiddenInGame(bCache);
+			}
+		}
+	}
+}
+
+void ARoueModes::MettreYeuxMasque(USkeletalMeshComponent* Corps, bool bAvecYeux)
+{
+	using namespace RouePantera;
+	if (!IsValid(Corps) || !Corps->GetOwner())
+	{
+		return;
+	}
+	TArray<USceneComponent*> Yeux;
+	YeuxDe(Corps, Yeux);
+	if (bAvecYeux && Yeux.Num() == 2)
+	{
+		SuivreVisibilite(Corps, Yeux);
+		return; // deja poses
+	}
+	for (USceneComponent* Oeil : Yeux)
+	{
+		Oeil->DestroyComponent();
+	}
+	if (!bAvecYeux || !Corps->SkeletalMesh)
+	{
+		return;
+	}
+
+	// Position de l'os de la tete au repos (repere du corps)
+	const FReferenceSkeleton& Squelette = Corps->SkeletalMesh->GetRefSkeleton();
+	const int32 Tete = Squelette.FindBoneIndex(TEXT("head"));
+	if (Tete == INDEX_NONE)
+	{
+		return;
+	}
+	FTransform TeteRepos = FTransform::Identity;
+	for (int32 Os = Tete; Os != INDEX_NONE; Os = Squelette.GetParentIndex(Os))
+	{
+		TeteRepos = TeteRepos * Squelette.GetRefBonePose()[Os];
+	}
+
+	UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+	if (!Sphere)
+	{
+		return;
+	}
+	UMaterialInterface* Blanc = LoadObject<UMaterialInterface>(nullptr, CHEMIN_YEUX_PANTERA);
+	if (!Blanc)
+	{
+		// Script pas encore lance : materiau de base de l'Engine, en blanc
+		if (UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")))
+		{
+			UMaterialInstanceDynamic* Dyn = UMaterialInstanceDynamic::Create(Base, Corps->GetOwner());
+			Dyn->SetVectorParameterValue(TEXT("Color"), FLinearColor::White);
+			Blanc = Dyn;
+		}
+	}
+
+	const FReglageYeux& R = Reglage();
+	for (const float Cote : { -1.f, 1.f })
+	{
+		// Un oeil en amande : sphere aplatie (3,2 x 1,4 cm, 1,4 cm d'epaisseur), tournee vers l'exterieur
+		const FVector Lieu(Cote * R.Ecart, R.Avant, R.Haut);
+		const FRotator Sens(Cote * R.Inclinaison, -Cote * R.Ouverture, 0.f);
+		const FVector Echelle = FVector(0.032f, 0.014f, 0.014f) * R.Taille;
+		const FTransform OeilRepos(Sens, Lieu, Echelle);
+
+		UStaticMeshComponent* Oeil = NewObject<UStaticMeshComponent>(Corps->GetOwner(), NAME_None, RF_Transient);
+		Oeil->ComponentTags.Add(TagYeux);
+		Oeil->SetStaticMesh(Sphere);
+		if (Blanc)
+		{
+			Oeil->SetMaterial(0, Blanc);
+		}
+		Oeil->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Oeil->SetGenerateOverlapEvents(false);
+		Oeil->SetCastShadow(false);
+		Oeil->SetupAttachment(Corps, TEXT("head"));
+		Oeil->SetRelativeTransform(OeilRepos.GetRelativeTransform(TeteRepos));
+		Oeil->RegisterComponent();
+	}
+	YeuxDe(Corps, Yeux);
+	SuivreVisibilite(Corps, Yeux);
+}
+
+void ARoueModes::ReglerYeux(UWorld* Monde, const TArray<FString>& Arguments)
+{
+	using namespace RouePantera;
+	FReglageYeux& R = Reglage();
+	if (Arguments.Num() > 0)
+	{
+		if (Arguments[0].Equals(TEXT("Defaut"), ESearchCase::IgnoreCase))
+		{
+			R = FReglageYeux();
+		}
+		else
+		{
+			R.DepuisTexte(FString::Join(Arguments, TEXT(",")));
+		}
+		if (GConfig)
+		{
+			GConfig->SetString(TEXT("ChellesRoue"), TEXT("YeuxPantera"), *R.VersTexte(), GGameUserSettingsIni);
+			GConfig->Flush(false, GGameUserSettingsIni);
+		}
+	}
+	const FString Texte = FString::Printf(TEXT("Yeux PANTERA : Avant %g  Haut %g  Ecart %g  Taille %g  Inclinaison %g  Ouverture %g   (Chelles.PanteraYeux Defaut = reglage d'origine)"),
+		R.Avant, R.Haut, R.Ecart, R.Taille, R.Inclinaison, R.Ouverture);
+	UE_LOG(LogTemp, Warning, TEXT("[Roue] %s"), *Texte);
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 8.f, FColor::Cyan, Texte);
+	}
+	if (!Monde)
+	{
+		return;
+	}
+	// On refait les yeux de tous les personnages qui en ont
+	TArray<USkeletalMeshComponent*> AvecYeux;
+	for (TObjectIterator<USkeletalMeshComponent> It; It; ++It)
+	{
+		USkeletalMeshComponent* Corps = *It;
+		TArray<USceneComponent*> Yeux;
+		if (IsValid(Corps) && Corps->GetWorld() == Monde)
+		{
+			YeuxDe(Corps, Yeux);
+		}
+		if (Yeux.Num() > 0)
+		{
+			AvecYeux.Add(Corps);
+		}
+	}
+	for (USkeletalMeshComponent* Corps : AvecYeux)
+	{
+		TArray<USceneComponent*> Yeux;
+		YeuxDe(Corps, Yeux);
+		for (USceneComponent* Oeil : Yeux)
+		{
+			Oeil->DestroyComponent();
+		}
+		MettreYeuxMasque(Corps, true);
+	}
+}
+
+static FAutoConsoleCommandWithWorldAndArgs GCommandeYeuxPantera(
+	TEXT("Chelles.PanteraYeux"),
+	TEXT("Yeux blancs de PANTERA. Chelles.PanteraYeux Avant Haut Ecart Taille Inclinaison Ouverture (cm et degres). Ex : Chelles.PanteraYeux 8.5 171 3.6 1 15 35. Chelles.PanteraYeux Defaut = reglage d'origine."),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Arguments, UWorld* Monde)
+	{
+		ARoueModes::ReglerYeux(Monde, Arguments);
+	}));
+
+/** Composant de vol du pack SuperheroFlight (BP_SuperheroFlightComponent) sur ce personnage. */
+static UActorComponent* ComposantVol(APawn* Pion)
+{
+	if (!Pion)
+	{
+		return nullptr;
+	}
+	for (UActorComponent* C : Pion->GetComponents())
+	{
+		if (C && C->GetClass()->GetName().Contains(TEXT("SuperheroFlightComponent")))
+		{
+			return C;
+		}
+	}
+	return nullptr;
+}
+
+/** Le personnage vole-t-il ? Variable IsFlying du pack, sinon le mode de deplacement "Flying". */
+static bool EnTrainDeVoler(ACharacter* Perso, UActorComponent* Vol)
+{
+	if (Vol)
+	{
+		if (FBoolProperty* P = FindFProperty<FBoolProperty>(Vol->GetClass(), TEXT("IsFlying")))
+		{
+			if (P->GetPropertyValue_InContainer(Vol))
+			{
+				return true;
+			}
+		}
+	}
+	const UCharacterMovementComponent* Mvt = Perso ? Perso->GetCharacterMovement() : nullptr;
+	return Mvt && Mvt->MovementMode == MOVE_Flying;
+}
+
+/** Atterrissage force : on demande au pack d'arreter le vol, puis on fait retomber le personnage. */
+static void ForcerAtterrissage(ACharacter* Perso, UActorComponent* Vol)
+{
+	if (Vol)
+	{
+		if (UFunction* Fonction = Vol->FindFunction(TEXT("StopFlight")))
+		{
+			const int32 Taille = FMath::Max<int32>(Fonction->ParmsSize, 1);
+			uint8* Parametres = (uint8*)FMemory_Alloca(Taille);
+			FMemory::Memzero(Parametres, Taille);
+			Vol->ProcessEvent(Fonction, Parametres);
+		}
+	}
+	UCharacterMovementComponent* Mvt = Perso ? Perso->GetCharacterMovement() : nullptr;
+	if (Mvt && Mvt->MovementMode == MOVE_Flying)
+	{
+		Mvt->SetMovementMode(MOVE_Falling);
+	}
+}
+
+void ARoueModes::LimiterVol(float DeltaSeconds)
+{
+	APlayerController* PC = GetPC();
+	ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+
+	// Yeux du masque : ils suivent la visibilite du corps (effet verre, bascule de vol...)
+	if (Perso && Perso->GetMesh())
+	{
+		TArray<USceneComponent*> Yeux;
+		RouePantera::YeuxDe(Perso->GetMesh(), Yeux);
+		if (Yeux.Num() > 0)
+		{
+			RouePantera::SuivreVisibilite(Perso->GetMesh(), Yeux);
+		}
+	}
+
+	const int32 Mode = Perso ? ModeActuel() : INDEX_NONE;
+	const float Maximum = (Modes.IsValidIndex(Mode) && Modes[Mode].Type == ETypeModeRoue::Vol) ? Modes[Mode].DureeVolMax : 0.f;
+	if (!Perso || Maximum <= 0.f || Perso != PionVolSuivi.Get())
+	{
+		TempsVol = 0.f;
+		bAtterrissageForce = false;
+		DernierAvisVol = -1;
+		PionVolSuivi = (Maximum > 0.f) ? Perso : nullptr;
+		if (Maximum <= 0.f)
+		{
+			return;
+		}
+	}
+
+	UActorComponent* Vol = ComposantVol(Perso);
+	const UCharacterMovementComponent* Mvt = Perso->GetCharacterMovement();
+	const FString& Nom = Modes[Mode].Nom.ToString();
+	if (EnTrainDeVoler(Perso, Vol))
+	{
+		if (bAtterrissageForce)
+		{
+			// Il repart sans avoir touche le sol : on le refait tomber
+			ForcerAtterrissage(Perso, Vol);
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(42771, 2.f, FColor::Orange, FString::Printf(TEXT("%s : pose-toi au sol pour pouvoir revoler."), *Nom));
+			}
+			return;
+		}
+		if (TempsVol <= 0.f && GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(42770, 3.f, FColor::Cyan, FString::Printf(TEXT("%s : %d secondes de vol maximum"), *Nom, FMath::RoundToInt(Maximum)));
+		}
+		TempsVol += DeltaSeconds;
+		const int32 Reste = FMath::CeilToInt(Maximum - TempsVol);
+		if (Reste <= 5 && Reste > 0 && Reste != DernierAvisVol)
+		{
+			DernierAvisVol = Reste;
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(42770, 1.2f, FColor::Yellow, FString::Printf(TEXT("%s : encore %d s de vol"), *Nom, Reste));
+			}
+		}
+		if (TempsVol >= Maximum)
+		{
+			ForcerAtterrissage(Perso, Vol);
+			bAtterrissageForce = true;
+			Message(FString::Printf(TEXT("%s : %d secondes de vol, atterrissage ! Touche le sol pour revoler."), *Nom, FMath::RoundToInt(Maximum)));
+		}
+	}
+	else if (Mvt && Mvt->IsMovingOnGround())
+	{
+		// Pose au sol : le compteur repart a zero
+		TempsVol = 0.f;
+		bAtterrissageForce = false;
+		DernierAvisVol = -1;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Spider-Male avec les fonctions du soldat (2026-11-11, demande MERIDJA)
+// Au sol : le soldat FPS_Game (armes, tir, visee, recharge, ramassage, vie) habille en Spider-Male.
+// Sauter puis rappuyer sur Espace en l'air : on passe au volant (pack SuperheroFlight) qui decolle.
+// En se posant : retour au soldat, avec ses armes. Solo seulement (en multijoueur la case reste le volant).
+// ---------------------------------------------------------------------------
+
+/** Tag pose sur le soldat costume : le menu HABILLAGE (plugin ChellesMenu) ne l'habille pas pendant ce temps. */
+static const FName TagSansHabillage(TEXT("ChellesSansHabillage"));
+
+/** Lance le vol du pack (comme sauter puis rappuyer sur Espace avec le volant). */
+static void DemarrerVolPack(UActorComponent* Vol)
+{
+	if (!Vol)
+	{
+		return;
+	}
+	if (UFunction* Fonction = Vol->FindFunction(TEXT("StartFlight")))
+	{
+		const int32 Taille = FMath::Max<int32>(Fonction->ParmsSize, 1);
+		uint8* Parametres = (uint8*)FMemory_Alloca(Taille);
+		FMemory::Memzero(Parametres, Taille);
+		Vol->ProcessEvent(Fonction, Parametres);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Roue] StartFlight introuvable sur %s : rappuie sur Espace pour voler."), *GetNameSafe(Vol));
+	}
+}
+
+/** Pion range dans l'acteur Bascule Vol (PionPied ou PionVol), lu par reflexion. */
+static APawn* PionDeBascule(AActor* Bascule, const TCHAR* Nom)
+{
+	if (!IsValid(Bascule))
+	{
+		return nullptr;
+	}
+	FObjectProperty* P = FindFProperty<FObjectProperty>(Bascule->GetClass(), Nom);
+	APawn* Pion = P ? Cast<APawn>(P->GetObjectPropertyValue_InContainer(Bascule)) : nullptr;
+	return IsValid(Pion) ? Pion : nullptr;
+}
+
+void ARoueModes::PreparerCasesSoldatVolant()
+{
+	// Roue enregistree dans un niveau avec ses anciennes cases : la case Spider-Male recoit quand meme les armes
+	const TCHAR* Paires[][2] = {
+		{ CHEMIN_COSTUME_SPIDER_MALE_VOL, CHEMIN_COSTUME_SPIDER_MALE_SOLDAT },
+		{ CHEMIN_COSTUME_SPIDER_FEMELLE_VOL, CHEMIN_COSTUME_SPIDER_FEMELLE_SOLDAT },
+		{ CHEMIN_COSTUME_PANTERA_VOL, CHEMIN_COSTUME_PANTERA_SOLDAT },
+	};
+	for (FModeRoue& M : Modes)
+	{
+		for (const auto& Paire : Paires)
+		{
+			if (M.Type == ETypeModeRoue::Vol && M.CostumeSoldat.IsNull() && M.Costume == FSoftObjectPath(FString(Paire[0])))
+			{
+				M.bFonctionsSoldat = true;
+				M.CostumeSoldat = FSoftObjectPath(FString(Paire[1]));
+			}
+		}
+	}
+}
+
+void ARoueModes::HabillerSoldat(APawn* Soldat, bool bCostume)
+{
+	ACharacter* Perso = Cast<ACharacter>(Soldat);
+	if (!IsValid(Perso))
+	{
+		return;
+	}
+
+	if (!bCostume)
+	{
+		// On rend au soldat le corps qu'il avait, puis le menu HABILLAGE le rhabille
+		if (SoldatCostume.Get() == Perso)
+		{
+			for (const FRoueCorpsAvant& Avant : CorpsAvant)
+			{
+				USkeletalMeshComponent* C = Avant.Composant.Get();
+				if (!C)
+				{
+					continue;
+				}
+				C->SetSkeletalMesh(Avant.Mesh.Get());
+				C->EmptyOverrideMaterials();
+				for (int32 i = 0; i < Avant.Materiaux.Num(); ++i)
+				{
+					if (Avant.Materiaux[i].IsValid())
+					{
+						C->SetMaterial(i, Avant.Materiaux[i].Get());
+					}
+				}
+			}
+			CorpsAvant.Reset();
+			SoldatCostume = nullptr;
+		}
+		MettreYeuxMasque(Perso->GetMesh(), false);
+		Perso->Tags.Remove(TagSansHabillage);
+		return;
+	}
+
+	if (!Modes.IsValidIndex(ModeSoldatVol))
+	{
+		return;
+	}
+	const FModeRoue& Mode = Modes[ModeSoldatVol];
+	USkeletalMesh* Costume = Cast<USkeletalMesh>(Mode.CostumeSoldat.ResolveObject());
+	if (!Costume)
+	{
+		Costume = Cast<USkeletalMesh>(Mode.CostumeSoldat.TryLoad());
+	}
+	if (!Costume)
+	{
+		if (!bAvisCostumeSoldat)
+		{
+			bAvisCostumeSoldat = true;
+			Message(FString::Printf(TEXT("%s : corps du soldat introuvable (%s). Lance Tools\\SpiderMaleSoldat\\corps_soldat_heros.py dans Unreal. Les armes marchent quand meme."),
+				*Mode.Nom.ToString(), *Mode.CostumeSoldat.ToString()));
+		}
+		return;
+	}
+
+	if (SoldatCostume.Get() != Perso)
+	{
+		// Premier passage, ou nouveau soldat (reapparu apres la mort)
+		if (SoldatCostume.IsValid())
+		{
+			HabillerSoldat(SoldatCostume.Get(), false);
+		}
+		CorpsAvant.Reset();
+		SoldatCostume = Perso;
+
+		// Le corps (vu par les autres et en 3e personne) et les jambes vues en 1re personne
+		TArray<USkeletalMeshComponent*> Cibles;
+		if (Perso->GetMesh())
+		{
+			Cibles.Add(Perso->GetMesh());
+		}
+		TArray<USkeletalMeshComponent*> Composants;
+		Perso->GetComponents<USkeletalMeshComponent>(Composants);
+		for (USkeletalMeshComponent* C : Composants)
+		{
+			if (C && C != Perso->GetMesh() && C->GetName().Contains(TEXT("Legs")) && !C->ComponentHasTag(FName(TEXT("ChellesJambes"))))
+			{
+				Cibles.Add(C);
+			}
+		}
+		for (USkeletalMeshComponent* C : Cibles)
+		{
+			if (!C->SkeletalMesh || C->SkeletalMesh->GetSkeleton() != Costume->GetSkeleton())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[Roue] %s : %s a un autre squelette (%s), costume non mis sur ce morceau."),
+					*Mode.Nom.ToString(), *C->GetName(), C->SkeletalMesh ? *GetNameSafe(C->SkeletalMesh->GetSkeleton()) : TEXT("aucun"));
+				continue;
+			}
+			FRoueCorpsAvant Avant;
+			Avant.Composant = C;
+			Avant.Mesh = C->SkeletalMesh;
+			for (UMaterialInterface* M : C->OverrideMaterials)
+			{
+				Avant.Materiaux.Add(M);
+			}
+			CorpsAvant.Add(MoveTemp(Avant));
+		}
+		Perso->Tags.AddUnique(TagSansHabillage);
+		UE_LOG(LogTemp, Log, TEXT("[Roue] \"%s\" : soldat %s habille (%d morceaux), armes du soldat au sol."),
+			*Mode.Nom.ToString(), *Perso->GetName(), CorpsAvant.Num());
+	}
+
+	// (Re)met le costume si quelqu'un l'a change (ou si on passe d'un heros a l'autre)
+	for (const FRoueCorpsAvant& Avant : CorpsAvant)
+	{
+		USkeletalMeshComponent* C = Avant.Composant.Get();
+		if (C && C->SkeletalMesh != Costume)
+		{
+			C->SetSkeletalMesh(Costume);
+			C->EmptyOverrideMaterials();
+		}
+	}
+
+	// PANTERA : yeux blancs sur le masque. Le joueur ne voit pas son propre corps en 1re personne :
+	// les yeux suivent ce reglage, sinon ils flotteraient devant la camera.
+	USkeletalMeshComponent* Corps = Perso->GetMesh();
+	MettreYeuxMasque(Corps, Mode.bYeuxMasque && Corps && Corps->SkeletalMesh == Costume);
+	if (Corps)
+	{
+		for (USceneComponent* Enfant : Corps->GetAttachChildren())
+		{
+			UPrimitiveComponent* Oeil = Cast<UPrimitiveComponent>(Enfant);
+			if (Oeil && Oeil->ComponentHasTag(RouePantera::TagYeux) && Oeil->bOwnerNoSee != Corps->bOwnerNoSee)
+			{
+				Oeil->SetOwnerNoSee(Corps->bOwnerNoSee);
+			}
+		}
+	}
+}
+
+void ARoueModes::FinSoldatVolant()
+{
+	if (SoldatCostume.IsValid())
+	{
+		HabillerSoldat(SoldatCostume.Get(), false);
+	}
+	CorpsAvant.Reset();
+	SoldatCostume = nullptr;
+	ModeSoldatVol = INDEX_NONE;
+	bDemarrerVol = false;
+	TempsPose = 0.f;
+}
+
+void ARoueModes::ToucheSaut()
+{
+	if (!Modes.IsValidIndex(ModeSoldatVol) || bOuverte || EstMultijoueur() || !IsValid(Bascule) || EstEnVol())
+	{
+		return;
+	}
+	APlayerController* PC = GetPC();
+	ACharacter* Soldat = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+	const UCharacterMovementComponent* Mvt = Soldat ? Soldat->GetCharacterMovement() : nullptr;
+	if (!Mvt || !Mvt->IsFalling() || ModeActuel() != ModeSoldatVol)
+	{
+		return; // au sol : c'est le saut normal du soldat
+	}
+	// En l'air (apres un saut) : on s'envole
+	Appeler(Bascule, TEXT("Basculer"));
+	if (!EstEnVol())
+	{
+		Message(FString::Printf(TEXT("%s : impossible de s'envoler (voir le journal, lignes [BasculeVol])."), *Modes[ModeSoldatVol].Nom.ToString()));
+		return;
+	}
+	MettreCostume(Modes[ModeSoldatVol]);
+	bDemarrerVol = true;
+	TempsPose = 0.f;
+}
+
+void ARoueModes::SuivreSoldatVolant(float DeltaSeconds)
+{
+	if (!Modes.IsValidIndex(ModeSoldatVol))
+	{
+		return;
+	}
+	if (EstMultijoueur())
+	{
+		FinSoldatVolant();
+		return;
+	}
+	APlayerController* PC = GetPC();
+	ACharacter* Perso = PC ? Cast<ACharacter>(PC->GetPawn()) : nullptr;
+	if (!Perso || ModeActuel() != ModeSoldatVol)
+	{
+		return;
+	}
+
+	if (!EstEnVol())
+	{
+		// A pied : c'est le soldat (aussi apres une mort, le nouveau soldat est rhabille)
+		HabillerSoldat(Perso, true);
+		bDemarrerVol = false;
+		TempsPose = 0.f;
+		return;
+	}
+
+	UActorComponent* Vol = ComposantVol(Perso);
+	if (bDemarrerVol)
+	{
+		bDemarrerVol = false;
+		DemarrerVolPack(Vol);
+		return;
+	}
+
+	// Pose au sol avec le volant : on reprend le soldat et ses armes
+	const UCharacterMovementComponent* Mvt = Perso->GetCharacterMovement();
+	if (!EnTrainDeVoler(Perso, Vol) && Mvt && Mvt->IsMovingOnGround())
+	{
+		TempsPose += DeltaSeconds;
+		if (TempsPose >= 0.35f)
+		{
+			TempsPose = 0.f;
+			if (!PionDeBascule(Bascule, TEXT("PionPied")))
+			{
+				return; // plus de soldat (mort) : on reste avec le volant
+			}
+			Appeler(Bascule, TEXT("Basculer"));
+			if (!EstEnVol() && PC->GetPawn())
+			{
+				HabillerSoldat(PC->GetPawn(), true);
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(42772, 2.f, FColor::Green,
+						FString::Printf(TEXT("%s : armes en main"), *Modes[ModeSoldatVol].Nom.ToString()));
+				}
+			}
+		}
+	}
+	else
+	{
+		TempsPose = 0.f;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Guide des commandes du pack SuperheroFlight (2026-11-11)
+// BP_Player cree son widget WBP_ControlsGuide dans son BeginPlay, seulement s'il est deja
+// controle par le joueur. Or la roue et ChellesBasculeVol font apparaitre Spider-Man PUIS le
+// donnent au joueur (Possess) : au BeginPlay personne ne le controle, la variable reste vide,
+// et chaque appui sur E / Retour arriere / F1 / F2 donne "Accessed None ... WBP_ControlsGuide".
+// On cree donc le widget manquant et on le range dans la variable, SANS l'afficher a l'ecran :
+// rien ne change a l'image, les erreurs disparaissent. Aucun Blueprint n'est modifie.
+// ---------------------------------------------------------------------------
+
+void ARoueModes::DonnerGuideCommandes()
+{
+	APlayerController* PC = GetPC();
+	APawn* Pion = PC ? PC->GetPawn() : nullptr;
+	if (Pion != PionGuide.Get())
+	{
+		PionGuide = Pion;
+		bGuideVerifie = false;
+	}
+	if (bGuideVerifie || !IsValid(Pion) || !PC->IsLocalController())
+	{
+		return;
+	}
+	bGuideVerifie = true; // une seule verification par personnage
+
+	FObjectProperty* Variable = FindFProperty<FObjectProperty>(Pion->GetClass(), TEXT("WBP_ControlsGuide"));
+	if (!Variable || !Variable->PropertyClass || !Variable->PropertyClass->IsChildOf(UUserWidget::StaticClass()))
+	{
+		return; // pas un personnage du pack SuperheroFlight
+	}
+	if (Variable->GetObjectPropertyValue_InContainer(Pion))
+	{
+		return; // le Blueprint l'a deja cree lui-meme
+	}
+	UUserWidget* Guide = CreateWidget<UUserWidget>(PC, Variable->PropertyClass);
+	if (Guide)
+	{
+		Variable->SetObjectPropertyValue_InContainer(Pion, Guide);
+		UE_LOG(LogTemp, Log, TEXT("[Roue] Guide des commandes donne a %s (non affiche)"), *Pion->GetName());
+	}
 }
