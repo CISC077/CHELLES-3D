@@ -32,9 +32,11 @@ AKitSurvie::AKitSurvie()
 	Boite->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore); // ne bouscule pas les joueurs
 	Boite->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	Boite->SetSimulatePhysics(false); // active au lancement (serveur)
-	Boite->SetLinearDamping(0.2f);
-	Boite->SetAngularDamping(1.5f);
-	Boite->SetMassOverrideInKg(NAME_None, 2.f, true);
+	// 25/11 (agent 1) : reglages poses directement, sans recalcul de la physique pendant la construction
+	// (evite l'erreur "GetSimplePhysicalMaterial : GEngine not initialized" au demarrage)
+	Boite->BodyInstance.LinearDamping = 0.2f;
+	Boite->BodyInstance.AngularDamping = 1.5f;
+	Boite->BodyInstance.SetMassOverride(2.f, true);
 
 	// La croix blanche sur le dessus (taille relative a la boite)
 	CroixA = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CroixA"));
