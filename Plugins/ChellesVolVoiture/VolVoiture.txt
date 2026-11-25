@@ -1,0 +1,129 @@
+# ================================================================
+#  CHELLES 3D - Reglages du vol de voiture (facon GTA)
+#  Ouvrez ce fichier avec le Bloc-notes, changez une valeur, enregistrez.
+#  Pas besoin de recompiler : relancez la partie (ou tapez Chelles.Vol Relire
+#  dans la console, touche ²).
+#  Une ligne qui commence par # est un commentaire.
+# ================================================================
+
+# --- Touches ---
+# Voler une voiture / monter dans une voiture garee / descendre
+ToucheVoler = F
+# Autre touche pour descendre
+ToucheDescendre = E
+# Distance pour pouvoir voler une voiture (metres)
+DistanceVol = 4
+
+# --- Quelle voiture on obtient en volant une voiture de la circulation ---
+# Modele.<nom du modele de la circulation sans SM_> = Blueprint conduit
+Modele.Hatchback = /Game/VehicleVarietyPack/Blueprints/Hatchback/BP_Hatchback.BP_Hatchback_C
+Modele.SUV = /Game/VehicleVarietyPack/Blueprints/SUV/BP_SUV.BP_SUV_C
+Modele.Pickup = /Game/VehicleVarietyPack/Blueprints/Pickup/BP_Pickup.BP_Pickup_C
+Modele.SportsCar = /Game/VehicleVarietyPack/Blueprints/SportsCar/BP_SportsCar.BP_SportsCar_C
+Modele.Truck_Box = /Game/VehicleVarietyPack/Blueprints/BoxTruck/BP_BoxTruck.BP_BoxTruck_C
+# Voitures pour les modeles inconnus de la circulation (et garees si Garees est vide), separees par des virgules
+# 25/11 : VH_Buggy retire (il a besoin du module C++ VehicleGame, absent de l'editeur -> 230 erreurs a chaque Play). Copie : VolVoiture.txt.avant_buggy_2026-11-25
+Secours =
+
+# --- Le conducteur ejecte (il s'enfuit en courant) ---
+ConducteurEjecte = Oui
+ModeleConducteur = /Game/Hijacker/Mesh/SK_hijacker.SK_hijacker
+CourseConducteur = /Game/Hijacker/Animations/ThirdPersonRun.ThirdPersonRun
+
+# --- Autos garees au bord des rues autour du joueur ---
+# Nombre d'autos libres autour de chaque joueur (0 = aucune)
+AutosGarees = 8
+# Rayon autour du joueur (metres) ; plus loin elles sont retirees (fluidite)
+RayonGarees = 150
+# Nombre maximum d'autos de ce plugin sur la carte (garees + volees)
+MaxVoitures = 20
+# Ecart entre le milieu de la voie et la place de parking (metres)
+EcartTrottoir = 3
+
+# --- Niveau RECHERCHE (etoiles) et police ---
+Recherche = Oui
+EtoilesParVol = 1
+EtoilesMax = 5
+# Voitures de police par etoile, et au maximum
+# 21/11 : 0 = plus aucune voiture de police (demande MERIDJA). Remettre 1 et 3 pour les revoir.
+PoliceParEtoile = 0
+PoliceMax = 0
+# Secondes loin de la police pour perdre une etoile
+DureeEtoile = 25
+# Distance (metres) au-dela de laquelle la police ne te voit plus
+DistanceVuePolice = 120
+# Vitesse maximum de la police (km/h)
+VitessePolice = 110
+VoiturePolice =
+
+# --- Conduite ---
+# Camera derriere la voiture (metres)
+DistanceCamera = 6.5
+HauteurCamera = 1.7
+# Aide : la voiture glisse moins sur le cote dans les virages (Oui / Non)
+AideConduite = Oui
+Adherence = 8
+
+# --- 25/11 : autos garees = pack DV_Car_Horo + les 2 Bugatti de Rachid ---
+# Liste des voitures garees : chemin du Blueprint *poids (3 = trois fois plus souvent). Vide = comme avant.
+Garees = /Game/DV_Car_Horo/Blueprints/BP_Car_Hatchback_Horo.BP_Car_Hatchback_Horo_C *3, /Game/Chelles/Bugatti/BP_Bugatti_Chelles.BP_Bugatti_Chelles_C *1, /Game/Chelles/Bugatti/BP_BugattiBrouillard_Chelles.BP_BugattiBrouillard_Chelles_C *1
+# Texte de toutes les plaques d'immatriculation
+Plaque = CHELLES-3D
+# Cameras du pack (exterieure / cockpit avec la touche C). Non = camera du plugin derriere la voiture
+CameraDuPack = Oui
+# Touches des fonctions du pack (jouees chez tous les joueurs en multi). H klaxon = plugin Sons des vehicules.
+TouchePhares = L
+ToucheSaut = R
+ToucheReinitialiser = BackSpace
+ToucheClignotantGauche = G
+ToucheClignotantDroit = U
+ToucheWarnings = V
+# Options du pack (nom exact de la variable du Blueprint = Oui / Non)
+Option.bUse_Low_Rider_? = Oui
+Option.bUse_Can_Be_Repaired_? = Oui
+Option.bUse_Fuel_? = Non
+Option.bUse_Random_Licence_Plate_? = Non
+Option.bUse_Car_Locked_? = Non
+Option.bUse_Car_Alarm_Activated_? = Non
+
+# --- Bugatti (apparence posee sur une DV_Car_Horo ; calee toute seule sur les roues) ---
+Bugatti.Carrosserie = /Game/Chelles/Bugatti/SM_Bugatti_Carrosserie.SM_Bugatti_Carrosserie
+Bugatti.RoueAVG = /Game/Chelles/Bugatti/SM_Bugatti_Roue_AVG.SM_Bugatti_Roue_AVG
+Bugatti.RoueAVD = /Game/Chelles/Bugatti/SM_Bugatti_Roue_AVD.SM_Bugatti_Roue_AVD
+Bugatti.RoueARG = /Game/Chelles/Bugatti/SM_Bugatti_Roue_ARG.SM_Bugatti_Roue_ARG
+Bugatti.RoueARD = /Game/Chelles/Bugatti/SM_Bugatti_Roue_ARD.SM_Bugatti_Roue_ARD
+# Centre des roues dans la Bugatti (cm : avant, droite, haut) et rayons
+Bugatti.CentreAVG = 126.25 -82.2 38.75
+Bugatti.CentreAVD = 126.25 82.11 38.75
+Bugatti.CentreARG = -141.25 -80.94 34.25
+Bugatti.CentreARD = -141.25 81.25 34.25
+Bugatti.RayonAvant = 39
+Bugatti.RayonArriere = 34.5
+# Retouches si besoin (1 = rien) : largeur, hauteur, decalage en cm (avant droite haut), rotation en degres
+Bugatti.Largeur = 1
+Bugatti.Hauteur = 1
+Bugatti.Decalage = 0 0 0
+Bugatti.Rotation = 0
+# Plaques blanches des Bugatti : texte, et centre de la plaque avant (cm : avant, droite, haut) posee sur le logo
+# (0 0 0 = place automatique ; PlaqueArriere aussi possible)
+Bugatti.Plaque = CHELLES 3D
+Bugatti.PlaqueAvant = 220.5 0 56
+
+# --- 2e Bugatti, couleur Brouillard (memes reglages, cles BugattiBrouillard.) ---
+BugattiBrouillard.Carrosserie = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Carrosserie.SM_BugattiBrouillard_Carrosserie
+BugattiBrouillard.RoueAVG = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Roue_AVG.SM_BugattiBrouillard_Roue_AVG
+BugattiBrouillard.RoueAVD = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Roue_AVD.SM_BugattiBrouillard_Roue_AVD
+BugattiBrouillard.RoueARG = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Roue_ARG.SM_BugattiBrouillard_Roue_ARG
+BugattiBrouillard.RoueARD = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Roue_ARD.SM_BugattiBrouillard_Roue_ARD
+BugattiBrouillard.CentreAVG = 125 -95.37 35.75
+BugattiBrouillard.CentreAVD = 125 94.99 35.75
+BugattiBrouillard.CentreARG = -141.75 -93.11 38
+BugattiBrouillard.CentreARD = -141.75 93.46 38
+BugattiBrouillard.RayonAvant = 34.75
+BugattiBrouillard.RayonArriere = 36.75
+BugattiBrouillard.Largeur = 1
+BugattiBrouillard.Hauteur = 1
+BugattiBrouillard.Decalage = 0 0 0
+BugattiBrouillard.Rotation = 0
+BugattiBrouillard.Plaque = CHELLES 3D
+BugattiBrouillard.PlaqueAvant = 222.5 0 48
