@@ -140,8 +140,10 @@ private:
 	FString TextePlaque = TEXT("CHELLES-3D");
 	FKey ToucheActions[EActionHoro::Nombre];
 	bool bCameraPack = true;
-	FString CheminsBugatti[5];          // carrosserie puis 4 roues (AVG, AVD, ARG, ARD)
-	FHabillageBugatti Bugatti;
+	// 0 = Bugatti (BP_Bugatti_Chelles), 1 = Bugatti Brouillard (BP_BugattiBrouillard_Chelles), cles "Bugatti." / "BugattiBrouillard."
+	static const int32 NB_HABILLAGES = 2;
+	FString CheminsBugatti[NB_HABILLAGES][5];   // carrosserie puis 4 roues (AVG, AVD, ARG, ARD)
+	FHabillageBugatti Habillages[NB_HABILLAGES];
 	FString CheminPolice;
 	FString CheminFuyard;
 	FString CheminAnimFuyard;
@@ -174,7 +176,7 @@ private:
 	UPROPERTY(Transient)
 	TArray<UClass*> ClassesGarees;
 
-	/** Meshes de la Bugatti (gardes en memoire) */
+	/** Meshes des Bugatti (gardes en memoire) */
 	UPROPERTY(Transient)
 	TArray<UObject*> ObjetsBugatti;
 

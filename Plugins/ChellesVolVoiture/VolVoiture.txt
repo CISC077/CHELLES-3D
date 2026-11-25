@@ -64,9 +64,9 @@ HauteurCamera = 1.7
 AideConduite = Oui
 Adherence = 8
 
-# --- 25/11 : autos garees = pack DV_Car_Horo + Bugatti de Rachid ---
+# --- 25/11 : autos garees = pack DV_Car_Horo + les 2 Bugatti de Rachid ---
 # Liste des voitures garees : chemin du Blueprint *poids (3 = trois fois plus souvent). Vide = comme avant.
-Garees = /Game/DV_Car_Horo/Blueprints/BP_Car_Hatchback_Horo.BP_Car_Hatchback_Horo_C *3, /Game/Chelles/Bugatti/BP_Bugatti_Chelles.BP_Bugatti_Chelles_C *1
+Garees = /Game/DV_Car_Horo/Blueprints/BP_Car_Hatchback_Horo.BP_Car_Hatchback_Horo_C *3, /Game/Chelles/Bugatti/BP_Bugatti_Chelles.BP_Bugatti_Chelles_C *1, /Game/Chelles/Bugatti/BP_BugattiBrouillard_Chelles.BP_BugattiBrouillard_Chelles_C *1
 # Texte de toutes les plaques d'immatriculation
 Plaque = CHELLES-3D
 # Cameras du pack (exterieure / cockpit avec la touche C). Non = camera du plugin derriere la voiture
@@ -104,3 +104,20 @@ Bugatti.Largeur = 1
 Bugatti.Hauteur = 1
 Bugatti.Decalage = 0 0 0
 Bugatti.Rotation = 0
+
+# --- 2e Bugatti, couleur Brouillard (memes reglages, cles BugattiBrouillard.) ---
+BugattiBrouillard.Carrosserie = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Carrosserie.SM_BugattiBrouillard_Carrosserie
+BugattiBrouillard.RoueAVG = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Roue_AVG.SM_BugattiBrouillard_Roue_AVG
+BugattiBrouillard.RoueAVD = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Roue_AVD.SM_BugattiBrouillard_Roue_AVD
+BugattiBrouillard.RoueARG = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Roue_ARG.SM_BugattiBrouillard_Roue_ARG
+BugattiBrouillard.RoueARD = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Roue_ARD.SM_BugattiBrouillard_Roue_ARD
+BugattiBrouillard.CentreAVG = 125 -95.37 35.75
+BugattiBrouillard.CentreAVD = 125 94.99 35.75
+BugattiBrouillard.CentreARG = -141.75 -93.11 38
+BugattiBrouillard.CentreARD = -141.75 93.46 38
+BugattiBrouillard.RayonAvant = 34.75
+BugattiBrouillard.RayonArriere = 36.75
+BugattiBrouillard.Largeur = 1
+BugattiBrouillard.Hauteur = 1
+BugattiBrouillard.Decalage = 0 0 0
+BugattiBrouillard.Rotation = 0

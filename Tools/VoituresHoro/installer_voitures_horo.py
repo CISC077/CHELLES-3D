@@ -26,13 +26,15 @@ except Exception as _sa_e:
 #     (touches dans Plugins\ChellesVolVoiture\VolVoiture.txt) et rejouees chez tous les joueurs.
 #  2. Config\DefaultGame.ini : dossiers DV_Car_Horo et Chelles/Bugatti toujours inclus dans le jeu exporte
 #  3. Bugatti : textures + materiau M_Bugatti + 5 meshes (carrosserie, 4 roues) allegees (LOD) dans /Game/Chelles/Bugatti
+#     25/11 : + 2e Bugatti couleur Brouillard (SM_BugattiBrouillard_*, BP_BugattiBrouillard_Chelles) ;
+#     une Bugatti deja importee en entier n'est pas refaite
 #  4. BP_Bugatti_Chelles = copie (Blueprint enfant) de BP_Car_Hatchback_Horo : meme conduite, apparence changee par le plugin
 # Copies avant modification : *.avant_horo
 import os, shutil, io
 import unreal
 
 PROJET = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir())
-SOURCE = os.path.join(PROJET, "Tools", "VoituresHoro", "Bugatti")
+SOURCES = os.path.join(PROJET, "Tools", "VoituresHoro")
 DEST = "/Game/Chelles/Bugatti"
 HORO = "/Game/DV_Car_Horo/Blueprints/BP_Car_Hatchback_Horo"
 ERREURS = []
@@ -93,7 +95,10 @@ def touche(action, cle):
 
 try:
     ajouter_lignes(os.path.join(PROJET, "Config", "DefaultInput.ini"), "[/Script/Engine.InputSettings]", "+ActionMappings=",
-                   [touche("Camera_toggle", "C"), touche("Cycle_onboard_computer", "Insert")])
+                   [touche("Camera_toggle", "C"), touche("Cycle_onboard_computer", "Insert"),
+                    # actions du pack jouees par le plugin chez tout le monde (memes touches que VolVoiture.txt)
+                    touche("toggle_light", "L"), touche("Low_Rider", "R"), touche("Repair_Vehicle", "BackSpace"),
+                    touche("Indicators Left", "G"), touche("Indicators Right", "U"), touche("Hazard", "V")])
     ajouter_lignes(os.path.join(PROJET, "Config", "DefaultGame.ini"), "[/Script/UnrealEd.ProjectPackagingSettings]",
                    "+DirectoriesToAlwaysCook=",
                    ['+DirectoriesToAlwaysCook=(Path="/Game/DV_Car_Horo/Blueprints")',
@@ -122,8 +127,8 @@ def importer(fichier, nom, options=None):
     return unreal.load_asset(DEST + "/" + nom)
 
 
-def importer_texture(fichier, nom, normale=False, couleur=True):
-    tex = importer(os.path.join(SOURCE, fichier), nom)
+def importer_texture(source, fichier, nom, normale=False, couleur=True):
+    tex = importer(os.path.join(source, fichier), nom)
     if tex is None:
         raise RuntimeError("texture %s non importee" % fichier)
     tex.set_editor_property("srgb", couleur)
@@ -133,11 +138,11 @@ def importer_texture(fichier, nom, normale=False, couleur=True):
     return tex
 
 
-def creer_materiau(couleur, normale, metal, rugosite):
-    chemin = DEST + "/M_Bugatti"
+def creer_materiau(nom_mat, couleur, normale, metal, rugosite):
+    chemin = DEST + "/" + nom_mat
     if bibli.does_asset_exist(chemin):
         bibli.delete_asset(chemin)
-    mat = outils.create_asset("M_Bugatti", DEST, unreal.Material, unreal.MaterialFactoryNew())
+    mat = outils.create_asset(nom_mat, DEST, unreal.Material, unreal.MaterialFactoryNew())
     mel = unreal.MaterialEditingLibrary
     def echantillon(tex, x, y, type_):
         e = mel.create_material_expression(mat, unreal.MaterialExpressionTextureSample, x, y)
@@ -200,24 +205,36 @@ def alleger(mesh, pourcents):
     unreal.EditorStaticMeshLibrary.set_lods(mesh, opts)
 
 
-try:
-    if not os.path.isfile(os.path.join(SOURCE, "SM_Bugatti_Carrosserie.fbx")):
-        raise RuntimeError("fichiers de la Bugatti absents de %s" % SOURCE)
-    unreal.EditorAssetLibrary.make_directory(DEST)
-    log("Textures...")
-    t_couleur = importer_texture("texture_diffuse.png", "T_Bugatti_Couleur")
-    t_normale = importer_texture("texture_normal.png", "T_Bugatti_Normale", normale=True, couleur=False)
-    t_metal = importer_texture("texture_metallic.png", "T_Bugatti_Metal", couleur=False)
-    t_rugo = importer_texture("texture_roughness.png", "T_Bugatti_Rugosite", couleur=False)
-    log("Materiau M_Bugatti...")
-    mat = creer_materiau(t_couleur, t_normale, t_metal, t_rugo)
-    for nom, pourcents in (("SM_Bugatti_Carrosserie", [(0.15, 1.0), (0.05, 0.35), (0.015, 0.12)]),
-                           ("SM_Bugatti_Roue_AVG", [(0.15, 1.0), (0.04, 0.2)]),
-                           ("SM_Bugatti_Roue_AVD", [(0.15, 1.0), (0.04, 0.2)]),
-                           ("SM_Bugatti_Roue_ARG", [(0.18, 1.0), (0.05, 0.2)]),
-                           ("SM_Bugatti_Roue_ARD", [(0.18, 1.0), (0.05, 0.2)])):
+# (dossier dans Tools\VoituresHoro, prefixe des assets, Blueprint)
+VOITURES = [("Bugatti", "Bugatti", "BP_Bugatti_Chelles"),
+            ("BugattiBrouillard", "BugattiBrouillard", "BP_BugattiBrouillard_Chelles")]
+ROUES = ("AVG", "AVD", "ARG", "ARD")
+
+
+def installer_bugatti(dossier, p):
+    source = os.path.join(SOURCES, dossier)
+    noms = ["SM_%s_Carrosserie" % p] + ["SM_%s_Roue_%s" % (p, r) for r in ROUES]
+    if all(bibli.does_asset_exist(DEST + "/" + n) for n in noms + ["M_" + p]):
+        log("%s deja importee : rien a refaire" % p)
+        return
+    if not os.path.isfile(os.path.join(source, noms[0] + ".fbx")):
+        raise RuntimeError("fichiers absents de %s" % source)
+    log("%s : textures..." % p)
+    t_couleur = importer_texture(source, "texture_diffuse.png", "T_%s_Couleur" % p)
+    t_normale = importer_texture(source, "texture_normal.png", "T_%s_Normale" % p, normale=True, couleur=False)
+    t_metal = importer_texture(source, "texture_metallic.png", "T_%s_Metal" % p, couleur=False)
+    t_rugo = importer_texture(source, "texture_roughness.png", "T_%s_Rugosite" % p, couleur=False)
+    log("Materiau M_%s..." % p)
+    mat = creer_materiau("M_" + p, t_couleur, t_normale, t_metal, t_rugo)
+    for nom in noms:
+        if nom.endswith("Carrosserie"):
+            pourcents = [(0.15, 1.0), (0.05, 0.35), (0.015, 0.12)]
+        elif "_Roue_AV" in nom:
+            pourcents = [(0.15, 1.0), (0.04, 0.2)]
+        else:
+            pourcents = [(0.18, 1.0), (0.05, 0.2)]
         log("Import %s (1 a 3 minutes pour la carrosserie)..." % nom)
-        mesh = importer(os.path.join(SOURCE, nom + ".fbx"), nom, options_fbx())
+        mesh = importer(os.path.join(source, nom + ".fbx"), nom, options_fbx())
         if mesh is None:
             raise RuntimeError("%s non importe" % nom)
         poser_materiau(mesh, mat)
@@ -229,29 +246,36 @@ try:
         boite = mesh.get_bounding_box()
         log("%s : %s sommets (LOD0), taille %s" % (nom, unreal.EditorStaticMeshLibrary.get_number_verts(mesh, 0),
                                                        boite.max - boite.min))
-except Exception as e:
-    ERREURS.append("Bugatti : %s" % e)
-    log("ERREUR Bugatti : %s" % e)
 
-# ---------------------------------------------------------------- Blueprint Bugatti
-try:
+
+def creer_blueprint(nom_bp):
     parent = bibli.load_blueprint_class(HORO)
     if parent is None:
         raise RuntimeError("%s introuvable" % HORO)
-    chemin_bp = DEST + "/BP_Bugatti_Chelles"
-    if bibli.does_asset_exist(chemin_bp):
-        log("BP_Bugatti_Chelles existe deja")
-    else:
-        fab = unreal.BlueprintFactory()
-        fab.set_editor_property("parent_class", parent)
-        bp = outils.create_asset("BP_Bugatti_Chelles", DEST, unreal.Blueprint, fab)
-        if bp is None:
-            raise RuntimeError("creation du Blueprint refusee")
-        bibli.save_loaded_asset(bp)
-        log("BP_Bugatti_Chelles cree (enfant de BP_Car_Hatchback_Horo)")
-except Exception as e:
-    ERREURS.append("Blueprint : %s" % e)
-    log("ERREUR Blueprint : %s" % e)
+    if bibli.does_asset_exist(DEST + "/" + nom_bp):
+        log("%s existe deja" % nom_bp)
+        return
+    fab = unreal.BlueprintFactory()
+    fab.set_editor_property("parent_class", parent)
+    bp = outils.create_asset(nom_bp, DEST, unreal.Blueprint, fab)
+    if bp is None:
+        raise RuntimeError("creation de %s refusee" % nom_bp)
+    bibli.save_loaded_asset(bp)
+    log("%s cree (enfant de BP_Car_Hatchback_Horo)" % nom_bp)
+
+
+unreal.EditorAssetLibrary.make_directory(DEST)
+for dossier, p, nom_bp in VOITURES:
+    try:
+        installer_bugatti(dossier, p)
+    except Exception as e:
+        ERREURS.append("%s : %s" % (p, e))
+        log("ERREUR %s : %s" % (p, e))
+    try:
+        creer_blueprint(nom_bp)
+    except Exception as e:
+        ERREURS.append("Blueprint %s : %s" % (nom_bp, e))
+        log("ERREUR Blueprint %s : %s" % (nom_bp, e))
 
 bibli.save_directory(DEST, only_if_is_dirty=True, recursive=True)
 etat = "OK" if not ERREURS else "ERREUR : " + " ; ".join(ERREURS)

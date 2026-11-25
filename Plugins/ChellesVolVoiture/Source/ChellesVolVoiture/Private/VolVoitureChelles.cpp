@@ -111,9 +111,10 @@ AVolVoitureChelles::AVolVoitureChelles()
 		TEXT("/Game/SportVehiclesPack/Blueprints/Vehicles/BP_WheeledVehicle_Sportcar2.BP_WheeledVehicle_Sportcar2_C"),
 		TEXT("/Game/Vehicles/VH_Buggy/Blueprint/VH_Buggy.VH_Buggy_C")
 	};
-	// 25/11 : autos garees = pack DV_Car_Horo (3 sur 4) et Bugatti de Rachid (1 sur 4)
+	// 25/11 : autos garees = pack DV_Car_Horo (3 sur 5) et les 2 Bugatti de Rachid (1 sur 5 chacune)
 	CheminsGarees.Add(TPair<FString, int32>(TEXT("/Game/DV_Car_Horo/Blueprints/BP_Car_Hatchback_Horo.BP_Car_Hatchback_Horo_C"), 3));
 	CheminsGarees.Add(TPair<FString, int32>(TEXT("/Game/Chelles/Bugatti/BP_Bugatti_Chelles.BP_Bugatti_Chelles_C"), 1));
+	CheminsGarees.Add(TPair<FString, int32>(TEXT("/Game/Chelles/Bugatti/BP_BugattiBrouillard_Chelles.BP_BugattiBrouillard_Chelles_C"), 1));
 	OptionsHoro.Add(TEXT("bUse_Low_Rider_?"), true);
 	OptionsHoro.Add(TEXT("bUse_Can_Be_Repaired_?"), true);
 	OptionsHoro.Add(TEXT("bUse_Random_Licence_Plate_?"), false);
@@ -126,12 +127,27 @@ AVolVoitureChelles::AVolVoitureChelles()
 	ToucheActions[EActionHoro::ClignotantGauche] = EKeys::G;
 	ToucheActions[EActionHoro::ClignotantDroit] = EKeys::U;
 	ToucheActions[EActionHoro::Warnings] = EKeys::V;
-	const FString B = TEXT("/Game/Chelles/Bugatti/");
-	CheminsBugatti[0] = B + TEXT("SM_Bugatti_Carrosserie.SM_Bugatti_Carrosserie");
-	CheminsBugatti[1] = B + TEXT("SM_Bugatti_Roue_AVG.SM_Bugatti_Roue_AVG");
-	CheminsBugatti[2] = B + TEXT("SM_Bugatti_Roue_AVD.SM_Bugatti_Roue_AVD");
-	CheminsBugatti[3] = B + TEXT("SM_Bugatti_Roue_ARG.SM_Bugatti_Roue_ARG");
-	CheminsBugatti[4] = B + TEXT("SM_Bugatti_Roue_ARD.SM_Bugatti_Roue_ARD");
+	const TCHAR* NomsCheminsRoues[4] = { TEXT("AVG"), TEXT("AVD"), TEXT("ARG"), TEXT("ARD") };
+	const TCHAR* Prefixes[NB_HABILLAGES] = { TEXT("SM_Bugatti_"), TEXT("SM_BugattiBrouillard_") };
+	for (int32 h = 0; h < NB_HABILLAGES; ++h)
+	{
+		const FString B = FString(TEXT("/Game/Chelles/Bugatti/")) + Prefixes[h];
+		CheminsBugatti[h][0] = B + TEXT("Carrosserie.") + Prefixes[h] + TEXT("Carrosserie");
+		for (int32 k = 0; k < 4; ++k)
+		{
+			CheminsBugatti[h][k + 1] = B + TEXT("Roue_") + NomsCheminsRoues[k] + TEXT(".") + Prefixes[h] + TEXT("Roue_") + NomsCheminsRoues[k];
+		}
+	}
+	// 2e Bugatti (couleur Brouillard, 25/11) : decoupee par Claude, centres et rayons de ses propres roues
+	{
+		FHabillageBugatti& H = Habillages[1];
+		H.Centres[0] = FVector(125.f, -95.37f, 35.75f);
+		H.Centres[1] = FVector(125.f, 94.99f, 35.75f);
+		H.Centres[2] = FVector(-141.75f, -93.11f, 38.f);
+		H.Centres[3] = FVector(-141.75f, 93.46f, 38.f);
+		H.RayonAvant = 34.75f;
+		H.RayonArriere = 36.75f;
+	}
 	CheminPolice = TEXT("/Game/SportVehiclesPack/Blueprints/Vehicles/BP_WheeledVehicle_Sportcar1_Police.BP_WheeledVehicle_Sportcar1_Police_C");
 	CheminFuyard = TEXT("/Game/Hijacker/Mesh/SK_hijacker.SK_hijacker");
 	CheminAnimFuyard = TEXT("/Game/Hijacker/Animations/ThirdPersonRun.ThirdPersonRun");
@@ -217,15 +233,15 @@ void AVolVoitureChelles::LireReglages()
 			for (FString N : Noms)
 			{
 				int32 Poids = 1;
-				FString Chemin = N, Nombre2;
-				if (N.Split(TEXT("*"), &Chemin, &Nombre2, ESearchCase::IgnoreCase, ESearchDir::FromEnd))
+				FString CheminGaree = N, Nombre2;
+				if (N.Split(TEXT("*"), &CheminGaree, &Nombre2, ESearchCase::IgnoreCase, ESearchDir::FromEnd))
 				{
 					Poids = FMath::Clamp(FCString::Atoi(*Nombre2.TrimStartAndEnd()), 0, 20);
 				}
-				Chemin.TrimStartAndEndInline();
-				if (!Chemin.IsEmpty() && Poids > 0)
+				CheminGaree.TrimStartAndEndInline();
+				if (!CheminGaree.IsEmpty() && Poids > 0)
 				{
-					CheminsGarees.Add(TPair<FString, int32>(Chemin, Poids));
+					CheminsGarees.Add(TPair<FString, int32>(CheminGaree, Poids));
 				}
 			}
 		}
@@ -233,30 +249,40 @@ void AVolVoitureChelles::LireReglages()
 		{
 			OptionsHoro.Add(Cle.RightChop(7).TrimStartAndEnd(), EstOuiVol(Valeur));
 		}
-		else if (Est(TEXT("Plaque")))             { TextePlaque = Valeur.Left(16); Bugatti.TextePlaque = TextePlaque; }
+		else if (Est(TEXT("Plaque")))
+		{
+			TextePlaque = Valeur.Left(16);
+			for (FHabillageBugatti& H : Habillages)
+			{
+				H.TextePlaque = TextePlaque;
+			}
+		}
 		else if (Est(TEXT("CameraDuPack")))       { bCameraPack = EstOuiVol(Valeur); }
-		else if (Est(TEXT("Bugatti.Carrosserie"))) { CheminsBugatti[0] = Valeur; }
-		else if (Cle.StartsWith(TEXT("Bugatti.Roue"), ESearchCase::IgnoreCase))
+		else if (Cle.StartsWith(TEXT("Bugatti."), ESearchCase::IgnoreCase) || Cle.StartsWith(TEXT("BugattiBrouillard."), ESearchCase::IgnoreCase))
 		{
-			for (int32 k = 0; k < 4; ++k)
+			// "Bugatti.X" = 1re Bugatti, "BugattiBrouillard.X" = 2e
+			const int32 h = Cle.StartsWith(TEXT("BugattiBrouillard."), ESearchCase::IgnoreCase) ? 1 : 0;
+			FString Sous;
+			Cle.Split(TEXT("."), nullptr, &Sous);
+			Sous.TrimStartAndEndInline();
+			FHabillageBugatti& H = Habillages[h];
+			auto EstS = [&Sous](const TCHAR* Nom) { return Sous.Equals(Nom, ESearchCase::IgnoreCase); };
+			if (EstS(TEXT("Carrosserie")))       { CheminsBugatti[h][0] = Valeur; }
+			else if (EstS(TEXT("RayonAvant")))   { H.RayonAvant = FMath::Clamp(Nombre, 5.f, 100.f); }
+			else if (EstS(TEXT("RayonArriere"))) { H.RayonArriere = FMath::Clamp(Nombre, 5.f, 100.f); }
+			else if (EstS(TEXT("Largeur")))      { H.EchelleLargeur = FMath::Clamp(Nombre, 0.5f, 2.f); }
+			else if (EstS(TEXT("Hauteur")))      { H.EchelleHauteur = FMath::Clamp(Nombre, 0.5f, 2.f); }
+			else if (EstS(TEXT("Decalage")))     { H.Decalage = LireVecteur(Valeur, FVector::ZeroVector); }
+			else if (EstS(TEXT("Rotation")))     { H.Lacet = FMath::Clamp(Nombre, -360.f, 360.f); }
+			else
 			{
-				if (Est(*FString::Printf(TEXT("Bugatti.Roue%s"), NomsRoues[k])))       { CheminsBugatti[k + 1] = Valeur; }
-				if (Est(*FString::Printf(TEXT("Bugatti.Centre%s"), NomsRoues[k])))     { Bugatti.Centres[k] = LireVecteur(Valeur, Bugatti.Centres[k]); }
+				for (int32 k = 0; k < 4; ++k)
+				{
+					if (EstS(*FString::Printf(TEXT("Roue%s"), NomsRoues[k])))   { CheminsBugatti[h][k + 1] = Valeur; }
+					if (EstS(*FString::Printf(TEXT("Centre%s"), NomsRoues[k]))) { H.Centres[k] = LireVecteur(Valeur, H.Centres[k]); }
+				}
 			}
 		}
-		else if (Cle.StartsWith(TEXT("Bugatti.Centre"), ESearchCase::IgnoreCase))
-		{
-			for (int32 k = 0; k < 4; ++k)
-			{
-				if (Est(*FString::Printf(TEXT("Bugatti.Centre%s"), NomsRoues[k]))) { Bugatti.Centres[k] = LireVecteur(Valeur, Bugatti.Centres[k]); }
-			}
-		}
-		else if (Est(TEXT("Bugatti.RayonAvant")))   { Bugatti.RayonAvant = FMath::Clamp(Nombre, 5.f, 100.f); }
-		else if (Est(TEXT("Bugatti.RayonArriere"))) { Bugatti.RayonArriere = FMath::Clamp(Nombre, 5.f, 100.f); }
-		else if (Est(TEXT("Bugatti.Largeur")))      { Bugatti.EchelleLargeur = FMath::Clamp(Nombre, 0.5f, 2.f); }
-		else if (Est(TEXT("Bugatti.Hauteur")))      { Bugatti.EchelleHauteur = FMath::Clamp(Nombre, 0.5f, 2.f); }
-		else if (Est(TEXT("Bugatti.Decalage")))     { Bugatti.Decalage = LireVecteur(Valeur, FVector::ZeroVector); }
-		else if (Est(TEXT("Bugatti.Rotation")))     { Bugatti.Lacet = FMath::Clamp(Nombre, -360.f, 360.f); }
 		else if (Cle.StartsWith(TEXT("Touche"), ESearchCase::IgnoreCase) && !Est(TEXT("ToucheVoler")) && !Est(TEXT("ToucheDescendre")))
 		{
 			for (int32 k = 0; k < EActionHoro::Nombre; ++k)
@@ -341,28 +367,37 @@ void AVolVoitureChelles::ChargerClasses()
 	}
 	// Bugatti de Rachid (meshes charges ici une fois, pour ne pas geler le jeu plus tard)
 	ObjetsBugatti.Reset();
-	Bugatti.Carrosserie = nullptr;
-	if (GetNetMode() != NM_DedicatedServer)
+	for (int32 h = 0; h < NB_HABILLAGES; ++h)
 	{
+		FHabillageBugatti& H = Habillages[h];
+		H.Carrosserie = nullptr;
+		for (int32 k = 0; k < 4; ++k)
+		{
+			H.Roues[k] = nullptr;
+		}
+		if (GetNetMode() == NM_DedicatedServer)
+		{
+			continue;
+		}
 		for (int32 i = 0; i < 5; ++i)
 		{
-			UStaticMesh* M = CheminsBugatti[i].IsEmpty() ? nullptr : LoadObject<UStaticMesh>(nullptr, *CheminsBugatti[i]);
+			UStaticMesh* M = CheminsBugatti[h][i].IsEmpty() ? nullptr : LoadObject<UStaticMesh>(nullptr, *CheminsBugatti[h][i]);
 			if (M)
 			{
 				ObjetsBugatti.Add(M);
 			}
 			if (i == 0)
 			{
-				Bugatti.Carrosserie = M;
+				H.Carrosserie = M;
 			}
 			else
 			{
-				Bugatti.Roues[i - 1] = M;
+				H.Roues[i - 1] = M;
 			}
 		}
-		if (!Bugatti.Carrosserie)
+		if (!H.Carrosserie)
 		{
-			UE_LOG(LogVolVoiture, Log, TEXT("[Vol] Bugatti pas encore importee (%s)."), *CheminsBugatti[0]);
+			UE_LOG(LogVolVoiture, Log, TEXT("[Vol] Bugatti %d pas encore importee (%s)."), h + 1, *CheminsBugatti[h][0]);
 		}
 	}
 	ClassePolice = bRecherche && !CheminPolice.IsEmpty() ? LoadClass<APawn>(nullptr, *CheminPolice) : nullptr;
@@ -1928,9 +1963,14 @@ void AVolVoitureChelles::HabillerVoituresHoro()
 			continue;
 		}
 		HoroChelles::EcrirePlaques(V, TextePlaque);
-		if (Bugatti.EstPret() && V->GetClass()->GetName().Contains(TEXT("Bugatti")) && !HoroChelles::EstHabilleeBugatti(V))
+		const FString NomClasse = V->GetClass()->GetName();
+		if (NomClasse.Contains(TEXT("Bugatti")) && !HoroChelles::EstHabilleeBugatti(V))
 		{
-			HoroChelles::HabillerBugatti(V, Bugatti);
+			const FHabillageBugatti& H = Habillages[NomClasse.Contains(TEXT("Brouillard")) ? 1 : 0];
+			if (H.EstPret())
+			{
+				HoroChelles::HabillerBugatti(V, H);
+			}
 		}
 	}
 }
@@ -1964,7 +2004,18 @@ void AVolVoitureChelles::TouchesHoro(APlayerController* PC, ARelaisVolVoiture* R
 {
 	// Le pack sort de la voiture avec "Use" (E) a sa facon, et a son propre klaxon : on garde nos versions
 	// (descendre = plugin, klaxon H = ChellesSonsVehicules, entendu par tout le monde).
-	static const TArray<FName> Retirees = { FName(TEXT("Use")), FName(TEXT("Horn")) };
+	// Les actions jouees par le plugin chez tout le monde (phares, saut...) sont aussi retirees des commandes
+	// du pack, sinon le conducteur les jouerait deux fois (touches ajoutees dans DefaultInput.ini).
+	static TArray<FName> Retirees;
+	if (Retirees.Num() == 0)
+	{
+		Retirees.Add(FName(TEXT("Use")));
+		Retirees.Add(FName(TEXT("Horn")));
+		for (int32 k = 0; k < EActionHoro::Nombre; ++k)
+		{
+			Retirees.Add(HoroChelles::NomAction((EActionHoro::Type)k));
+		}
+	}
 	HoroChelles::RetirerLiaisons(Voiture, Retirees);
 	for (int32 k = 0; k < EActionHoro::Nombre; ++k)
 	{

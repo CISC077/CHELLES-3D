@@ -22,7 +22,7 @@ Il ne modifie aucun Blueprint, aucun pack et aucun autre plugin.
 ## 25/11/2026 : autos garées DV_Car_Horo + Bugatti
 
 - Les autos garées au bord des rues sont maintenant les voitures du pack **DV_Car_Horo** (3 sur 4)
-  et la **Bugatti** de Rachid (1 sur 4). Toutes les plaques affichent **CHELLES-3D**.
+  et les 2 **Bugatti** de Rachid (normale et couleur Brouillard, 1 sur 5 chacune). Toutes les plaques affichent **CHELLES-3D**.
 - Dans une DV_Car_Horo : **L** phares, **R** saut américain, **Retour arrière** remettre sur ses roues + réparer,
   **G** / **U** clignotants gauche / droite, **V** warnings, **H** klaxon, **C** caméra intérieure / extérieure,
   **Inser** ordinateur de bord, **F** ou **E** descendre. Phares, saut, réparation, clignotants et warnings
@@ -30,7 +30,7 @@ Il ne modifie aucun Blueprint, aucun pack et aucun autre plugin.
 - La Bugatti est une DV_Car_Horo (même conduite, mêmes fonctions) dont l'apparence est remplacée :
   carrosserie de Rachid + 4 roues accrochées aux os des roues de la Horo, calées toutes seules.
 - Installation : `Tools\VoituresHoro\INSTALLER_VOITURES_HORO.bat` (Unreal fermé) : compile ce plugin,
-  importe la Bugatti dans `/Game/Chelles/Bugatti`, crée `BP_Bugatti_Chelles`, ajoute les touches C et Inser.
+  importe les 2 Bugatti dans `/Game/Chelles/Bugatti`, crée `BP_Bugatti_Chelles` et `BP_BugattiBrouillard_Chelles`, ajoute les touches C et Inser.
 - Réglages : section « 25/11 » de `VolVoiture.txt` (liste `Garees`, `Plaque`, touches, options du pack,
   retouches de la Bugatti).
 

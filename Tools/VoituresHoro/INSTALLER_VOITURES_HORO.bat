@@ -6,7 +6,7 @@ rem  VOITURES GAREES DV_CAR_HORO + BUGATTI (25/11/2026) - UN SEUL FICHIER A LANC
 rem  1. Fermez Unreal.   2. Double-cliquez ici.   3. Attendez TERMINE (5 a 15 minutes).
 rem  a) recompile le plugin ChellesVolVoiture : autos garees = DV_Car_Horo + Bugatti,
 rem     plaques CHELLES-3D, phares / saut / reinitialiser / clignotants en multijoueur
-rem  b) importe la Bugatti de Rachid (carrosserie + 4 roues) et cree BP_Bugatti_Chelles,
+rem  b) importe les 2 Bugatti de Rachid (carrosserie + 4 roues) et cree BP_Bugatti_Chelles + BP_BugattiBrouillard_Chelles,
 rem     ajoute les touches C (camera) et Inser (ordinateur de bord), et les dossiers du jeu exporte
 rem  Retour arriere : Tools\Sauvegarde\RETOUR_EN_ARRIERE.bat (photo prise avant l'import)
 rem  et les fichiers *.avant_horo (plugin et Config).
@@ -42,11 +42,12 @@ echo ===== ETAPE 1/2 : compilation du vol de voiture (1 a 5 minutes) =====
 call :compiler ChellesVolVoiture
 
 echo.
-echo ===== ETAPE 2/2 : import de la Bugatti dans Unreal (3 a 10 minutes) =====
-set "BUG=%PROJET%\Tools\VoituresHoro\Bugatti"
-if not exist "%BUG%\SM_Bugatti_Carrosserie.fbx" if exist "%BUG%\SM_Bugatti_Carrosserie.zip" (
-    echo Decompression de la carrosserie...
-    powershell -NoProfile -Command "Expand-Archive -Force -LiteralPath '%BUG%\SM_Bugatti_Carrosserie.zip' -DestinationPath '%BUG%'"
+echo ===== ETAPE 2/2 : import des 2 Bugatti dans Unreal (3 a 15 minutes) =====
+for %%V in (Bugatti BugattiBrouillard) do (
+    if not exist "%PROJET%\Tools\VoituresHoro\%%V\SM_%%V_Carrosserie.fbx" if exist "%PROJET%\Tools\VoituresHoro\%%V\SM_%%V_Carrosserie.zip" (
+        echo Decompression de la carrosserie %%V...
+        powershell -NoProfile -Command "Expand-Archive -Force -LiteralPath '%PROJET%\Tools\VoituresHoro\%%V\SM_%%V_Carrosserie.zip' -DestinationPath '%PROJET%\Tools\VoituresHoro\%%V'"
+    )
 )
 if exist "%PROJET%\Tools\VoituresHoro\etat.txt" del "%PROJET%\Tools\VoituresHoro\etat.txt"
 copy /y "%PROJET%\Tools\VoituresHoro\installer_voitures_horo.py" "%TEMP%\chelles_voitures_horo.py" >nul
