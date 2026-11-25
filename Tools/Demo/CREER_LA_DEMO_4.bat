@@ -44,20 +44,10 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem ---- Verif VIP : les 5 persos VIP doivent etre marques dans les fichiers du jeu
+rem ---- Verif VIP : Plugins\ChellesMenu\VIP.txt doit avoir CODE=2468 et les 5 persos VIP
 set "VIPOK=1"
-for %%N in ("MR.SHEMS" "LUCIA" "BRENDA" "SOFIA" "LENA") do (
-    findstr /s /i /r /c:"VIP.*%%~N" "%PROJET%\Plugins\ChellesWraith\*.txt" "%PROJET%\Plugins\ChellesMenu\*.txt" >nul 2>nul
-    if errorlevel 1 (
-        echo  ATTENTION : %%~N n'est pas encore marque VIP.
-        set "VIPOK=0"
-    )
-)
-findstr /i /r /c:"^CODE=2468" "%PROJET%\Plugins\ChellesMenu\VIP.txt" >nul 2>nul
-if errorlevel 1 (
-    echo  ATTENTION : Plugins\ChellesMenu\VIP.txt ne contient pas CODE=2468.
-    set "VIPOK=0"
-)
+powershell -NoProfile -Command "$f='%PROJET%\Plugins\ChellesMenu\VIP.txt'; if(-not (Test-Path -LiteralPath $f)){ Write-Host '  ATTENTION : Plugins\ChellesMenu\VIP.txt introuvable.'; exit 1 }; $l=Get-Content -LiteralPath $f | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') }; $ok=$true; if(-not ($l | Where-Object { $_ -match '^CODE\s*=\s*2468$' })){ Write-Host '  ATTENTION : CODE=2468 absent de VIP.txt.'; $ok=$false }; foreach($n in 'MR.SHEMS','LUCIA','BRENDA','SOFIA','LENA'){ if(-not ($l | Where-Object { $_ -match ('^VIP\s*=\s*' + [regex]::Escape($n) + '$') })){ Write-Host ('  ATTENTION : ' + $n + ' n''est pas encore marque VIP.'); $ok=$false } }; if($ok){exit 0}else{exit 1}"
+if errorlevel 1 set "VIPOK=0"
 if "%VIPOK%"=="0" (
     echo.
     echo  Le verrou VIP n'a pas l'air complet : ces persos seraient LIBRES dans la demo.
