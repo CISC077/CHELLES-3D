@@ -210,6 +210,7 @@ namespace ChellesGraphismes
 		float Jeu = 0.f;    // ms du fil du jeu (Blueprints, IA, physique...)
 		float Rendu = 0.f;  // ms du fil de rendu (preparation des objets a dessiner)
 		float Gpu = 0.f;    // ms de la carte graphique
+		float Pire = 0.f;   // pire image depuis la derniere ligne [Perf]
 	};
 
 	static FMesure GMesure;
@@ -223,9 +224,11 @@ namespace ChellesGraphismes
 			return; // une fois par image
 		}
 		DerniereImage = GFrameCounter;
-		const float A = 0.05f; // lissage
+		const float A = 0.05f; // lissage (appele a chaque image, voir MesurerChaqueImage)
 		auto Lisser = [A](float& Valeur, float Nouvelle) { Valeur = (Valeur <= 0.f) ? Nouvelle : FMath::Lerp(Valeur, Nouvelle, A); };
-		Lisser(GMesure.Image, FMath::Max((float)FApp::GetDeltaTime(), 0.0001f) * 1000.f);
+		const float ImageMs = FMath::Max((float)FApp::GetDeltaTime(), 0.0001f) * 1000.f;
+		GMesure.Pire = FMath::Max(GMesure.Pire, ImageMs);
+		Lisser(GMesure.Image, ImageMs);
 		Lisser(GMesure.Jeu, (float)FPlatformTime::ToMilliseconds(GGameThreadTime));
 		Lisser(GMesure.Rendu, (float)FPlatformTime::ToMilliseconds(GRenderThreadTime));
 		Lisser(GMesure.Gpu, (float)FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles()));
@@ -252,9 +255,20 @@ namespace ChellesGraphismes
 		{
 			return true;
 		}
-		Mesurer();
-		UE_LOG(LogTemp, Log, TEXT("[Perf] fps=%d image=%.1f jeu=%.1f rendu=%.1f gpu=%.1f limite=%s"),
-			FMath::RoundToInt(1000.f / FMath::Max(GMesure.Image, 0.1f)), GMesure.Image, GMesure.Jeu, GMesure.Rendu, GMesure.Gpu, Limite());
+		UE_LOG(LogTemp, Log, TEXT("[Perf] fps=%d image=%.1f pire=%.0f jeu=%.1f rendu=%.1f gpu=%.1f limite=%s"),
+			FMath::RoundToInt(1000.f / FMath::Max(GMesure.Image, 0.1f)), GMesure.Image, GMesure.Pire, GMesure.Jeu, GMesure.Rendu, GMesure.Gpu, Limite());
+		GMesure.Pire = 0.f;
+		return true;
+	}
+
+	/** A chaque image (sinon la moyenne lissee ne bougeait qu'une fois toutes les 2 s et gardait la saccade du chargement). */
+	static bool MesurerChaqueImage(float)
+	{
+		static const bool bTest = FParse::Param(FCommandLine::Get(), TEXT("ChellesTest"));
+		if (GMonde.IsValid() && (bTest || GCompteurEcranActif()))
+		{
+			Mesurer();
+		}
 		return true;
 	}
 
@@ -492,6 +506,7 @@ namespace ChellesGraphismes
 		if (!bJournal)
 		{
 			bJournal = true;
+			FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&MesurerChaqueImage), 0.f);
 			FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&JournalPerf), 2.f);
 		}
 		ReappliquerTout();
