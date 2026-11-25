@@ -49,13 +49,15 @@ namespace HabillageInterne
 		const TCHAR* Nom;      // nom du skin dans Wraith.txt (Skin=LENA)
 		const TCHAR* Dossier;  // dossier sous /Game/Personnages
 		const TCHAR* Prefixe;  // SK_<Prefixe>, A_<Prefixe>_...
+		const TCHAR* CodeVIP;  // 25/11 : code a taper dans le lobby (nullptr = personnage libre)
 	};
 	static const FPersoWraithInfo PersosWraithInfos[] =
 	{
-		{ ChellesHabillage::Lena,  TEXT("LENA"),  TEXT("LENA"),  TEXT("Lena") },
-		{ ChellesHabillage::Sofia, TEXT("SOFIA"), TEXT("SOFIA"), TEXT("Sofia") },
-		{ ChellesHabillage::Lucia, TEXT("LUCIA"), TEXT("LUCIA"), TEXT("Lucia") },
-		{ ChellesHabillage::Brenda, TEXT("BRENDA"), TEXT("BRENDA"), TEXT("Brenda") },
+		{ ChellesHabillage::Lena,  TEXT("LENA"),  TEXT("LENA"),  TEXT("Lena"), nullptr },
+		{ ChellesHabillage::Sofia, TEXT("SOFIA"), TEXT("SOFIA"), TEXT("Sofia"), nullptr },
+		{ ChellesHabillage::Lucia, TEXT("LUCIA"), TEXT("LUCIA"), TEXT("Lucia"), nullptr },
+		{ ChellesHabillage::Brenda, TEXT("BRENDA"), TEXT("BRENDA"), TEXT("Brenda"), nullptr },
+		{ ChellesHabillage::Shems, TEXT("MR.SHEMS"), TEXT("Shems"), TEXT("Shems"), TEXT("2468") },
 	};
 	static const FPersoWraithInfo* InfoPerso(int32 Sexe)
 	{
@@ -1032,6 +1034,43 @@ namespace ChellesHabillage
 		return HabillageInterne::InfoPerso(Sexe) != nullptr;
 	}
 
+	bool EstPersoVIP(int32 Sexe)
+	{
+		const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe);
+		return P && P->CodeVIP;
+	}
+
+	bool PersoDebloque(int32 Sexe)
+	{
+		const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe);
+		if (!P || !P->CodeVIP)
+		{
+			return true;
+		}
+		bool bOui = false;
+		return GConfig && GConfig->GetBool(TEXT("ChellesVIP"), P->Nom, bOui, GGameUserSettingsIni) && bOui;
+	}
+
+	bool DebloquerPerso(int32 Sexe, const FString& Code)
+	{
+		const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe);
+		if (!P || !P->CodeVIP)
+		{
+			return true;
+		}
+		if (!Code.TrimStartAndEnd().Equals(P->CodeVIP))
+		{
+			return false;
+		}
+		if (GConfig)
+		{
+			// Lu aussi par ChellesWraith (touche K) : [ChellesVIP] MR.SHEMS=True
+			GConfig->SetBool(TEXT("ChellesVIP"), P->Nom, true, GGameUserSettingsIni);
+			GConfig->Flush(false, GGameUserSettingsIni);
+		}
+		return true;
+	}
+
 	FLinearColor CouleurPersoWraith(int32 Sexe)
 	{
 		const HabillageInterne::FHerosSkin* H = HabillageInterne::InfoHeros(Sexe);
@@ -1042,7 +1081,7 @@ namespace ChellesHabillage
 	{
 		if (Tenue.EstSpiderMan())
 		{
-			if (Tenue.Sexe != Pantera && !NomPersoWraith(Tenue.Sexe))
+			if ((Tenue.Sexe != Pantera && !NomPersoWraith(Tenue.Sexe)) || !PersoDebloque(Tenue.Sexe))
 			{
 				Tenue.Sexe = SpiderMan;
 			}

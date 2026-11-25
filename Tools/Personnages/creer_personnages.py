@@ -107,10 +107,25 @@ PERSONNAGES = [
         "textures": os.path.join(BUREAU, "BRENDA 3D", "Textures"),
         "anims": [],
     },
+    {
+        # 25/11/2026 : Mr.SHEMS, personnage VIP (code 2468 a taper dans le lobby, voir HabillageChelles.cpp).
+        # Fichiers dans Bureau\SHEMS_3D ; dans Wraith.txt son nom est MR.SHEMS + une ligne VIP=MR.SHEMS
+        # (la touche K le saute tant que le code n'a pas ete tape).
+        "nom": "Shems", "dossier": "Shems", "taille_cm": 180.0, "auto": True,
+        "affiche": "MR.SHEMS", "vip": True,
+        "racine": os.path.join(BUREAU, "SHEMS_3D"),
+        "fbx": os.path.join(BUREAU, "SHEMS_3D", "Animations"),
+        "corps": "",
+        "materiau": "",
+        "textures": os.path.join(BUREAU, "SHEMS_3D", "Textures"),
+        "anims": [],
+    },
 ]
 
 # ---------------------------------------------------------------- reconnaissance automatique (25/11, BRENDA)
 CLES_ANIMS = [
+    (("idle", "pose"), "Repos"),
+    (("dying", "death", "die"), "Mort"),
     (("walk",), "Marche"),
     (("fast run", "fast_run", "running", "run"), "Course"),
     (("fly",), "Vol"),
@@ -122,6 +137,10 @@ MOTS_DANSE = ("danc", "dance", "rumba", "flair", "twerk", "soul", "uprock", "sam
               "belly", "chicken", "silly", "cheer", "victory", "excited")
 NOMS_CORPS = ("lod_basic_shaded.fbx", "base_basic_shaded.fbx", "lod_basic_pbr.fbx", "base_basic_pbr.fbx",
               "lod_model.fbx", "base.fbx", "model.fbx", "t-pose.fbx", "t pose.fbx", "tpose.fbx")
+# 25/11 (SHEMS) : marche a reculons, de cote, avec un fusil, accroupi qui se releve... = pas l'etat de base
+MOTS_EXCLUS = ("backward", "rifle", "strafe", "strafing", "sneak", "to stand", "left", "right", "pistol", "gun")
+# Gestes joues avec J apres les danses (boxe, bagarre...)
+MOTS_GESTE = ("boxing", "fist fight", "fight", "punch", "kick", "taunt", "salute", "wave", "flex")
 IMAGES_COULEURS = ("texture_diffuse", "diffuse", "basecolor", "base_color", "albedo", "color", "shaded", "texture_pbr")
 IMAGES_RELIEF = ("texture_normal", "normal")
 
@@ -176,25 +195,32 @@ def preparer_auto(p):
                 corps = f
                 break
     anims, pris, danses = [], set(), 0
+    a_danser = []  # (0 = danse, 1 = geste, fichier) : les vraies danses d'abord (la 1re est jouee dans le menu)
     for f in fbx:
-        if f == corps:
+        if f == corps or os.path.basename(f).lower() in NOMS_CORPS or re.match(r"^(base|lod|model)\s*\(\d+\)", os.path.basename(f).lower()):
             continue
         b = os.path.splitext(os.path.basename(f))[0].lower()
         etat = ""
-        for mots, e in CLES_ANIMS:
-            if e not in pris and any(m in b for m in mots) and not any(d in b for d in MOTS_DANSE):
-                etat = e
-                break
-        if not etat and any(d in b for d in MOTS_DANSE):
-            simple = re.sub(r"\s*\(\d+\)$", "", b).strip()
-            if simple in pris:
-                continue  # copie d'une danse deja prise
-            pris.add(simple)
-            danses += 1
-            etat = "Danse" if danses == 1 else "Danse%d" % danses
-        if etat:
-            pris.add(etat)
-            anims.append((f, etat))
+        if not any(x in b for x in MOTS_EXCLUS):
+            for mots, e in CLES_ANIMS:
+                if e not in pris and any(m in b for m in mots) and not any(d in b for d in MOTS_DANSE + MOTS_GESTE):
+                    etat = e
+                    break
+        if not etat:
+            if any(d in b for d in MOTS_DANSE):
+                a_danser.append((0, f, b))
+            elif any(d in b for d in MOTS_GESTE):
+                a_danser.append((1, f, b))
+            continue
+        pris.add(etat)
+        anims.append((f, etat))
+    for _, f, b in sorted(a_danser, key=lambda x: x[0]):
+        simple = re.sub(r"\s*\(\d+\)$", "", b).strip()
+        if simple in pris:
+            continue  # copie d'une danse deja prise
+        pris.add(simple)
+        danses += 1
+        anims.append((f, "Danse" if danses == 1 else "Danse%d" % danses))
     if not corps:
         # Mixamo "avec skin" : chaque animation contient aussi le corps -> on prend la marche (ou la 1re)
         corps = next((f for f, e in anims if e == "Marche"), fbx[0])
@@ -224,10 +250,12 @@ def ecrire_wraith(p):
         return "%s.%s" % (chemin, chemin.split("/")[-1]) if EAL.does_asset_exist(chemin) else ""
 
     marche = anim("Marche")
-    repos = anim("Accroupi") or marche
-    etats = [repos + "@0" if repos else "", marche, anim("Course") or marche, anim("Vol") or marche,
+    affiche = p.get("affiche", nom.upper())
+    # Repos : la pose (SHEMS) en boucle, sinon l'image 0 de l'accroupi ou de la marche
+    repos = anim("Repos") or ((anim("Accroupi") or marche) + "@0" if (anim("Accroupi") or marche) else "")
+    etats = [repos, marche, anim("Course") or marche, anim("Vol") or marche,
              anim("Accroupi"), anim("Saut") or anim("Vol")]
-    heros = "Heros=%s|Anims:%s||%s||||||1|0" % (nom, ";".join(etats), anim("Accroupi"))
+    heros = "Heros=%s|Anims:%s||%s||||||1|0" % (nom, ";".join(etats), anim("Mort") or anim("Accroupi"))
     danses = [anim(e) for _, e in p["anims"] if e.startswith("Danse")]
     danses = [d for d in danses if d]
     corps = "/Game/Personnages/%s/Joueur/SK_%s.SK_%s" % (dossier, nom, nom)
@@ -236,9 +264,13 @@ def ecrire_wraith(p):
         pos = max([i + 1 for i, l in enumerate(lignes) if l.startswith("Heros=")] or [len(lignes)])
         lignes.insert(pos, heros)
         change = True
-    if not any(l.upper().startswith("SKIN=%s|" % nom.upper()) for l in lignes):
+    if not any(l.upper().startswith("SKIN=%s|" % affiche.upper()) for l in lignes):
         pos = next((i for i, l in enumerate(lignes) if l.upper().startswith("SKIN=SOLDAT D'ORIGINE")), len(lignes))
-        lignes.insert(pos, "Skin=%s|%s||1||%s" % (nom.upper(), corps, nom))
+        lignes.insert(pos, "Skin=%s|%s||1||%s" % (affiche.upper(), corps, nom))
+        change = True
+    if p.get("vip") and not any(l.upper().replace(" ", "") == "VIP=%s" % affiche.upper() for l in lignes):
+        pos = next((i for i, l in enumerate(lignes) if l.upper().startswith("SKIN=%s|" % affiche.upper())), len(lignes))
+        lignes.insert(pos, "VIP=%s" % affiche.upper())
         change = True
     if danses and not any(l.startswith("Danses=%s|" % nom) for l in lignes):
         pos = max([i + 1 for i, l in enumerate(lignes) if l.startswith("Danses=")] or [len(lignes)])
@@ -251,7 +283,7 @@ def ecrire_wraith(p):
             shutil.copy2(reglages, sauvegarde)
         with open(reglages, "w", encoding="latin-1", newline="") as f:
             f.write("\r\n".join(lignes) + "\r\n")
-        dire("Wraith.txt : %s ajoute(e) (%d danses, touche J)" % (nom.upper(), len(danses)))
+        dire("Wraith.txt : %s ajoute(e) (%d danses, touche J)" % (affiche.upper(), len(danses)))
 
 EAL = unreal.EditorAssetLibrary
 resultats = []

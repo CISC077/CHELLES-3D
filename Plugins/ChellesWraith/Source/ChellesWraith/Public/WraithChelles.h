@@ -228,6 +228,9 @@ private:
 	bool bDanseArretSeulement = false;
 	bool bDanseLocale = false;
 	TMap<FString, TArray<FString>> DansesLues;    // Danses=Nom|... (relie aux heros a la fin de LireReglages)
+	TSet<FString> SkinsVIP;                       // 25/11 : VIP=MR.SHEMS (en majuscules) : pas sur K tant que le code n'est pas tape
+	/** Skin VIP pas encore debloque sur ce PC (GameUserSettings [ChellesVIP] NOM=True, ecrit par le lobby). */
+	bool SkinBloque(int32 Index) const;
 	bool DanseDe(ACharacter* C) const;
 	/** 25/11/2026 : chaque appui sur la touche des danses (J) = danse suivante. Numero voulu (moi : local, autres : relais). */
 	int32 DanseVoulueLocale = 0;

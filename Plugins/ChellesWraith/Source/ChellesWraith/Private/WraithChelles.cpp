@@ -350,6 +350,7 @@ void AWraithChelles::LireReglages()
 	Heros.Reset();
 	Gardes.Reset();
 	DansesLues.Reset();
+	SkinsVIP.Reset();
 	for (TPair<int32, TSharedPtr<FStreamableHandle>>& P : ChargementsSkins)
 	{
 		if (P.Value.IsValid())
@@ -428,6 +429,11 @@ void AWraithChelles::LireReglages()
 		else if (Cle.Equals(TEXT("DanseArretSeulement"), ESearchCase::IgnoreCase))
 		{
 			bDanseArretSeulement = EstOui(Valeur); // la touche ne lance la danse que si on est immobile au sol
+		}
+		else if (Cle.Equals(TEXT("VIP"), ESearchCase::IgnoreCase))
+		{
+			// VIP=MR.SHEMS : personnage reserve, debloque par son code dans le lobby
+			SkinsVIP.Add(Valeur.ToUpper());
 		}
 		else if (Cle.Equals(TEXT("Danses"), ESearchCase::IgnoreCase))
 		{
@@ -692,7 +698,22 @@ const FHerosWraith* AWraithChelles::HerosDe(const FSoldatWraith& S) const
 int32 AWraithChelles::SkinSuivant(int32 Index) const
 {
 	const int32 N = Skins.Num();
-	return N > 0 ? (((Index + 1) % N) + N) % N : 0;
+	int32 i = N > 0 ? (((Index + 1) % N) + N) % N : 0;
+	for (int32 n = 0; n < N && SkinBloque(i); ++n)
+	{
+		i = (i + 1) % N;
+	}
+	return i;
+}
+
+bool AWraithChelles::SkinBloque(int32 Index) const
+{
+	if (!Skins.IsValidIndex(Index) || SkinsVIP.Num() == 0 || !SkinsVIP.Contains(Skins[Index].Nom.ToUpper()))
+	{
+		return false;
+	}
+	bool bOui = false;
+	return !(GConfig && GConfig->GetBool(TEXT("ChellesVIP"), *Skins[Index].Nom.ToUpper(), bOui, GGameUserSettingsIni) && bOui);
 }
 
 void AWraithChelles::AvisUneFois(const FString& Cle, const FString& Texte, bool bEcran)
@@ -966,7 +987,7 @@ void AWraithChelles::Tick(float DeltaSeconds)
 		{
 			// On saute les apparences dont le pack manque
 			int32 Prochain = SkinLocal + 1;
-			for (int32 n = 0; n < Skins.Num() && Skins[Prochain % Skins.Num()].bIntrouvable; ++n)
+			for (int32 n = 0; n < Skins.Num() && (Skins[Prochain % Skins.Num()].bIntrouvable || SkinBloque(Prochain % Skins.Num())); ++n)
 			{
 				++Prochain;
 			}
@@ -2674,13 +2695,16 @@ void AWraithChelles::Commande(const TArray<FString>& Arguments)
 			TArray<FString> Mots(Arguments);
 			Mots.RemoveAt(0);
 			const int32 Trouve = SkinParNom(FString::Join(Mots, TEXT(" ")));
-			if (Trouve != INDEX_NONE)
+			if (Trouve != INDEX_NONE && !SkinBloque(Trouve))
 			{
 				ChangerSkin(Trouve, true);
 				return;
 			}
 		}
-		ChangerSkin(int32(Nombre(1, 0.f)) - 1, true);
+		if (!SkinBloque(int32(Nombre(1, 0.f)) - 1))
+		{
+			ChangerSkin(int32(Nombre(1, 0.f)) - 1, true);
+		}
 		return;
 	}
 	else if (Quoi.Equals(TEXT("Relire"), ESearchCase::IgnoreCase))
