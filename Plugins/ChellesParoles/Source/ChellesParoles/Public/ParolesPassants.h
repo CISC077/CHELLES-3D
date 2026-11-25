@@ -129,12 +129,35 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Paroles")
 	bool bToujoursAfficherLeTexte = true;
 
+	/** Les passants disent aussi des phrases inventees par l'IA du serveur CHELLES 3D (VPS).
+	 *  Aucune cle API dans le jeu : le jeu demande seulement des phrases au serveur.
+	 *  Si le serveur ne repond pas, les phrases de Repliques.txt sont utilisees. */
+	UPROPERTY(EditAnywhere, Category = "Paroles|IA")
+	bool bUtiliserIA = true;
+
+	/** Adresse du serveur des phrases IA (modifiable aussi dans DefaultGame.ini : [ChellesParoles] AdresseIA=...). */
+	UPROPERTY(EditAnywhere, Category = "Paroles|IA")
+	FString AdresseIA = TEXT("http://51.178.54.208:8081/api/pnj");
+
+	/** Chance (0 a 1) qu'un passant dise une phrase IA plutot qu'une phrase de Repliques.txt. */
+	UPROPERTY(EditAnywhere, Category = "Paroles|IA", meta = (ClampMin = "0", ClampMax = "1"))
+	float ChanceIA = 0.7f;
+
 private:
 	void ChargerRepliques();
 	bool EstUnPassant(const ACharacter* Personnage) const;
 	void PreparerPassant(ACharacter* Passant, FEtatPassant& Etat);
 	void Parler(ACharacter* Passant, FEtatPassant& Etat, const FString& Categorie, bool bPrioritaire);
 	const FSonCharge* ChargerSon(const FString& Fichier);
+
+	/** Phrases IA : demande au serveur, en arriere-plan, sans jamais bloquer le jeu. */
+	void DemanderPhrasesIA(const FString& Categorie, bool bFeminin);
+	bool PrendrePhraseIA(const FString& Categorie, bool bFeminin, FString& Sortie);
+
+	/** Reserve de phrases IA recues, par "Categorie|F" ou "Categorie|M". */
+	TMap<FString, TArray<FString>> PhrasesIA;
+	TMap<FString, double> ProchaineDemandeIA;
+	TSet<FString> DemandesIAEnCours;
 
 	/** Phrases de Repliques.txt, par categorie (pour l'affichage sans voix). */
 	TMap<FString, TArray<FString>> Textes;

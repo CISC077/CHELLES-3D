@@ -13,7 +13,9 @@ public class ChellesParoles : ModuleRules
 			"Engine",
 			"Projects",
 			"Slate",
-			"SlateCore"
+			"SlateCore",
+			"HTTP",
+			"Json"
 		});
 	}
 }
