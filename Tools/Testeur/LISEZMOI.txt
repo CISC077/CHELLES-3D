@@ -1,0 +1,33 @@
+AGENT 5 "TESTEUR" - TEST AUTOMATIQUE DU JEU CHAQUE SOIR - CHELLES 3D
+=====================================================================
+
+A QUOI CA SERT
+  Chaque soir, juste apres la verification des fichiers (Tools\VerifErreurs),
+  le jeu s'ouvre TOUT SEUL et fait un parcours de 3 a 6 minutes :
+    - il passe le menu de depart (SOLO) ;
+    - il visite 9 zones de la carte Rachid et fait un tour de camera dans chacune ;
+    - il fait marcher le personnage ;
+    - il ouvre et ferme les menus ARMEMENTS, HABILLAGE et PAUSE ;
+    - il essaie chaque personnage et vehicule (Soldat, Spider-Male, PANTERA,
+      Motoneige, VOITURE, HORSE...) ;
+    - il mesure la fluidite (images par seconde) et note les erreurs.
+  Puis il se ferme et ecrit un rapport en francais :
+      Tools\Testeur\Rapport\DERNIER_RAPPORT_TEST.txt
+  Le Bloc-notes s'ouvre avec le rapport s'il y a quelque chose a voir.
+  RIEN N'EST MODIFIE : la carte n'est jamais enregistree.
+
+A LANCER UNE SEULE FOIS
+  INSTALLER_LE_TESTEUR.bat  (Unreal ferme) : compile, branche le test sur la
+  tache du soir, et fait un premier test tout de suite.
+
+ENSUITE
+  TESTER_LE_JEU.bat         -> refaire un test maintenant (Unreal ferme).
+  Plugins\ChellesTesteur\Testeur.txt -> changer le parcours (personnages,
+                               nombre de zones, duree, son, couper le test du soir).
+
+BON A SAVOIR
+  - Si Unreal est ouvert a l'heure du test, le test est reporte (le rapport le dit).
+  - Le PC doit etre allume et ta session Windows ouverte (le jeu a besoin de l'ecran).
+  - Le test n'existe que quand il est lance d'ici (option -ChellesTest) : le jeu
+    normal, l'editeur et le serveur ne voient aucune difference.
+  - Envoie le rapport a Claude dans le projet CHELLES 3D s'il y a un souci.

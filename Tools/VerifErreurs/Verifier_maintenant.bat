@@ -24,6 +24,10 @@ if "!PY:~0,2!"=="py" (
   "!PY!" -I "%~dp0verifier_erreurs.py" %MODE%
 )
 
+rem 25/11/2026 - Agent 5 "Testeur" : le soir, apres la verification des fichiers, on teste aussi le jeu
+rem (Tools\Testeur, plugin ChellesTesteur). Couper : TestDuSoir=Non dans Plugins\ChellesTesteur\Testeur.txt
+if /i "%MODE%"=="auto" if exist "%~dp0..\Testeur\TESTER_LE_JEU.bat" call "%~dp0..\Testeur\TESTER_LE_JEU.bat" auto
+
 if /i not "%MODE%"=="auto" (
   echo.
   echo  Termine. Le rapport est dans Tools\VerifErreurs\Rapport\DERNIER_RAPPORT.txt
