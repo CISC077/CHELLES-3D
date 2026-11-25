@@ -7,6 +7,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PrimitiveComponent.h"
+#include "PhysicsEngine/BodyInstance.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
@@ -1952,6 +1953,17 @@ void AVolVoitureChelles::HabillerVoituresHoro()
 	for (TActorIterator<APawn> It(GetWorld()); It; ++It)
 	{
 		APawn* V = *It;
+		// 25/11 : tous les vehicules a roues (voitures garees, Bugatti, police, motoneige...) : detection continue
+		// des collisions (CCD), pour qu'a grande vitesse ils ne passent plus a travers les murs fins ni le sol
+		if (IsValid(V) && V->FindComponentByClass<UWheeledVehicleMovementComponent>())
+		{
+			UPrimitiveComponent* Corps = Cast<UPrimitiveComponent>(V->GetRootComponent());
+			FBodyInstance* Corps0 = Corps ? Corps->GetBodyInstance() : nullptr;
+			if (Corps0 && Corps->IsSimulatingPhysics() && !Corps0->bUseCCD)
+			{
+				Corps->SetUseCCD(true);
+			}
+		}
 		if (!IsValid(V) || !HoroChelles::EstHoro(V) || !EstNotreVoiture(V))
 		{
 			continue;
