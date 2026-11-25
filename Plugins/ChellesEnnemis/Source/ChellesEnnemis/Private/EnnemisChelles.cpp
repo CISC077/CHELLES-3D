@@ -410,7 +410,8 @@ void AEnnemisChelles::TrouverLesClasses()
 	TMap<FName, TArray<UClass*>> DansDossier;  // ex. BP_AI_CharSoldier (leurs parents)
 	for (const FAssetData& A : Assets)
 	{
-		const FString Nom = A.AssetName.ToString();
+		FString Nom = A.AssetName.ToString();
+		Nom.RemoveFromEnd(TEXT("_C")); // 25/11 (agent 1) : "AI_Super_Heros_C" doit aussi etre exclu
 		if (Reglages.Exclus.ContainsByPredicate([&Nom](const FString& E) { return Nom.Equals(E, ESearchCase::IgnoreCase); }))
 		{
 			continue; // vieille copie cassee du pack : on ne la charge jamais
@@ -454,6 +455,14 @@ void AEnnemisChelles::TrouverLesClasses()
 		if (const ACharacter* Modele = Cast<ACharacter>(Classe->GetDefaultObject()))
 		{
 			const USkeletalMeshComponent* Corps = Modele->GetMesh();
+			// 25/11 (agent 1) : un ennemi SANS corps (fichier du corps absent, ex. AI_Super_Heros sans
+			// SK_Skeleton de l'UndeadPack) est invisible et remplit le journal de "GetSocketByName(GripPoint)".
+			if (!Corps || !Corps->SkeletalMesh)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[Ennemis] %s ignore : il n'a pas de corps (fichier du corps absent)."),
+					*NomBlueprint(Classe));
+				continue;
+			}
 			const UAnimBlueprintGeneratedClass* Anim = Corps ? Cast<UAnimBlueprintGeneratedClass>(Corps->AnimClass.Get()) : nullptr;
 			if (Anim && Corps->SkeletalMesh && Anim->TargetSkeleton && Anim->TargetSkeleton != Corps->SkeletalMesh->Skeleton)
 			{
