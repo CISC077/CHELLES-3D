@@ -1,0 +1,80 @@
+﻿# CHELLES 3D - Touches F1 a F12 (plugin ChellesRaccourcis)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# En jeu, la console (touche ²) : Chelles.Raccourcis Relire  = relit ce fichier et le tableau.
+# Les lignes qui commencent par # sont des commentaires.
+
+# 24/11/2026 : le menu F1-F12 est SUPPRIME (demande MERIDJA). On choisit son personnage ou son
+# vehicule dans le LOBBY avant de jouer (menu JOUER, colonne PERSONNAGES), comme dans un jeu de lobby.
+# F11 (ou Alt + Entree) reste le plein ecran <-> fenetre.
+# Oui = les touches F changent de mode comme avant, Non = elles ne font plus rien (conseille)
+Actif=Non
+
+# --- DONNEES : ce que fait chaque touche ---
+# La liste des touches vient du TABLEAU DE DONNEES (Data Table) ci-dessous : une ligne par touche.
+# Dans Unreal : Content Browser > Chelles > Donnees > double-clic sur DT_Raccourcis, changez une ligne, Save.
+# Pour ajouter une touche : bouton "Add" du tableau, sans toucher au code.
+# Le tableau se cree avec Tools\RaccourcisF\CREER_LA_TABLE.bat (a partir de Raccourcis.csv).
+Tableau=/Game/Chelles/Donnees/DT_Raccourcis.DT_Raccourcis
+
+# Menu des touches en haut de l'ecran :
+#   Deroulant = il descend quand on appuie sur une touche F puis remonte, Toujours = toujours visible, Jamais
+Menu=Jamais
+#   Verticale = liste en haut a gauche, Horizontale = barre en haut au centre (comme le schema)
+Disposition=Verticale
+# Secondes avant que le menu remonte
+DureeMenu=3
+
+# Oui = petit message en bas de l'ecran (case vide, mode indisponible...)
+Messages=Oui
+# Oui = animation "baisser l'arme" du pack quand une touche prend une arme (Case1..Case4)
+Animation=Oui
+
+# --- ROUE DES ARMES (maintenir TAB) ---
+# Maintenir TAB : la roue des armes apparait. Viser avec la souris, relacher TAB (ou clic gauche) pour prendre.
+# Clic droit : annuler. Les personnages et vehicules (Soldat, Spider-Male...) se choisissent dans le LOBBY.
+# Oui = la roue des armes marche, Non = coupee
+RoueArmes=Oui
+# Touche a maintenir (Tab, CapsLock, Q...)
+ToucheRoueArmes=Tab
+# La liste des armes vient du TABLEAU DE DONNEES DT_Armes : une ligne par arme (Add pour en ajouter une).
+# Il se cree avec Tools\RaccourcisF\CREER_LA_TABLE.bat (a partir de Armes.csv).
+TableauArmes=/Game/Chelles/Donnees/DT_Armes.DT_Armes
+# Vitesse du jeu pendant que la roue est ouverte, en solo (1 = pas de ralenti)
+RoueArmesRalenti=0.3
+# Sensibilite de la souris dans la roue
+RoueArmesSensibilite=8
+# Oui = toutes les armes du tableau (grisees tant qu'elles ne sont pas ramassees), Non = seulement celles ramassees
+ToutesLesArmes=Oui
+# Oui = choisir une arme pas encore ramassee la DONNE (pratique pour tester, solo seulement)
+DonnerLesArmes=Oui
+# Cases par page dans la roue (beaucoup d'armes avec les packs : molette de la souris = page suivante)
+RoueArmesParPage=12
+# Les armes des packs : Tools\RaccourcisF\AJOUTER_LES_ARMES_DES_PACKS.bat (Unreal ferme)
+
+# --- MENU ARMEMENTS (touche I, 2026-11-24) ---
+# Grand menu des armes : categories a gauche, cartes colorees par rarete (etoiles), filtres a droite,
+# recherche, EQUIPER / AJOUTER AU COFFRE / LACHER / QUITTER. Meme liste d'armes que la roue TAB (DT_Armes).
+# La rarete d'une arme : colonne Rarete de DT_Armes (0 = automatique, 1 = commune ... 5 = legendaire).
+# Oui = le menu marche, Non = coupe
+MenuArmements=Oui
+# Touche qui ouvre et ferme le menu
+ToucheMenuArmements=I
+# Oui = la touche I ouvre CE menu a la place de l'ancien menu d'inventaire du kit FPS (W_WeaponInventory_UI)
+# Non = l'ancien menu reste aussi sur I (deconseille : les deux s'ouvrent)
+RemplacerInventaire=Oui
+
+# --- SECOURS : utilise seulement tant que le tableau DT_Raccourcis n'existe pas ---
+# Action = nom d'un mode de la roue, ou Case1..Case4 (armes du soldat), ou Blaster, Bazooka, Sabre,
+# Grenade, LanceFlammes, Mitrailleuse (arsenal), ou Reserve (rien).
+F1=Soldat
+F2=Spider-Male
+F3=Spider-Femelle
+F4=PANTERA
+F5=Motoneige
+F6=VOITURE
+F7=FLASH ECLAIR
+F8=FLAMME FIRE
+F9=SuperPowers
+F10=DYNAMIC COMBAT
+# F11 (ou Alt + Entree) = plein ecran <-> fenetre, en jeu ET dans Play de l'editeur : jamais un mode
+F12=HORSE

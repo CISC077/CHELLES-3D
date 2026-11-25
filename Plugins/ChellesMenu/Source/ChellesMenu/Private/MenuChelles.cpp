@@ -4,6 +4,7 @@
 #include "SMenuChelles.h"
 #include "SChatChelles.h"
 #include "ChatChelles.h"
+#include "HabillageChelles.h"
 
 #include "Components/AudioComponent.h"
 #include "Styling/CoreStyle.h"
@@ -28,6 +29,10 @@
 #include "SocketSubsystem.h"
 #include "TimerManager.h"
 #include "UObject/Package.h"
+#include "UObject/UObjectIterator.h"
+#include "Blueprint/UserWidget.h"
+#include "HAL/IConsoleManager.h"
+#include "EngineUtils.h"
 
 namespace
 {
@@ -108,6 +113,12 @@ void AMenuChelles::BeginPlay()
 	{
 		return;
 	}
+	// Echap en jeu : on remplace l'ancien menu gris et blanc W_Pause (FPS_Game) par ce menu.
+	// Minuterie du moteur (et pas Tick) : elle tourne aussi quand le jeu est en pause.
+	if (!HSurveillancePause.IsValid())
+	{
+		HSurveillancePause = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &AMenuChelles::SurveillerPause), 0.05f);
+	}
 	UGameInstance* Instance = GetGameInstance();
 	const bool bDejaVu = Instance && GInstanceDejaVue.Get() == Instance;
 
@@ -129,6 +140,11 @@ void AMenuChelles::EndPlay(const EEndPlayReason::Type Raison)
 	if (UWorld* Monde = GetWorld())
 	{
 		Monde->GetTimerManager().ClearTimer(Minuterie);
+	}
+	if (HSurveillancePause.IsValid())
+	{
+		FTicker::GetCoreTicker().RemoveTicker(HSurveillancePause);
+		HSurveillancePause.Reset();
 	}
 	RetirerDelegues();
 	RetirerChat();
@@ -180,6 +196,8 @@ void AMenuChelles::Ouvrir()
 
 	Widget = SNew(SMenuChelles).Menu(this);
 	Vue->AddViewportWidgetContent(Widget.ToSharedRef(), 1000);
+	// L'ecran HABILLAGE (bouton JOUER) a besoin du catalogue : on le charge pendant que le joueur lit le menu.
+	ChellesHabillage::PrechargerCatalogue();
 
 	bOuvert = true;
 	// Cache les messages techniques en haut a gauche (texture pool, passants...) pendant le menu
@@ -188,7 +206,11 @@ void AMenuChelles::Ouvrir()
 		GEngine->bEnableOnScreenDebugMessagesDisplay = false;
 	}
 	ModeInterface();
-	Joueur->SetPause(true);
+	// Menu PAUSE en multijoueur : on ne met pas la partie des autres joueurs en pause.
+	if (!bEnPause || Monde->GetNetMode() == NM_Standalone)
+	{
+		Joueur->SetPause(true);
+	}
 
 	if (USoundBase* SonCharge = PisteDe(MusiquesMenu, PisteMenu, TEXT("/Game/Sounds/Music/Vehicle_Race_Cue.Vehicle_Race_Cue")))
 	{
@@ -249,6 +271,7 @@ void AMenuChelles::Fermer(bool bReprendreLeJeu)
 
 	const bool bEtaitOuvert = bOuvert;
 	bOuvert = false;
+	bEnPause = false;
 	if (!bReprendreLeJeu || !bEtaitOuvert)
 	{
 		return;
@@ -266,6 +289,39 @@ void AMenuChelles::Solo()
 	Fermer(true);
 	LancerMusiqueJeu();
 	DebutSolo = FPlatformTime::Seconds();
+	LancerModeLobby();
+}
+
+void AMenuChelles::LancerModeLobby()
+{
+	// Le lobby a ecrit le mode choisi ; c'est ChellesRaccourcis qui pilote la roue des modes (console, pas de lien entre plugins)
+	UWorld* Monde = GetWorld();
+	FString Mode;
+	if (GConfig)
+	{
+		GConfig->GetString(TEXT("ChellesLobby"), TEXT("ModeDepart"), Mode, GGameUserSettingsIni);
+	}
+	Mode.TrimStartAndEndInline();
+	if (Mode.IsEmpty() || !Monde || !GEngine || !IConsoleManager::Get().FindConsoleObject(TEXT("Chelles.Raccourcis")))
+	{
+		return;
+	}
+	GEngine->Exec(Monde, *FString::Printf(TEXT("Chelles.Raccourcis Mode %s"), *Mode));
+}
+
+void AMenuChelles::SandBox()
+{
+	Fermer(true);
+	LancerMusiqueJeu();
+	// Pas de DebutSolo : le joueur est deplace dans la zone SANDBOX, ce n'est pas un depart a memoriser
+	LancerModeLobby();
+	if (UWorld* Monde = GetWorld())
+	{
+		if (GEngine)
+		{
+			GEngine->Exec(Monde, TEXT("Chelles.SandBox 1"));
+		}
+	}
 }
 
 void AMenuChelles::MemoriserDepart()
@@ -354,8 +410,9 @@ void AMenuChelles::LancerMusiqueJeu()
 	}
 	// Touches de la musique (libres dans le projet : + et - servent deja a la roue)
 	EnableInput(Joueur);
-	if (InputComponent)
+	if (InputComponent && !bTouchesJeu)
 	{
+		bTouchesJeu = true;
 		InputComponent->BindKey(EKeys::PageUp, IE_Pressed, this, &AMenuChelles::MusiquePlus);
 		InputComponent->BindKey(EKeys::PageDown, IE_Pressed, this, &AMenuChelles::MusiqueMoins);
 		InputComponent->BindKey(EKeys::N, IE_Pressed, this, &AMenuChelles::MusiqueCouper);
@@ -518,6 +575,98 @@ void AMenuChelles::AnnoncerMusique()
 			: FString::Printf(TEXT("Musique : %d %%  (Page Haut / Page Bas, N = couper, Fin = suivante)"), FMath::RoundToInt(ChellesOptions::VolumeMusique() * 100.f));
 		GEngine->AddOnScreenDebugMessage(77010, 2.5f, FColor(0, 240, 255), Texte);
 	}
+}
+
+void AMenuChelles::OuvrirPause()
+{
+	if (bOuvert)
+	{
+		ModeInterface();
+		return;
+	}
+	bEnPause = true;
+	Ouvrir();
+	if (!bOuvert)
+	{
+		bEnPause = false;
+	}
+}
+
+void AMenuChelles::Reprendre()
+{
+	Fermer(true);
+}
+
+void AMenuChelles::OuvrirHabillage()
+{
+	OuvrirPause();
+	if (bOuvert && Widget.IsValid())
+	{
+		Widget->Afficher(EEcranMenu::Habillage);
+	}
+}
+
+namespace
+{
+	/** Console : Chelles.Habillage = ouvre l'ecran HABILLAGE (lobby) en pleine partie (onglet PERSONNAGE du menu ARMEMENTS). */
+	void CommandeHabillage(const TArray<FString>& Arguments, UWorld* Monde)
+	{
+		if (!Monde)
+		{
+			return;
+		}
+		for (TActorIterator<AMenuChelles> It(Monde); It; ++It)
+		{
+			It->OuvrirHabillage();
+			return;
+		}
+	}
+
+	FAutoConsoleCommandWithWorldAndArgs GCommandeHabillage(
+		TEXT("Chelles.Habillage"),
+		TEXT("Ouvre l'ecran HABILLAGE (personnage) du menu CHELLES 3D en pleine partie"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeHabillage));
+}
+
+bool AMenuChelles::SurveillerPause(float /*Delta*/)
+{
+	UWorld* Monde = GetWorld();
+	if (!Monde || !Monde->GetGameViewport())
+	{
+		return true;
+	}
+	bool bTrouve = false;
+	for (TObjectIterator<UUserWidget> It; It; ++It)
+	{
+		UUserWidget* Ancien = *It;
+		if (!Ancien || Ancien->IsPendingKill() || Ancien->GetWorld() != Monde || !Ancien->IsInViewport())
+		{
+			continue;
+		}
+		// W_Pause (et W_Settings ouvert depuis lui) : menus gris et blancs de FPS_Game.
+		// Leur bouton "Save & Quit" ouvrait la carte MainMenu, rangee dans _Quarantaine : on restait bloque.
+		const FString Nom = Ancien->GetClass()->GetName();
+		if (Nom.StartsWith(TEXT("W_Pause")) || Nom.StartsWith(TEXT("W_Settings")))
+		{
+			Ancien->RemoveFromParent();
+			bTrouve = true;
+		}
+	}
+	if (!bTrouve)
+	{
+		return true;
+	}
+	UE_LOG(LogTemp, Display, TEXT("[Menu] Echap : ancien menu W_Pause remplace par le menu CHELLES 3D."));
+	// Ecran FIN DE LA DEMO affiche (plugin ChellesDemo) : il garde la main, on n'ouvre rien par-dessous.
+	if (IConsoleVariable* Fin = IConsoleManager::Get().FindConsoleVariable(TEXT("Chelles.DemoFinie")))
+	{
+		if (Fin->GetInt() != 0)
+		{
+			return true;
+		}
+	}
+	OuvrirPause();
+	return true;
 }
 
 void AMenuChelles::Quitter()

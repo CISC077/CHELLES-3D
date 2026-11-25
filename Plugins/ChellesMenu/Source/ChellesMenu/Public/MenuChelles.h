@@ -89,6 +89,10 @@ public:
 
 	// Appeles par les boutons du menu
 	void Solo();
+	/** Bouton SANDBOX : partie solo + mode bac a sable (plugin ChellesSandBox). */
+	void SandBox();
+	/** 24/11/2026 : passe sur le personnage / vehicule choisi dans le lobby ([ChellesLobby] ModeDepart). */
+	void LancerModeLobby();
 	void Quitter();
 	void HebergerLAN();
 	void Rechercher();
@@ -103,6 +107,15 @@ public:
 	APlayerController* GetPC() const;
 	/** Donne la souris et le clavier au menu (et plus au jeu). */
 	void ModeInterface();
+
+	/** Vrai quand le menu a ete ouvert en jeu par Echap (menu PAUSE, avec le bouton REPRENDRE). */
+	bool EnPause() const { return bEnPause; }
+	/** Echap en jeu : ouvre ce menu a la place de l'ancien menu gris et blanc W_Pause de FPS_Game. */
+	void OuvrirPause();
+	/** Bouton REPRENDRE / Echap dans le menu PAUSE : ferme le menu et reprend la partie. */
+	void Reprendre();
+	/** En jeu : ouvre le menu (pause) directement sur HABILLAGE (lobby). Console : Chelles.Habillage */
+	void OuvrirHabillage();
 
 protected:
 	virtual void BeginPlay() override;
@@ -153,6 +166,14 @@ private:
 
 	double DernierSurvol = 0.0;
 	bool bQuitteEnCours = false;
+
+	/** Menu ouvert en jeu (Echap) et non au demarrage. */
+	bool bEnPause = false;
+	/** Touches de la musique deja branchees (evite de les brancher deux fois apres une pause). */
+	bool bTouchesJeu = false;
+	/** Surveille (meme jeu en pause) l'ouverture du menu gris et blanc W_Pause de FPS_Game. */
+	bool SurveillerPause(float Delta);
+	FDelegateHandle HSurveillancePause;
 
 	TSharedPtr<SMenuChelles> Widget;
 	TSharedPtr<SChatChelles> PanneauChat;
