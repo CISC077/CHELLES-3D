@@ -7,6 +7,27 @@ Lance par ANNULER_VEGETATION_EAU.bat (Unreal ferme), ou dans l'editeur : File > 
   - supprime les modeles d'eau (Content/Chelles/VegetationEau).
 Journal : Tools/VegetationEau/annuler_vegetation_eau.log
 """
+# >>> SAUVEGARDE AUTO CHELLES 3D (pose par Tools\Sauvegarde\brancher_sauvegarde_auto.py, ne pas modifier)
+try:
+    import os as _sa_os, sys as _sa_sys
+    _sa_d = _sa_os.path.dirname(_sa_os.path.abspath(globals().get('__file__') or '.'))
+    _sa_m = None
+    while _sa_d:
+        if _sa_os.path.isfile(_sa_os.path.join(_sa_d, 'Tools', 'Sauvegarde', 'sauvegarde_auto.py')):
+            _sa_m = _sa_os.path.join(_sa_d, 'Tools', 'Sauvegarde')
+            break
+        _sa_p = _sa_os.path.dirname(_sa_d)
+        _sa_d = None if _sa_p == _sa_d else _sa_p
+    if _sa_m is None:
+        import unreal as _sa_u
+        _sa_m = _sa_os.path.join(_sa_u.Paths.convert_relative_path_to_full(_sa_u.Paths.project_dir()), 'Tools', 'Sauvegarde')
+    if _sa_m not in _sa_sys.path:
+        _sa_sys.path.insert(0, _sa_m)
+    import sauvegarde_auto as _sa_mod
+    _sa_mod.avant(globals().get('__file__') or 'script')
+except Exception as _sa_e:
+    print('[SauvegardeAuto] non faite : %s' % _sa_e)
+# <<< SAUVEGARDE AUTO CHELLES 3D
 import json, os, traceback
 import unreal
 
@@ -73,7 +94,18 @@ def main():
     log("TERMINE : la map est revenue comme avant la vegetation / riviere / lac.")
 
 
+def _quitter_si_bat():
+    """lance par le .bat : l'editeur se ferme tout seul a la fin"""
+    import unreal as _u
+    if os.environ.get("CHELLES_QUITTER") == "1":
+        try:
+            _u.SystemLibrary.quit_editor()
+        except Exception:
+            pass
+
+
 try:
     main()
 except Exception:
     log("ERREUR :\n" + traceback.format_exc())
+_quitter_si_bat()

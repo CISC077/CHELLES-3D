@@ -14,6 +14,8 @@ if not errorlevel 1 (
     exit /b 1
 )
 copy /y "%ICI%\annuler_vegetation_eau.py" "%TEMP%\chelles_annuler_vegetation_eau.py" >nul
-"%UE%\Engine\Binaries\Win64\UE4Editor-Cmd.exe" "%PROJET%\FPS_Chelles.uproject" -run=pythonscript -script="%TEMP%\chelles_annuler_vegetation_eau.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -unattended -nosplash -stdout > "%ICI%\annuler_unreal.log" 2>&1
+rem Editeur complet (le mode ligne de commande plante a la pose des objets) ; il se ferme tout seul a la fin
+set "CHELLES_QUITTER=1"
+start "" /wait "%UE%\Engine\Binaries\Win64\UE4Editor.exe" "%PROJET%\FPS_Chelles.uproject" -ExecutePythonScript="%TEMP%\chelles_annuler_vegetation_eau.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -nosplash -log="annuler_unreal.log"
 type "%ICI%\annuler_vegetation_eau.log"
 pause

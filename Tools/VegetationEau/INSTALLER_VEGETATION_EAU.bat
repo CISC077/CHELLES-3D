@@ -56,11 +56,13 @@ rmdir /s /q "%SORTIE%"
 echo Plugin compile.
 
 echo.
-echo ===== ETAPE 2/2 : vegetation, riviere et lac dans Rachid (5 a 15 minutes) =====
+echo ===== ETAPE 2/2 : vegetation, riviere et lac dans Rachid (5 a 15 minutes, Unreal s'ouvre puis se ferme tout seul) =====
 echo (telechargement OpenStreetMap, la carte est regardee vue du ciel, puis pose des plantes)
 rem Unreal lit mal un chemin avec des espaces : copie du script dans un dossier sans espace
 copy /y "%ICI%\vegetation_eau.py" "%TEMP%\chelles_vegetation_eau.py" >nul
-"%UE%\Engine\Binaries\Win64\UE4Editor-Cmd.exe" "%PROJET%\FPS_Chelles.uproject" -run=pythonscript -script="%TEMP%\chelles_vegetation_eau.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -unattended -nosplash -stdout > "%ICI%\vegetation_eau_unreal.log" 2>&1
+rem Editeur complet (le mode ligne de commande plante a la pose des objets) ; il se ferme tout seul a la fin
+set "CHELLES_QUITTER=1"
+start "" /wait "%UE%\Engine\Binaries\Win64\UE4Editor.exe" "%PROJET%\FPS_Chelles.uproject" -ExecutePythonScript="%TEMP%\chelles_vegetation_eau.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -nosplash -log="vegetation_eau_unreal.log"
 
 echo.
 echo ===== Resultat =====

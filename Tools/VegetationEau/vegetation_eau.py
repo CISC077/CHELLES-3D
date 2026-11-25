@@ -24,6 +24,27 @@ Avant tout : copie de la map dans Tools/VegetationEau/Sauvegardes/<date>/.
 Relancer le script remplace seulement ce qu'il a pose.  ANNULER : ANNULER_VEGETATION_EAU.bat
 Journal : Tools/VegetationEau/vegetation_eau.log   Carte de controle : Tools/VegetationEau/carte_controle.bmp
 """
+# >>> SAUVEGARDE AUTO CHELLES 3D (pose par Tools\Sauvegarde\brancher_sauvegarde_auto.py, ne pas modifier)
+try:
+    import os as _sa_os, sys as _sa_sys
+    _sa_d = _sa_os.path.dirname(_sa_os.path.abspath(globals().get('__file__') or '.'))
+    _sa_m = None
+    while _sa_d:
+        if _sa_os.path.isfile(_sa_os.path.join(_sa_d, 'Tools', 'Sauvegarde', 'sauvegarde_auto.py')):
+            _sa_m = _sa_os.path.join(_sa_d, 'Tools', 'Sauvegarde')
+            break
+        _sa_p = _sa_os.path.dirname(_sa_d)
+        _sa_d = None if _sa_p == _sa_d else _sa_p
+    if _sa_m is None:
+        import unreal as _sa_u
+        _sa_m = _sa_os.path.join(_sa_u.Paths.convert_relative_path_to_full(_sa_u.Paths.project_dir()), 'Tools', 'Sauvegarde')
+    if _sa_m not in _sa_sys.path:
+        _sa_sys.path.insert(0, _sa_m)
+    import sauvegarde_auto as _sa_mod
+    _sa_mod.avant(globals().get('__file__') or 'script')
+except Exception as _sa_e:
+    print('[SauvegardeAuto] non faite : %s' % _sa_e)
+# <<< SAUVEGARDE AUTO CHELLES 3D
 import datetime, heapq, json, math, os, random, shutil, traceback, urllib.parse, urllib.request
 
 # =============================================================================================== reglages
@@ -1580,6 +1601,16 @@ def executer_dans_unreal():
         "Annuler : ANNULER_VEGETATION_EAU.bat")
 
 
+def _quitter_si_bat():
+    """lance par le .bat : l'editeur se ferme tout seul a la fin"""
+    import unreal as _u
+    if os.environ.get("CHELLES_QUITTER") == "1":
+        try:
+            _u.SystemLibrary.quit_editor()
+        except Exception:
+            pass
+
+
 try:
     import unreal as _unreal_present  # noqa: F401   (absent hors d'Unreal : rien ne se lance)
 except ImportError:
@@ -1595,3 +1626,4 @@ if _unreal_present is not None:
             open(p, "a", encoding="utf-8").write(msg + "\n")
         except Exception:
             pass
+    _quitter_si_bat()
