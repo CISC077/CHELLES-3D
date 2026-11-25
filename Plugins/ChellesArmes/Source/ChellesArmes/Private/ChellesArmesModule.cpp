@@ -5,6 +5,8 @@
 #include "HAL/IConsoleManager.h"
 #include "Modules/ModuleManager.h"
 #include "ArmesChelles.h"
+#include "ArsenalChelles.h"
+#include "CoffresFPS.h"
 
 namespace
 {
@@ -42,8 +44,46 @@ namespace
 
 	FAutoConsoleCommandWithWorldAndArgs GCommandeArme(
 		TEXT("Chelles.Arme"),
-		TEXT("Regle l'apparence de l'arme en main : Avant/Haut/Cote <cm>, Tangage/Lacet/Roulis <degres>, Echelle <x>, Zero, Original, Tir <Laser|Feu|Glace|Foudre|Aucun>, Recharger. Exemple : Chelles.Arme Roulis 180"),
+		TEXT("Regle l'apparence de l'arme en main : Avant/Haut/Cote <cm>, Tangage/Lacet/Roulis <degres>, Echelle <x>, Zero, Original, Tir <Laser|Feu|Glace|Foudre|Aucun>, Modele <chemin|Aucun>, Recharger. Exemple : Chelles.Arme Roulis 180"),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeArme));
+
+	/** Console : Chelles.Arsenal Blaster | Bazooka | Sabre | Grenade | Aucune | Recharger */
+	void CommandeArsenal(const TArray<FString>& Arguments, UWorld* Monde)
+	{
+		if (!Monde)
+		{
+			return;
+		}
+		for (TActorIterator<AArsenalChelles> It(Monde); It; ++It)
+		{
+			It->Commande(Arguments);
+			return;
+		}
+	}
+
+	FAutoConsoleCommandWithWorldAndArgs GCommandeArsenal(
+		TEXT("Chelles.Arsenal"),
+		TEXT("Prendre une arme de l'arsenal : Chelles.Arsenal Blaster | Bazooka | Sabre | Grenade | Aucune | Recharger (relit Arsenal.txt)"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeArsenal));
+
+	/** Console (25/11/2026) : Chelles.CoffresFPS Liste | Ouvrir  (coffres d'armes du kit FPS_Game) */
+	void CommandeCoffres(const TArray<FString>& Arguments, UWorld* Monde)
+	{
+		if (!Monde)
+		{
+			return;
+		}
+		for (TActorIterator<ACoffresFPS> It(Monde); It; ++It)
+		{
+			It->Commande(Arguments);
+			return;
+		}
+	}
+
+	FAutoConsoleCommandWithWorldAndArgs GCommandeCoffres(
+		TEXT("Chelles.CoffresFPS"),
+		TEXT("Coffres d'armes du kit FPS_Game : Chelles.CoffresFPS Liste (journal) | Ouvrir (ouvre le plus proche)"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeCoffres));
 
 	FAutoConsoleCommandWithWorldAndArgs GCommandeArmes(
 		TEXT("Chelles.Armes"),
@@ -72,13 +112,22 @@ private:
 		{
 			return;
 		}
-		if (TActorIterator<AArmesChelles>(MondeDuJeu))
-		{
-			return; // deja la
-		}
 		FActorSpawnParameters Params;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		MondeDuJeu->SpawnActor<AArmesChelles>(AArmesChelles::StaticClass(), FTransform::Identity, Params);
+		if (!TActorIterator<AArmesChelles>(MondeDuJeu))
+		{
+			MondeDuJeu->SpawnActor<AArmesChelles>(AArmesChelles::StaticClass(), FTransform::Identity, Params);
+		}
+		// Arsenal (2026-11-17) : blaster, bazooka, sabre lumineux, grenade a zombies (touche N)
+		if (!TActorIterator<AArsenalChelles>(MondeDuJeu))
+		{
+			MondeDuJeu->SpawnActor<AArsenalChelles>(AArsenalChelles::StaticClass(), FTransform::Identity, Params);
+		}
+		// Coffres d'armes du kit FPS_Game (25/11/2026) : E ouvre le coffre le plus proche si le kit ne le fait plus
+		if (!TActorIterator<ACoffresFPS>(MondeDuJeu) && MondeDuJeu->GetNetMode() != NM_DedicatedServer)
+		{
+			MondeDuJeu->SpawnActor<ACoffresFPS>(ACoffresFPS::StaticClass(), FTransform::Identity, Params);
+		}
 	}
 
 	FDelegateHandle Abonnement;
