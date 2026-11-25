@@ -1468,6 +1468,11 @@ void SMenuArmements::Deplacer(int32 DX, int32 DY)
 	Choisir(Liste[Pos]);
 }
 
+bool SMenuArmements::EnSaisie() const
+{
+	return ChampRecherche.IsValid() && (ChampRecherche->HasKeyboardFocus() || ChampRecherche->HasFocusedDescendants());
+}
+
 FReply SMenuArmements::OnKeyDown(const FGeometry& Geometrie, const FKeyEvent& Evenement)
 {
 	const FKey K = Evenement.GetKey();

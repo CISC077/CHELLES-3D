@@ -130,6 +130,8 @@ public:
 	FKey ToucheMenu;
 
 	virtual bool SupportsKeyboardFocus() const override { return true; }
+	/** Vrai si on tape dans la recherche (alors I s'ecrit au lieu de fermer). */
+	bool EnSaisie() const;
 	virtual FReply OnKeyDown(const FGeometry& Geometrie, const FKeyEvent& Evenement) override;
 	virtual void Tick(const FGeometry& Geometrie, const double Temps, const float Delta) override;
 

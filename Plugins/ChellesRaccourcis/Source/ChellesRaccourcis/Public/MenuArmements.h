@@ -21,6 +21,7 @@
 
 class APlayerController;
 class SMenuArmements;
+class IInputProcessor;
 
 UCLASS(NotPlaceable, Transient)
 class CHELLESRACCOURCIS_API AMenuArmements : public AActor
@@ -41,6 +42,8 @@ public:
 	void Fermer();
 	void Basculer();
 	bool EstOuvert() const { return bOuvert; }
+	/** 25/11/2026 : touche lue AVANT tout le monde quand le menu est ouvert (I / Echap ferment toujours). */
+	bool ToucheMenuOuvert(const FKey& K);
 
 private:
 	void ChargerReglages();
@@ -79,6 +82,9 @@ private:
 	float SurveillerJusqua = 0.f;
 	TArray<float> Rafraichissements;
 	TSharedPtr<SMenuArmements> Widget;
+	/** Lit I / Echap meme si le menu a perdu le clavier (clic, F11, fenetre...). */
+	TSharedPtr<IInputProcessor> Processeur;
+	bool bFermerDemande = false;
 
 	/** Ce que represente chaque carte (meme ordre que la liste du menu). */
 	TArray<FCibleRoueArmes> Cibles;

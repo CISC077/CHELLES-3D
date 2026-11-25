@@ -7,7 +7,9 @@
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Framework/Application/IInputProcessor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Input/Events.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
@@ -17,6 +19,50 @@
 #include "SMenuArmements.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/UnrealType.h"
+
+namespace ChellesMenuArmementsClavier
+{
+	// 25/11/2026 ("Menu Armes Bloc") : le menu ne se fermait plus quand il avait perdu le clavier
+	// (clic dans la recherche, F11, fenetre du jeu...) et Echap arretait Play dans l'editeur.
+	// Ce pre-processeur Slate lit les touches avant tout le monde tant que le menu est ouvert.
+	class FProcesseurMenuArmes : public IInputProcessor
+	{
+	public:
+		explicit FProcesseurMenuArmes(AMenuArmements* InMenu) : Menu(InMenu) {}
+		virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override {}
+		virtual bool HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& Evenement) override
+		{
+			AMenuArmements* M = Menu.Get();
+			if (!M || Evenement.IsRepeat() || !M->EstOuvert())
+			{
+				return false;
+			}
+			return M->ToucheMenuOuvert(Evenement.GetKey());
+		}
+	private:
+		TWeakObjectPtr<AMenuArmements> Menu;
+	};
+}
+
+bool AMenuArmements::ToucheMenuOuvert(const FKey& K)
+{
+	if (!bOuvert || !Widget.IsValid())
+	{
+		return false;
+	}
+	const bool bSaisie = Widget->EnSaisie();
+	const bool bEchap = (K == EKeys::Escape || K == EKeys::Gamepad_FaceButton_Right || K == EKeys::Gamepad_Special_Right);
+	if (bEchap && bSaisie)
+	{
+		return false; // Echap quitte d'abord la recherche (le menu s'en occupe)
+	}
+	if (bEchap || (!bSaisie && Touche.IsValid() && K == Touche))
+	{
+		bFermerDemande = true; // ferme au prochain Tick (pas pendant que Slate parcourt ses pre-processeurs)
+		return true; // la touche est gardee : elle ne rouvre pas le menu et n'arrete pas Play
+	}
+	return false;
+}
 
 AMenuArmements::AMenuArmements()
 {
@@ -34,11 +80,24 @@ void AMenuArmements::BeginPlay()
 	ChargerReglages();
 	LireCoffre();
 	LierClavier();
+	if (FSlateApplication::IsInitialized() && GetNetMode() != NM_DedicatedServer)
+	{
+		Processeur = MakeShared<ChellesMenuArmementsClavier::FProcesseurMenuArmes>(this);
+		FSlateApplication::Get().RegisterInputPreProcessor(Processeur);
+	}
 }
 
 void AMenuArmements::EndPlay(const EEndPlayReason::Type Raison)
 {
 	Fermer();
+	if (Processeur.IsValid())
+	{
+		if (FSlateApplication::IsInitialized())
+		{
+			FSlateApplication::Get().UnregisterInputPreProcessor(Processeur);
+		}
+		Processeur.Reset();
+	}
 	Super::EndPlay(Raison);
 }
 
@@ -164,7 +223,7 @@ void AMenuArmements::Tick(float DeltaSeconds)
 	const float Maintenant = GetWorld() ? GetWorld()->GetRealTimeSeconds() : 0.f;
 	if (bOuvert)
 	{
-		if (!Widget.IsValid() || !PC)
+		if (!Widget.IsValid() || !PC || bFermerDemande)
 		{
 			Fermer();
 			return;
@@ -172,6 +231,10 @@ void AMenuArmements::Tick(float DeltaSeconds)
 		if (Maintenant < SurveillerJusqua && bRemplacerInventaire && FermerInventaireFPS())
 		{
 			ModeInterface(); // le vieux menu a repris la souris : on la reprend
+		}
+		else if (!PC->bShowMouseCursor)
+		{
+			ModeInterface(); // F11, changement de fenetre... : la souris revient sur le menu
 		}
 		for (int32 i = Rafraichissements.Num() - 1; i >= 0; --i)
 		{
@@ -260,6 +323,7 @@ void AMenuArmements::Ouvrir()
 	bOuvert = true;
 	Rafraichir();
 	Vue->AddViewportWidgetContent(Widget.ToSharedRef(), 120);
+	bFermerDemande = false;
 	PC->FlushPressedKeys();
 	ModeInterface();
 	SurveillerJusqua = Monde->GetRealTimeSeconds() + 1.5f;
@@ -277,6 +341,7 @@ void AMenuArmements::Fermer()
 		return;
 	}
 	bOuvert = false;
+	bFermerDemande = false;
 	Rafraichissements.Reset();
 	if (ARoueArmes* R = Roue())
 	{
