@@ -1,0 +1,63 @@
+SAUVEGARDE / RESTAURATION DU PROJET CHELLES 3D
+==============================================
+
+SAUVEGARDER (a faire quand tout marche bien, ou a la fin d'une etape) :
+  1. Enregistre tout dans Unreal (File > Save All) puis ferme Unreal.
+  2. Double-clic sur SAUVEGARDER.bat
+  3. Tape un NOM sans espace (ex : SAV-MENU-OPTION) puis ENTREE.
+  4. ENTREE pour garder le disque propose (D), ou tape une autre lettre.
+  5. Reponds O pour lancer.
+  -> Un dossier "CHELLES 3D_NOM_date_heure" est cree sur le disque.
+
+  S'il y a deja une sauvegarde sur ce disque, seuls les fichiers modifies
+  depuis sont recopies : c'est rapide et ca prend peu de place.
+  Windows affiche quand meme la taille complete de chaque dossier
+  (les fichiers identiques sont partages) : regarde la place libre du disque.
+
+RESTAURER (si plus tard le jeu est casse) :
+  1. Ferme Unreal.
+  2. Double-clic sur RESTAURER_CETTE_SAUVEGARDE.bat dans le dossier
+     de la sauvegarde voulue
+     (ou sur Tools\Sauvegarde\RESTAURER.bat : il liste les sauvegardes).
+  3. Tape OUI pour confirmer.
+  -> Le projet redevient exactement comme au moment de la sauvegarde.
+     Ce qui a ete ajoute depuis est efface.
+
+IMPORTANT : ne modifie jamais un fichier A L'INTERIEUR d'une sauvegarde
+(les fichiers identiques sont partages entre sauvegardes).
+Tu peux en revanche SUPPRIMER une vieille sauvegarde entiere sans risque
+pour les autres.
+
+SAUVEGARDE AUTOMATIQUE AVANT CHAQUE SCRIPT (25/11/2026)
+=======================================================
+Rien a faire : avant chaque script Python de Tools (installer_..., retirer_...,
+corriger_...), une PHOTO du projet est prise toute seule dans :
+   Documents\Unreal Projects\CHELLES3D_RetourArriere\<date>_<script>
+Elle prend environ 1 minute (Unreal peut sembler fige) et presque pas de place :
+les assets sont partages avec le projet (liens durs NTFS), Unreal ecrit toujours
+un fichier neuf quand il enregistre, donc la photo garde l'ancienne version.
+Les 5 dernieres photos sont gardees (reglage dans sauvegarde_auto.ini).
+
+Photographie : Content, Config, le .uproject, et les fichiers de reglage des
+plugins (Armes.txt, Raccourcis.txt...). PAS le code C++ ni les Binaries.
+
+REVENIR EN ARRIERE (un script a casse quelque chose) :
+  1. Ferme Unreal.
+  2. Double-clic sur RETOUR_EN_ARRIERE.bat
+  3. ENTREE (= revenir a la photo la plus recente), puis O.
+  -> Les fichiers modifies reprennent leur ancienne version, ceux ajoutes depuis
+     sont mis de cote dans CHELLES3D_RetourArriere\_Retires_<date>.
+  -> L'etat actuel est photographie juste avant : pour annuler le retour,
+     relance RETOUR_EN_ARRIERE.bat et choisis la 1re ligne
+     ("juste avant ton dernier retour en arriere").
+
+Couper la sauvegarde auto : sauvegarde_auto.ini -> Actif=0
+Nouveaux scripts : relancer Tools\INSTALLER_SAUVEGARDE_AUTO_ET_CHARGEMENT.bat
+(ou "brancher_sauvegarde_auto.py") : il ne branche que ceux qui ne le sont pas.
+Tout debrancher : python brancher_sauvegarde_auto.py --retirer
+
+Ces photos ne remplacent pas SAUVEGARDER.bat (copie complete sur un autre disque).
+RESTAURER.bat efface les photos automatiques (elles ne correspondent plus).
+NE PAS modifier un fichier a l'interieur de CHELLES3D_RetourArriere, ni copier
+un asset par-dessus un autre avec l'Explorateur Windows (ca modifierait aussi
+la photo) : passe par Unreal.
