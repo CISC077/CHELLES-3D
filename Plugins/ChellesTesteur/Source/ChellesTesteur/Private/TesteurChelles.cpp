@@ -3,6 +3,7 @@
 
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
 #include "Engine/StaticMeshActor.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
@@ -439,29 +440,60 @@ void ATesteurChelles::AjouterZones()
 
 void ATesteurChelles::AjouterMarche()
 {
+	// 25/11 (agent 1) : la 1re version marchait dans la direction de la camera, souvent droit dans un mur
+	// (0,0 m parcouru). Maintenant : on choisit une direction degagee sur 6 m, et le rapport dit POURQUOI
+	// le personnage n'avance pas (mouvement coupe, commandes ignorees, en l'air, mur).
 	FEtapeTest E;
 	E.Nom = TEXT("Marcher tout droit");
 	E.Categorie = TEXT("Marche");
 	E.Duree = SecondesMarche;
 	const int32 Index = Etapes.Num();
-	E.Debut = [this]()
+	TSharedRef<FVector> Direction = MakeShared<FVector>(FVector::ForwardVector);
+	TSharedRef<float> VitesseMax = MakeShared<float>(0.f);
+	E.Debut = [this, Direction, Index]()
 	{
 		APawn* P = Pion();
 		DepartMarche = P ? P->GetActorLocation() : FVector::ZeroVector;
 		ZDepartEtape = DepartMarche.Z;
+		APlayerController* Joueur = PC();
+		if (!P || !Joueur)
+		{
+			return;
+		}
+		// Direction degagee : on essaie 16 directions a partir de celle de la camera
+		const float Yaw0 = Joueur->GetControlRotation().Yaw;
+		FCollisionQueryParams Params(FName(TEXT("ChellesTesteurMarche")), false, P);
+		const FVector Depart = P->GetActorLocation();
+		bool bTrouve = false;
+		for (int32 i = 0; i < 16 && !bTrouve; ++i)
+		{
+			const FRotator R(0.f, Yaw0 + 22.5f * i, 0.f);
+			const FVector Dir = R.Vector();
+			FHitResult Impact;
+			const bool bMur = GetWorld()->SweepSingleByChannel(Impact, Depart, Depart + Dir * 600.f, FQuat::Identity,
+				ECC_Pawn, FCollisionShape::MakeSphere(35.f), Params);
+			if (!bMur)
+			{
+				*Direction = Dir;
+				Joueur->SetControlRotation(R);
+				bTrouve = true;
+			}
+		}
+		if (!bTrouve)
+		{
+			*Direction = FRotator(0.f, Yaw0, 0.f).Vector();
+			Etapes[Index].Remarques.Add(TEXT("Murs tout autour du point de depart (aucune direction libre sur 6 m)."));
+		}
 	};
-	E.Pendant = [this](float)
+	E.Pendant = [this, Direction, VitesseMax](float)
 	{
 		if (APawn* P = Pion())
 		{
-			if (APlayerController* Joueur = PC())
-			{
-				const FRotator Direction(0.f, Joueur->GetControlRotation().Yaw, 0.f);
-				P->AddMovementInput(Direction.Vector(), 1.f);
-			}
+			P->AddMovementInput(*Direction, 1.f);
+			*VitesseMax = FMath::Max(*VitesseMax, (float)P->GetVelocity().Size2D());
 		}
 	};
-	E.Fin = [this, Index]()
+	E.Fin = [this, Index, VitesseMax]()
 	{
 		FEtapeTest& Moi = Etapes[Index];
 		APawn* P = Pion();
@@ -471,10 +503,43 @@ void ATesteurChelles::AjouterMarche()
 			return;
 		}
 		const float Distance = FVector::Dist2D(P->GetActorLocation(), DepartMarche) / 100.f;
-		Moi.Remarques.Add(FString::Printf(TEXT("Distance parcourue : %.1f m."), Distance));
+		Moi.Remarques.Add(FString::Printf(TEXT("Distance parcourue : %.1f m (vitesse max %.0f km/h, personnage %s)."),
+			Distance, *VitesseMax * 0.036f, *P->GetClass()->GetName()));
 		if (Distance < 1.f)
 		{
-			Moi.Problemes.Add(TEXT("Le personnage n'a presque pas avance (mur devant lui ou commandes bloquees)."));
+			FString Cause = TEXT("raison inconnue");
+			ACharacter* Perso = Cast<ACharacter>(P);
+			UCharacterMovementComponent* Mouvement = Perso ? Perso->GetCharacterMovement() : nullptr;
+			if (P->IsMoveInputIgnored())
+			{
+				Cause = TEXT("les commandes de deplacement sont BLOQUEES (un menu les a coupees et ne les a pas rendues)");
+			}
+			else if (Mouvement && Mouvement->MovementMode == MOVE_None)
+			{
+				Cause = TEXT("le deplacement du personnage est COUPE (mode de mouvement : aucun)");
+			}
+			else if (Mouvement && (Mouvement->MaxWalkSpeed <= 1.f))
+			{
+				Cause = TEXT("vitesse de marche a zero");
+			}
+			else if (Mouvement && Mouvement->IsFalling())
+			{
+				Cause = TEXT("le personnage est reste en l'air ou coince");
+			}
+			else if (!Mouvement)
+			{
+				Cause = TEXT("ce personnage n'a pas de mouvement de marche");
+			}
+			else
+			{
+				Cause = TEXT("mur ou obstacle devant lui");
+			}
+			if (Mouvement)
+			{
+				Moi.Remarques.Add(FString::Printf(TEXT("Mode de mouvement : %d, vitesse de marche : %.0f."),
+					(int32)Mouvement->MovementMode.GetValue(), Mouvement->MaxWalkSpeed));
+			}
+			Moi.Problemes.Add(FString::Printf(TEXT("Le personnage n'a presque pas avance : %s."), *Cause));
 		}
 		VerifierChute(Moi, ZDepartEtape);
 	};
