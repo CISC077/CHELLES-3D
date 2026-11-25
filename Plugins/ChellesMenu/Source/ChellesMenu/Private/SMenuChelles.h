@@ -33,6 +33,7 @@ enum class EOngletOptions : uint8
 {
 	Controles,
 	Graphismes,
+	Avances,   // 25/11/2026 : reglages graphiques un par un (GraphismesChelles)
 	Audio,
 	Jeu
 };
@@ -42,6 +43,8 @@ enum class EOngletOptions : uint8
 namespace ChellesOptions
 {
 	void AppliquerAuDemarrage(UWorld* Monde);
+	/** Remet les variables du prereglage QUALITE (BAS/MOYEN/HAUT) sans toucher a la qualite Unreal. */
+	void ReappliquerQualite();
 	void AppliquerAuJoueur(APlayerController* Joueur);
 	bool ChatActif();
 	bool AideActive();
@@ -193,6 +196,7 @@ private:
 	TSharedRef<SWidget> Curseur(TFunction<float()> Lire, TFunction<void(float)> Ecrire);
 	TSharedRef<SWidget> OngletControles();
 	TSharedRef<SWidget> OngletGraphismes();
+	TSharedRef<SWidget> OngletAvances();
 	TSharedRef<SWidget> OngletAudio();
 	TSharedRef<SWidget> OngletJeu();
 	TSharedRef<SWidget> BoutonOnglet(const FText& Texte, EOngletOptions Cible);

@@ -2,6 +2,8 @@
 #include "SMenuChelles.h"
 
 #include "MenuChelles.h"
+#include "GraphismesChelles.h"
+#include "TouchesChelles.h"
 
 #include "AudioDevice.h"
 #include "Engine/Engine.h"
@@ -425,10 +427,9 @@ namespace ChellesOptions
 			Ajouter(TEXT("Tirer"), TEXT("TIRER"), EKeys::LeftMouseButton, TEXT("Fire"));
 			Ajouter(TEXT("Viser"), TEXT("VISER"), EKeys::RightMouseButton, TEXT("ADS,Aim"));
 			Ajouter(TEXT("Recharger"), TEXT("RECHARGER"), EKeys::R, TEXT("Reload"));
-			Ajouter(TEXT("Utiliser"), TEXT("UTILISER / PRENDRE"), EKeys::E, TEXT("Use,Interact"));
+			// 25/11 : UTILISER (E) et INVENTAIRE (I) passent dans les touches CHELLES (TouchesChelles.cpp), qui couvrent aussi les plugins
 			Ajouter(TEXT("Grenade"), TEXT("GRENADE"), EKeys::G, TEXT("GrenadeThrow"));
 			Ajouter(TEXT("CorpsACorps"), TEXT("CORPS \u00C0 CORPS"), EKeys::V, TEXT("Melee"));
-			Ajouter(TEXT("Inventaire"), TEXT("INVENTAIRE"), EKeys::I, TEXT("Inventory"));
 			Ajouter(TEXT("Camera"), TEXT("CAM\u00C9RA"), EKeys::W, TEXT("Camera,ChangeCamera"));
 		}
 		return Liste;
@@ -527,11 +528,19 @@ namespace ChellesOptions
 		}
 	}
 
+	void ReappliquerQualite()
+	{
+		AppliquerQualite(QualiteChoisie(), false);
+	}
+
 	void AppliquerAuDemarrage(UWorld* Monde)
 	{
 		GMonde = Monde;
 		AppliquerVolume();
 		AppliquerQualite(QualiteChoisie(), false);
+		// 25/11/2026 : reglages fins de l'onglet AVANCES (apres le prereglage) + touches CHELLES modifiables
+		ChellesGraphismes::AppliquerAuDemarrage(Monde);
+		ChellesTouches::Installer();
 	}
 
 	bool ChatActif() { return LireBool(TEXT("Chat"), true); }
@@ -585,6 +594,7 @@ namespace ChellesOptions
 	{
 		const int32 N = QualiteChoisie();
 		AppliquerQualite(Boucle(N < 0 ? 2 : N, Sens, 3), true);
+		ChellesGraphismes::QualiteChangee(); // les reglages AVANCES repassent en AUTO
 	}
 
 	static const EWindowMode::Type ModesFenetre[] = { EWindowMode::Fullscreen, EWindowMode::WindowedFullscreen, EWindowMode::Windowed };
@@ -793,9 +803,60 @@ namespace ChellesOptions
 		ReAppliquerTout();
 	}
 
+	/** Message sous la liste des touches (touche deja prise...). */
+	static FString GMessageTouches;
+
+	/** Touche actuelle d'une ligne de la 1re liste (actions du kit FPS), avec ZQSD / WASD. */
+	static FKey ToucheAncienne(const FToucheChelles& T)
+	{
+		FKey K = ToucheChoisie(T);
+		if (!K.IsValid())
+		{
+			K = T.Defaut;
+			if (Qwerty() && K == EKeys::Z) { K = EKeys::W; }
+			else if (Qwerty() && K == EKeys::W) { K = EKeys::Z; }
+			if (Qwerty() && K == EKeys::Q) { K = EKeys::A; }
+		}
+		return K;
+	}
+
+	/** Nom de la fonction qui utilise deja la touche K (vide = libre). i = ligne a ignorer (index global). */
+	static FString ToucheDejaPrise(const FKey& K, int32 i)
+	{
+		static const FKey Reservees[] = { EKeys::Escape, EKeys::Enter, EKeys::LeftMouseButton, EKeys::RightMouseButton, EKeys::MiddleMouseButton, EKeys::F11 };
+		for (const FKey& R : Reservees)
+		{
+			if (K == R)
+			{
+				return TEXT("le jeu (touche r\u00E9serv\u00E9e)");
+			}
+		}
+		const TArray<FToucheChelles>& Liste = ListeTouches();
+		for (int32 j = 0; j < Liste.Num(); ++j)
+		{
+			if (j != i && ToucheAncienne(Liste[j]) == K)
+			{
+				return Liste[j].Libelle;
+			}
+		}
+		const int32 Autre = ChellesTouches::QuiUtilise(K, i - Liste.Num());
+		return Autre == INDEX_NONE ? FString() : ChellesTouches::Libelle(Autre);
+	}
+
+	static int32 NombreTouches()
+	{
+		return ListeTouches().Num() + ChellesTouches::Nombre();
+	}
+
 	static FText TexteTouche(int32 i, bool bEnAttente)
 	{
 		const TArray<FToucheChelles>& Liste = ListeTouches();
+		if (i >= Liste.Num() && i < NombreTouches())
+		{
+			const int32 c = i - Liste.Num();
+			const FString Nom = bEnAttente ? FString(TEXT("APPUIE SUR UNE TOUCHE...")) : ChellesTouches::Actuelle(c).GetDisplayName().ToString().ToUpper();
+			return FText::FromString(FString::Printf(TEXT("%s   [ %s ]"), *ChellesTouches::Libelle(c), *Nom));
+		}
 		if (!Liste.IsValidIndex(i))
 		{
 			return FText::GetEmpty();
@@ -824,6 +885,18 @@ namespace ChellesOptions
 	static void DefinirTouche(int32 i, const FKey& K)
 	{
 		const TArray<FToucheChelles>& Liste = ListeTouches();
+		const FString Prise = ToucheDejaPrise(K, i);
+		if (!Prise.IsEmpty())
+		{
+			GMessageTouches = FString::Printf(TEXT("%s est d\u00E9j\u00E0 utilis\u00E9e par : %s. Choisis une autre touche."), *K.GetDisplayName().ToString().ToUpper(), *Prise);
+			return;
+		}
+		GMessageTouches.Empty();
+		if (i >= Liste.Num() && i < NombreTouches())
+		{
+			ChellesTouches::Definir(i - Liste.Num(), K);
+			return;
+		}
 		if (Liste.IsValidIndex(i))
 		{
 			EcrireTexte(*Liste[i].Id, K == Liste[i].Defaut ? FString() : K.GetFName().ToString());
@@ -834,6 +907,12 @@ namespace ChellesOptions
 	static void ToucheParDefaut(int32 i)
 	{
 		const TArray<FToucheChelles>& Liste = ListeTouches();
+		GMessageTouches.Empty();
+		if (i >= Liste.Num() && i < NombreTouches())
+		{
+			ChellesTouches::ParDefaut(i - Liste.Num());
+			return;
+		}
 		if (Liste.IsValidIndex(i))
 		{
 			EcrireTexte(*Liste[i].Id, FString());
@@ -847,6 +926,8 @@ namespace ChellesOptions
 		{
 			EcrireTexte(*T.Id, FString());
 		}
+		ChellesTouches::ToutParDefaut();
+		GMessageTouches.Empty();
 		ReAppliquerTout();
 	}
 
@@ -1384,7 +1465,7 @@ FReply SMenuChelles::OnPreviewMouseButtonDown(const FGeometry& Geometrie, const 
 
 void SMenuChelles::ChangerOnglet(int32 Sens)
 {
-	const int32 N = ((int32(Onglet) + Sens) % 4 + 4) % 4;
+	const int32 N = ((int32(Onglet) + Sens) % 5 + 5) % 5;
 	Onglet = EOngletOptions(N);
 	Son(ESonMenu::Reglage);
 	Afficher(EEcranMenu::Options);
@@ -3168,6 +3249,7 @@ TSharedRef<SWidget> SMenuChelles::EcranOptions()
 	switch (Onglet)
 	{
 	case EOngletOptions::Graphismes: Contenu = OngletGraphismes(); break;
+	case EOngletOptions::Avances:    Contenu = OngletAvances(); break;
 	case EOngletOptions::Audio:      Contenu = OngletAudio(); break;
 	case EOngletOptions::Jeu:        Contenu = OngletJeu(); break;
 	default: break;
@@ -3184,6 +3266,7 @@ TSharedRef<SWidget> SMenuChelles::EcranOptions()
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ BoutonOnglet(FText::FromString(TEXT("CONTR\u00D4LES")), EOngletOptions::Controles) ]
 				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ BoutonOnglet(FText::FromString(TEXT("GRAPHISMES")), EOngletOptions::Graphismes) ]
+				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ BoutonOnglet(FText::FromString(TEXT("AVANC\u00C9S")), EOngletOptions::Avances) ]
 				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ BoutonOnglet(FText::FromString(TEXT("AUDIO")), EOngletOptions::Audio) ]
 				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)[ BoutonOnglet(FText::FromString(TEXT("JEU")), EOngletOptions::Jeu) ]
 			]
@@ -3220,8 +3303,50 @@ TSharedRef<SWidget> SMenuChelles::OngletGraphismes()
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteResolution(); }, [](int32 S) { ChellesOptions::ChangerResolution(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteVSync(); }, [](int32 S) { ChellesOptions::ChangerVSync(S); }) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Reglage([]() { return ChellesOptions::TexteFPS(); }, [](int32 S) { ChellesOptions::ChangerFPS(S); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Bouton(FText::FromString(TEXT("D\u00C9TECTER MON PC")), 30, []() { ChellesGraphismes::DetecterMonPC(); }) ]
+		+ SVerticalBox::Slot().AutoHeight()[ SNew(SBox).Padding(FMargin(0.f, 2.f)).MaxDesiredWidth(900.f)[ SNew(STextBlock).Text_Lambda([]() { return FText::FromString(ChellesGraphismes::Message()); }).Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 16)).ColorAndOpacity(Magenta).AutoWrapText(true) ] ]
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Ombres, reflets, eau, effets, herbe, distance de vue, compteur FPS... un par un : onglet AVANC\u00C9S."))) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("QUALIT\u00C9 : BAS pour un PC faible ou un portable (image un peu moins fine, moins d'herbe, ombres et objets moins loin), MOYEN pour un PC moyen, HAUT = tout au maximum."))) ]
 		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Enregistr\u00E9 automatiquement (GameUserSettings). Affichage et r\u00E9solution ne changent que dans le jeu lanc\u00E9 seul, pas dans la fen\u00EAtre de l'\u00E9diteur."))) ];
+}
+
+TSharedRef<SWidget> SMenuChelles::OngletAvances()
+{
+	// 25/11/2026 (agent Terrain) : chaque reglage graphique un par un, en deux colonnes
+	const int32 Total = ChellesGraphismes::Nombre();
+	const int32 Moitie = (Total + 1) / 2;
+	auto Colonne = [this, Total](int32 Debut, int32 Fin)
+	{
+		TSharedRef<SVerticalBox> Boite = SNew(SVerticalBox);
+		for (int32 i = Debut; i < Fin && i < Total; ++i)
+		{
+			Boite->AddSlot().AutoHeight().HAlign(HAlign_Left).Padding(FMargin(0.f, 1.f))
+			[
+				Enregistrer(SNew(SBoutonMenu)
+				.Texte_Lambda([i]() { return ChellesGraphismes::Texte(i); })
+				.TaillePolice(21)
+				.LargeurNom(21.f * 11.5f)
+				.OnClic(FSimpleDelegate::CreateLambda([i]() { ChellesGraphismes::Changer(i, 1); }))
+				.OnClicDroit(FSimpleDelegate::CreateLambda([i]() { ChellesGraphismes::Changer(i, -1); })))
+			];
+		}
+		return Boite;
+	};
+	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Top).Padding(FMargin(0.f, 0.f, 18.f, 0.f))[ Colonne(0, Moitie) ]
+			+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Top)[ Colonne(Moitie, Total) ]
+		]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("D\u00C9TECTER MON PC")), 24, []() { ChellesGraphismes::DetecterMonPC(); }) ]
+			+ SHorizontalBox::Slot().AutoWidth()[ Bouton(FText::FromString(TEXT("TOUT EN AUTO")), 24, []() { ChellesGraphismes::ToutEnAuto(); }) ]
+		]
+		+ SVerticalBox::Slot().AutoHeight()[ SNew(SBox).Padding(FMargin(0.f, 2.f)).MaxDesiredWidth(900.f)[ SNew(STextBlock).Text_Lambda([]() { return FText::FromString(ChellesGraphismes::Message()); }).Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 15)).ColorAndOpacity(Magenta).AutoWrapText(true) ] ]
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("AUTO = suit la QUALIT\u00C9 BAS / MOYEN / HAUT. PC qui rame : enl\u00E8ve d'abord OMBRES DOUCES, BROUILLARD 3D, REFLETS, puis baisse OMBRES, HERBE et NETTET\u00C9 IMAGE. Tout est enregistr\u00E9 tout seul."))) ];
 }
 
 TSharedRef<SWidget> SMenuChelles::OngletAudio()
@@ -3281,9 +3406,19 @@ TSharedRef<SWidget> SMenuChelles::OngletJeu()
 TSharedRef<SWidget> SMenuChelles::EcranTouches()
 {
 	TSharedRef<SVerticalBox> Liste = SNew(SVerticalBox);
-	const int32 Nombre = ChellesOptions::ListeTouches().Num();
+	const int32 Nombre = ChellesOptions::NombreTouches();
 	for (int32 i = 0; i < Nombre; ++i)
 	{
+		if (i == ChellesOptions::ListeTouches().Num())
+		{
+			Liste->AddSlot().AutoHeight().HAlign(HAlign_Left).Padding(FMargin(16.f, 14.f, 0.f, 4.f))
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(TEXT("TOUCHES DES MODES CHELLES (pouvoirs, danse, v\u00E9hicules...)")))
+				.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 18))
+				.ColorAndOpacity(Magenta)
+			];
+		}
 		Liste->AddSlot().AutoHeight().HAlign(HAlign_Left).Padding(FMargin(0.f, 1.f))
 		[
 			Enregistrer(SNew(SBoutonMenu)
@@ -3305,6 +3440,13 @@ TSharedRef<SWidget> SMenuChelles::EcranTouches()
 				SNew(SScrollBox)
 				+ SScrollBox::Slot()[ Liste ]
 			]
+		]
+		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left).Padding(FMargin(0.f, 6.f, 0.f, 0.f))
+		[
+			SNew(STextBlock)
+			.Text_Lambda([]() { return FText::FromString(ChellesOptions::GMessageTouches); })
+			.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 16))
+			.ColorAndOpacity(Magenta)
 		]
 		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left).Padding(FMargin(0.f, 10.f, 0.f, 0.f))
 		[
