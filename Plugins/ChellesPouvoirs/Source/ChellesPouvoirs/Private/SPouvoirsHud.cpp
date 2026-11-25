@@ -248,7 +248,7 @@ int32 SPouvoirsHud::OnPaint(const FPaintArgs& Args, const FGeometry& G, const FS
 	}
 
 	Ecrire(Sortie, Couche + 3, G, FVector2D(Coin.X + Largeur * 0.5f, Coin.Y - 12.f),
-		TEXT("J : UTILISER LE POUVOIR     Y : CHANGER DE POUVOIR"), PolicePetite, FLinearColor(0.8f, 0.85f, 0.95f, 0.85f), 0.5f);
+		TEXT("P : UTILISER LE POUVOIR     Y : CHANGER DE POUVOIR"), PolicePetite, FLinearColor(0.8f, 0.85f, 0.95f, 0.85f), 0.5f);
 
 	// --- Petit message au-dessus du panneau ---
 	if (!Etat.Info.IsEmpty() && Etat.AgeInfo < 3.5f)

@@ -76,7 +76,7 @@ APouvoirsChelles::APouvoirsChelles()
 	PrimaryActorTick.bTickEvenWhenPaused = true; // pour cacher la barre d'XP quand le menu met en pause
 	bReplicates = false; // un par machine : les choses partagees passent par APouvoirsRelais
 	SetActorHiddenInGame(true);
-	ToucheUtiliser = EKeys::J;
+	ToucheUtiliser = EKeys::P; // 25/11/2026 : P = POUVOIR (J = danser, demande MERIDJA)
 	ToucheChanger = EKeys::Y;
 }
 
@@ -268,7 +268,7 @@ void APouvoirsChelles::DonnerXP(int32 Quantite, bool bTempsDeJeu)
 		{
 			if (Pouvoir(i).Niveau == Niveau)
 			{
-				SousBanniere = FString::Printf(TEXT("NOUVEAU POUVOIR : %s  -  touche J"), Pouvoir(i).Nom);
+				SousBanniere = FString::Printf(TEXT("NOUVEAU POUVOIR : %s  -  touche P"), Pouvoir(i).Nom);
 				Selection = i;
 			}
 		}
@@ -910,7 +910,7 @@ bool APouvoirsChelles::ServeurCameleon(APouvoirsRelais* Relais, APawn* Pion)
 	}
 	Relais->IndexDeguisement = Choix + 1;
 	Relais->Deguisement = Liste[Choix];
-	Relais->ClientAvis(FString::Printf(TEXT("CAM\u00C9L\u00C9ON : te voil\u00E0 en %s  (J = redevenir toi)"),
+	Relais->ClientAvis(FString::Printf(TEXT("CAM\u00C9L\u00C9ON : te voil\u00E0 en %s  (P = redevenir toi)"),
 		*FPackageName::ObjectPathToObjectName(Relais->Deguisement)));
 	return true;
 }
@@ -1551,7 +1551,7 @@ void APouvoirsChelles::Tick(float DeltaSeconds)
 
 // ---------------------------------------------------------------------------
 // 24/11/2026 (demande MERIDJA) : on choisit son personnage dans le lobby avant de jouer, et chaque
-// personnage a UN pouvoir (touche J) et UNE fonction (avantage permanent). Tout le monde vole.
+// personnage a UN pouvoir (touche P) et UNE fonction (avantage permanent). Tout le monde vole.
 // Le partage se regle dans Plugins\ChellesPouvoirs\Personnages.txt (Bloc-notes, sans recompiler).
 // Le lobby (plugin ChellesMenu) ecrit le nom du personnage dans [ChellesPerso] Nom.
 // ---------------------------------------------------------------------------
@@ -1732,7 +1732,7 @@ void APouvoirsChelles::SuivrePerso(float Horloge)
 		Reg.FonctionPerso = FMath::Clamp(Choix.Value, 0, int32(NombreFonctions) - 1);
 		Reg.NomPerso = Nom;
 		Selection = Reg.PouvoirPerso;
-		FString Texte = FString::Printf(TEXT("%s : pouvoir %s (J)"), *Nom.ToUpper(), Pouvoir(Reg.PouvoirPerso).Nom);
+		FString Texte = FString::Printf(TEXT("%s : pouvoir %s (P)"), *Nom.ToUpper(), Pouvoir(Reg.PouvoirPerso).Nom);
 		if (Reg.PouvoirPerso == int32(Envol))
 		{
 			Texte = FString::Printf(TEXT("%s : pas de pouvoir spécial"), *Nom.ToUpper());

@@ -7,7 +7,7 @@
 #
 # Forme d'une ligne :   NOM DU PERSONNAGE = POUVOIR | FONCTION
 #
-# POUVOIRS (touche J pour l'utiliser) :
+# POUVOIRS (touche P pour l'utiliser) :
 #   BOULE DE FEU   EFFET VERRE   CAMELEON   GEL   AUCUN (= seulement le vol)
 #
 # FONCTIONS (avantage permanent, rien a appuyer) :

@@ -2318,7 +2318,7 @@ namespace LobbyChelles
 		return R;
 	}
 
-	/** "Pouvoir : GEL (J)  ·  Fonction : SUPER SAUT  ·  tout le monde vole" lu dans Plugins/ChellesPouvoirs/Personnages.txt. */
+	/** "Pouvoir : GEL (P)  ·  Fonction : SUPER SAUT  ·  tout le monde vole" lu dans Plugins/ChellesPouvoirs/Personnages.txt. */
 	FString PouvoirDuPersoLobby(const FString& Nom)
 	{
 		static TMap<FString, FString> Cache;
@@ -2343,7 +2343,7 @@ namespace LobbyChelles
 				Pouvoir.TrimStartAndEndInline();
 				Fonction.TrimStartAndEndInline();
 				const bool bSansPouvoir = Pouvoir.IsEmpty() || LobNormaliser(Pouvoir) == TEXT("AUCUN");
-				FString Texte = bSansPouvoir ? FString(TEXT("Pas de pouvoir spécial")) : FString::Printf(TEXT("Pouvoir : %s (J)"), *Pouvoir.ToUpper());
+				FString Texte = bSansPouvoir ? FString(TEXT("Pas de pouvoir spécial")) : FString::Printf(TEXT("Pouvoir : %s (P)"), *Pouvoir.ToUpper());
 				if (!Fonction.IsEmpty() && LobNormaliser(Fonction) != TEXT("AUCUNE"))
 				{
 					Texte += FString::Printf(TEXT("   ·   Fonction : %s"), *Fonction.ToUpper());
@@ -2586,7 +2586,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 	else if (TenueChoisie.EstPersoWraith())
 	{
 		NomGrand = ChellesHabillage::NomPersoWraith(TenueChoisie.Sexe);
-		Description = TEXT("Toutes les armes du soldat (TAB = roue, I = ARMEMENTS). X = flash, O = changer de tir. T = danser (bouger pour arrêter). K = apparence suivante.");
+		Description = TEXT("Toutes les armes du soldat (TAB = roue, I = ARMEMENTS). X = flash, O = changer de tir. J = danser, encore J = danse suivante (bouger pour arrêter). K = apparence suivante.");
 	}
 	else if (TenueChoisie.EstPantera())
 	{
