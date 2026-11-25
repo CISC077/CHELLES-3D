@@ -27,6 +27,17 @@ Heros=Lena|Anims:/Game/Personnages/LENA/Joueur/Anims/A_Lena_Accroupi_Anim.A_Lena
 Heros=Sofia|Anims:/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Accroupi_Anim.A_Sofia_Accroupi_Anim@0;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Marche_Anim.A_Sofia_Marche_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Course_Anim.A_Sofia_Course_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Vol_Anim.A_Sofia_Vol_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Accroupi_Anim.A_Sofia_Accroupi_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Saut_Anim.A_Sofia_Saut_Anim||/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Accroupi_Anim.A_Sofia_Accroupi_Anim||||||0.896|0
 Heros=Lucia|Anims:/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Accroupi_Anim.A_Lucia_Accroupi_Anim@0;/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Marche_Anim.A_Lucia_Marche_Anim;/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Course_Anim.A_Lucia_Course_Anim;/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Vol_Anim.A_Lucia_Vol_Anim;/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Accroupi_Anim.A_Lucia_Accroupi_Anim;/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Saut_Anim.A_Lucia_Saut_Anim||/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Accroupi_Anim.A_Lucia_Accroupi_Anim||||||0.895|0
 Heros=Boris|/Game/ParagonBoris/Characters/Heroes/Boris/Boris_AnimBlueprint.Boris_AnimBlueprint_C|/Game/ParagonBoris/Characters/Heroes/Boris/Animations/Primary_A_Montage.Primary_A_Montage|/Game/ParagonBoris/Characters/Heroes/Boris/Animations/Death.Death|/Game/ParagonBoris/Audio/Cues/|Boris|||
+; heros Paragon ajoutes par Tools\Skins\REPARER_SKINS.bat (25/11)
+Heros=Countess|/Game/ParagonCountess/Characters/Heroes/Countess/Countess_AnimBlueprint.Countess_AnimBlueprint_C|/Game/ParagonCountess/Characters/Heroes/Countess/Animations/Primary_Attack_A_Normal_Montage.Primary_Attack_A_Normal_Montage|/Game/ParagonCountess/Characters/Heroes/Countess/Animations/Death.Death||Countess|||
+Heros=Greystone|/Game/ParagonGreystone/Characters/Heroes/Greystone/Greystone_AnimBlueprint.Greystone_AnimBlueprint_C|/Game/ParagonGreystone/Characters/Heroes/Greystone/Animations/Attack_PrimaryA_Montage.Attack_PrimaryA_Montage|/Game/ParagonGreystone/Characters/Heroes/Greystone/Animations/Death.Death|/Game/ParagonGreystone/Audio/Cues/|Greystone|||
+Heros=IggyScorch|/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/IggyScorch_AnimBP.IggyScorch_AnimBP_C|/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/Animations/Primary_Med_Fire_Montage.Primary_Med_Fire_Montage|/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/Animations/Death_Back.Death_Back|/Game/ParagonIggyScorch/Audio/Cues/|IggyScorch|||
+Heros=Phase|/Game/ParagonPhase/Characters/Heroes/Phase/Phase_AnimBlueprint.Phase_AnimBlueprint_C|/Game/ParagonPhase/Characters/Heroes/Phase/Animations/Primary_Attack_A_Medium_Montage.Primary_Attack_A_Medium_Montage|/Game/ParagonPhase/Characters/Heroes/Phase/Animations/Death.Death||Phase|||
+Heros=Shinbi|/Game/ParagonShinbi/Characters/Heroes/Shinbi/Shinbi_AnimBlueprint.Shinbi_AnimBlueprint_C|/Game/ParagonShinbi/Characters/Heroes/Shinbi/Animations/PrimaryMelee_B_Slow_Montage.PrimaryMelee_B_Slow_Montage|/Game/ParagonShinbi/Characters/Heroes/Shinbi/Animations/Death_A.Death_A||Shinbi|||
+Heros=Steel|/Game/ParagonSteel/Characters/Heroes/Steel/Steel_AnimBlueprint.Steel_AnimBlueprint_C|/Game/ParagonSteel/Characters/Heroes/Steel/Animations/Steel_Attack_Melee_A_Montage.Steel_Attack_Melee_A_Montage||/Game/ParagonSteel/Audio/Cues/|Steel|||
+Heros=Wukong|/Game/ParagonSunWukong/Characters/Heroes/Wukong/SunWukong_AnimBlueprint.SunWukong_AnimBlueprint_C|/Game/ParagonSunWukong/Characters/Heroes/Wukong/Animations/Primary_Melee_A_Slow_Montage.Primary_Melee_A_Slow_Montage|/Game/ParagonSunWukong/Characters/Heroes/Wukong/Animations/Death.Death|/Game/ParagonSunWukong/Audio/Cues/|Wukong|||
+Heros=Terra|/Game/ParagonTerra/Characters/Heroes/Terra/Terra_AnimBlueprint.Terra_AnimBlueprint_C|/Game/ParagonTerra/Characters/Heroes/Terra/Animations/Primary_Melee_A_slow_Montage.Primary_Melee_A_slow_Montage|/Game/ParagonTerra/Characters/Heroes/Terra/Animations/Death.Death|/Game/ParagonTerra/Audio/Cues/|Terra|||
+Heros=Yin|/Game/ParagonYin/Characters/Heroes/Yin/Yin_AnimBlueprint.Yin_AnimBlueprint_C|/Game/ParagonYin/Characters/Heroes/Yin/Animations/Primary_Attack_A_Slow_Montage.Primary_Attack_A_Slow_Montage|/Game/ParagonYin/Characters/Heroes/Yin/Animations/Death.Death|/Game/ParagonYin/Audio/Cues/|Yin|||
+Heros=Zinx|/Game/ParagonZinx/Characters/Heroes/Zinx/Zinx_AnimBlueprint.Zinx_AnimBlueprint_C|/Game/ParagonZinx/Characters/Heroes/Zinx/Animations/Primary_Fire_Med_Montage.Primary_Fire_Med_Montage|/Game/ParagonZinx/Characters/Heroes/Zinx/Animations/Death_Front.Death_Front|/Game/ParagonZinx/Audio/Cues/|Zinx|||
 
 ; ---------------------------------------------------------------------
 ;  DANSES de LENA, SOFIA, LUCIA : J = danser, chaque nouvel appui sur J = danse suivante (puis on recommence), on bouge pour arreter.
@@ -40,6 +51,21 @@ DanseArretSeulement=Non
 Danses=Lena|/Game/Personnages/LENA/Joueur/Anims/A_Lena_Danse_Anim.A_Lena_Danse_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Rumba_Anim.A_Lena_Rumba_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Twist_Anim.A_Lena_Twist_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Uprock_Anim.A_Lena_Uprock_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Flair_Anim.A_Lena_Flair_Anim;/Game/Personnages/LENA/Joueur/Anims/A_Lena_Twerk_Anim.A_Lena_Twerk_Anim
 Danses=Sofia|/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Danse_Anim.A_Sofia_Danse_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Soul_Anim.A_Sofia_Soul_Anim;/Game/Personnages/SOFIA/Joueur/Anims/A_Sofia_Flair_Anim.A_Sofia_Flair_Anim
 Danses=Lucia|/Game/Personnages/LUCIA/Joueur/Anims/A_Lucia_Danse_Anim.A_Lucia_Danse_Anim
+; emotes des heros Paragon (touche J et apercu du menu)
+Danses=Aurora|/Game/ParagonAurora/Characters/Heroes/Aurora/Animations/Emote_Ice_Sculpture.Emote_Ice_Sculpture;/Game/ParagonAurora/Characters/Heroes/Aurora/Animations/Emote_Ice_Sculpture_Pose.Emote_Ice_Sculpture_Pose;/Game/ParagonAurora/Characters/Heroes/Aurora/Animations/Emote_Laugh_T1.Emote_Laugh_T1;/Game/ParagonAurora/Characters/Heroes/Aurora/Animations/Emote_Minion_Kick.Emote_Minion_Kick;/Game/ParagonAurora/Characters/Heroes/Aurora/Animations/Emote_Slice.Emote_Slice
+Danses=Boris|/Game/ParagonBoris/Characters/Heroes/Boris/Animations/Emote_Roar.Emote_Roar
+Danses=Countess|/Game/ParagonCountess/Characters/Heroes/Countess/Animations/EmoteALT_Master_SeductiveScare_T3.EmoteALT_Master_SeductiveScare_T3;/Game/ParagonCountess/Characters/Heroes/Countess/Animations/Emote_70sDance.Emote_70sDance;/Game/ParagonCountess/Characters/Heroes/Countess/Animations/Emote_70sDance_Intro.Emote_70sDance_Intro;/Game/ParagonCountess/Characters/Heroes/Countess/Animations/Emote_70sDance_Loop.Emote_70sDance_Loop;/Game/ParagonCountess/Characters/Heroes/Countess/Animations/Emote_70sDance_Outro.Emote_70sDance_Outro;/Game/ParagonCountess/Characters/Heroes/Countess/Animations/Emote_Laugh.Emote_Laugh
+Danses=Dekker|/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Emote_Centrifuge_M2.Emote_Centrifuge_M2;/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Emote_Dance_SingleLadies_Intro.Emote_Dance_SingleLadies_Intro;/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Emote_Dance_SingleLadies_Loop.Emote_Dance_SingleLadies_Loop;/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Emote_Dance_SingleLadies_Outro.Emote_Dance_SingleLadies_Outro;/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Emote_Dance_SingleLadies_T1.Emote_Dance_SingleLadies_T1;/Game/ParagonDekker/Characters/Heroes/Dekker/Animations/Emote_FriendlyWave_M1.Emote_FriendlyWave_M1
+Danses=Greystone|/Game/ParagonGreystone/Characters/Heroes/Greystone/Animations/Emote_EpicRiff.Emote_EpicRiff;/Game/ParagonGreystone/Characters/Heroes/Greystone/Animations/Emote_EpicRiff_Intro.Emote_EpicRiff_Intro;/Game/ParagonGreystone/Characters/Heroes/Greystone/Animations/Emote_EpicRiff_Loop.Emote_EpicRiff_Loop;/Game/ParagonGreystone/Characters/Heroes/Greystone/Animations/Emote_EpicRiff_Outro.Emote_EpicRiff_Outro;/Game/ParagonGreystone/Characters/Heroes/Greystone/Animations/Emote_Master_SwordPlay_T3.Emote_Master_SwordPlay_T3;/Game/ParagonGreystone/Characters/Heroes/Greystone/Animations/Emote_OooLaLa_T3.Emote_OooLaLa_T3
+Danses=IggyScorch|/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/Animations/Emote_Master_BuckingBronco_T3.Emote_Master_BuckingBronco_T3;/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/Animations/Emote_NaNaBooBoo.Emote_NaNaBooBoo;/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/Animations/Emote_Naptime_T3.Emote_Naptime_T3
+Danses=Phase|/Game/ParagonPhase/Characters/Heroes/Phase/Animations/Emote_GimmeBreak.Emote_GimmeBreak;/Game/ParagonPhase/Characters/Heroes/Phase/Animations/Emote_Headphones.Emote_Headphones;/Game/ParagonPhase/Characters/Heroes/Phase/Animations/Emote_TalkToHand.Emote_TalkToHand;/Game/ParagonPhase/Characters/Heroes/Phase/Animations/Emote_TeddySaysNo.Emote_TeddySaysNo
+Danses=Shinbi|/Game/ParagonShinbi/Characters/Heroes/Shinbi/Animations/Emote_BlowKiss.Emote_BlowKiss;/Game/ParagonShinbi/Characters/Heroes/Shinbi/Animations/Emote_BooYah_M1.Emote_BooYah_M1;/Game/ParagonShinbi/Characters/Heroes/Shinbi/Animations/Emote_HappyClap.Emote_HappyClap;/Game/ParagonShinbi/Characters/Heroes/Shinbi/Animations/Emote_Peace.Emote_Peace
+Danses=Steel|/Game/ParagonSteel/Characters/Heroes/Steel/Animations/Emote_Backspin.Emote_Backspin;/Game/ParagonSteel/Characters/Heroes/Steel/Animations/Emote_BigClap.Emote_BigClap;/Game/ParagonSteel/Characters/Heroes/Steel/Animations/Emote_Master_ShieldBang_T3.Emote_Master_ShieldBang_T3;/Game/ParagonSteel/Characters/Heroes/Steel/Animations/Emote_Steelamania.Emote_Steelamania;/Game/ParagonSteel/Characters/Heroes/Steel/Animations/Emote_Taunt_Bow_T1.Emote_Taunt_Bow_T1
+Danses=Wukong|/Game/ParagonSunWukong/Characters/Heroes/Wukong/Animations/Emote_ComeHere.Emote_ComeHere;/Game/ParagonSunWukong/Characters/Heroes/Wukong/Animations/Emote_MonkeyTaunt.Emote_MonkeyTaunt;/Game/ParagonSunWukong/Characters/Heroes/Wukong/Animations/Emote_Sleepy.Emote_Sleepy;/Game/ParagonSunWukong/Characters/Heroes/Wukong/Animations/Emote_StaffSpin.Emote_StaffSpin
+Danses=Terra|/Game/ParagonTerra/Characters/Heroes/Terra/Animations/Emote_HooRah.Emote_HooRah;/Game/ParagonTerra/Characters/Heroes/Terra/Animations/Emote_Laugh.Emote_Laugh;/Game/ParagonTerra/Characters/Heroes/Terra/Animations/Emote_SharpenAxe.Emote_SharpenAxe
+Danses=Wraith|/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Emote_DoIt.Emote_DoIt;/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Emote_IDK.Emote_IDK;/Game/ParagonWraith/Characters/Heroes/Wraith/Animations/Emote_ThumbsDown.Emote_ThumbsDown
+Danses=Yin|/Game/ParagonYin/Characters/Heroes/Yin/Animations/Emote_Indie.Emote_Indie;/Game/ParagonYin/Characters/Heroes/Yin/Animations/Emote_SquashBug.Emote_SquashBug;/Game/ParagonYin/Characters/Heroes/Yin/Animations/Emote_Waiting.Emote_Waiting;/Game/ParagonYin/Characters/Heroes/Yin/Animations/Emote_WannaPlay.Emote_WannaPlay;/Game/ParagonYin/Characters/Heroes/Yin/Animations/Emote_WhipCrack.Emote_WhipCrack
+Danses=Zinx|/Game/ParagonZinx/Characters/Heroes/Zinx/Animations/Emote_Disappointed_Clap.Emote_Disappointed_Clap;/Game/ParagonZinx/Characters/Heroes/Zinx/Animations/Emote_Flatline.Emote_Flatline;/Game/ParagonZinx/Characters/Heroes/Zinx/Animations/Emote_Greeting.Emote_Greeting
 
 ; ---------------------------------------------------------------------
 ;  Les apparences, dans l'ordre de la touche K. Une ligne par apparence :
@@ -55,10 +81,10 @@ Skin=WRAITH ROUGE ET NOIR|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/Lun
 Skin=WRAITH BLANC ET CYAN|/Game/ParagonWraith/Characters/Heroes/Wraith/Skins/LunarOps/Meshes/Wraith_LunarOps.Wraith_LunarOps||1|0.75,0.78,0.80|Wraith
 Skin=WRAITH CLASSIQUE|/Game/ParagonWraith/Characters/Heroes/Wraith/Meshes/Wraith.Wraith||1|0.45,0.45,0.45|Wraith
 Skin=DEKKER|/Game/ParagonDekker/Characters/Heroes/Dekker/Meshes/Dekker.Dekker||1|0.55,0.50,0.45|Dekker
-Skin=DEKKER ENERGIE|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Energized/Meshes/DekkerEnergized.DekkerEnergized||1|0.12,0.05,0.18|Dekker
+; RETIRE (materiau manquant, perso blanc par endroits) Skin=DEKKER ENERGIE|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Energized/Meshes/DekkerEnergized.DekkerEnergized||1|0.12,0.05,0.18|Dekker
 Skin=DEKKER GLACE|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Frost/Meshes/DekkerArctic.DekkerArctic||1|0.70,0.80,0.90|Dekker
-Skin=DEKKER MAGMA|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Magma/Meshes/DekkerMagma.DekkerMagma||1|0.15,0.05,0.03|Dekker
-Skin=DEKKER SAINT-VALENTIN|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Valentine/Meshes/DekkerValentine.DekkerValentine||1|0.60,0.20,0.30|Dekker
+; RETIRE (materiau manquant, perso blanc par endroits) Skin=DEKKER MAGMA|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Magma/Meshes/DekkerMagma.DekkerMagma||1|0.15,0.05,0.03|Dekker
+; RETIRE (materiau manquant, perso blanc par endroits) Skin=DEKKER SAINT-VALENTIN|/Game/ParagonDekker/Characters/Heroes/Dekker/Skins/Tier_1/Dekker_Valentine/Meshes/DekkerValentine.DekkerValentine||1|0.60,0.20,0.30|Dekker
 Skin=SCI-FI NOIR|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.08,0.08,0.08|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier.MI_SciFiSoldier
 Skin=SCI-FI ROUGE|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.33,0.01,0.00|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_2.MI_SciFiSoldier_2
 Skin=SCI-FI DORE|/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier||1|0.33,0.14,0.00|SciFi|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_3.MI_SciFiSoldier_3
@@ -73,6 +99,47 @@ Skin=BORIS|/Game/ParagonBoris/Characters/Heroes/Boris/Meshes/Boris.Boris||1|0.25
 Skin=LENA|/Game/Personnages/LENA/Joueur/SK_Lena.SK_Lena||1||Lena
 Skin=SOFIA|/Game/Personnages/SOFIA/Joueur/SK_Sofia.SK_Sofia||1||Sofia
 Skin=LUCIA|/Game/Personnages/LUCIA/Joueur/SK_Lucia.SK_Lucia||1||Lucia
+; heros Paragon ajoutes par Tools\Skins\REPARER_SKINS.bat (25/11)
+Skin=COUNTESS|/Game/ParagonCountess/Characters/Heroes/Countess/Meshes/SM_Countess.SM_Countess||1|0.35,0.55,0.20|Countess
+Skin=COUNTESS COUNT CARNIVALE|/Game/ParagonCountess/Characters/Heroes/Countess/Skins/Tier1/Count_Carnivale/Meshes/SM_Countess_Carnivale.SM_Countess_Carnivale||1|0.35,0.55,0.20|Countess
+Skin=COUNTESS COUNT GOLD|/Game/ParagonCountess/Characters/Heroes/Countess/Skins/Tier1/Count_Gold/Meshes/SM_CountessGilded.SM_CountessGilded||1|0.35,0.55,0.20|Countess
+Skin=COUNTESS COUNT RED REVO|/Game/ParagonCountess/Characters/Heroes/Countess/Skins/Tier1/Count_RedRevo/Meshes/SM_Countess_RedRevo.SM_Countess_RedRevo||1|0.35,0.55,0.20|Countess
+Skin=COUNTESS SHOGUN|/Game/ParagonCountess/Characters/Heroes/Countess/Skins/Tier2/Shogun/Meshes/SM_Countess_Shogun.SM_Countess_Shogun||1|0.35,0.55,0.20|Countess
+Skin=GREYSTONE|/Game/ParagonGreystone/Characters/Heroes/Greystone/Meshes/Greystone.Greystone||1|0.55,0.25,0.65|Greystone
+Skin=GREYSTONE DRAGONLORD|/Game/ParagonGreystone/Characters/Heroes/Greystone/Skins/Dragonlord/Meshes/Greystone_Dragonlord.Greystone_Dragonlord||1|0.55,0.25,0.65|Greystone
+Skin=GREYSTONE NOVABORN|/Game/ParagonGreystone/Characters/Heroes/Greystone/Skins/Novaborn/Meshes/Greystone_Novaborn.Greystone_Novaborn||1|0.55,0.25,0.65|Greystone
+Skin=GREYSTONE TOUGH|/Game/ParagonGreystone/Characters/Heroes/Greystone/Skins/Tough/Meshes/Greystone_Tough.Greystone_Tough||1|0.55,0.25,0.65|Greystone
+Skin=GREYSTONE WHITE TIGER|/Game/ParagonGreystone/Characters/Heroes/Greystone/Skins/WhiteTiger/Meshes/Greystone_WhiteTiger.Greystone_WhiteTiger||1|0.55,0.25,0.65|Greystone
+Skin=IGGY SCORCH|/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/Meshes/IggyScorch.IggyScorch||1|0.80,0.60,0.10|IggyScorch
+Skin=IGGY SCORCH CHAR DEMON|/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/Skins/CharDemon/Meshes/IggyScorch_CharDemon.IggyScorch_CharDemon||1|0.80,0.60,0.10|IggyScorch
+Skin=IGGY SCORCH FIREBALL|/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/Skins/Fireball/Meshes/IggyScorch_Fireball.IggyScorch_Fireball||1|0.80,0.60,0.10|IggyScorch
+Skin=IGGY SCORCH JINGLE BOMBS|/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/Skins/JingleBombs/Meshes/IggyScorch_JingleBombs.IggyScorch_JingleBombs||1|0.80,0.60,0.10|IggyScorch
+Skin=IGGY SCORCH MECHA TERROR|/Game/ParagonIggyScorch/Characters/Heroes/IggyScorch/Skins/MechaTerror/Meshes/IggyScorch_MechaTerror.IggyScorch_MechaTerror||1|0.80,0.60,0.10|IggyScorch
+Skin=PHASE|/Game/ParagonPhase/Characters/Heroes/Phase/Meshes/Phase_GDC.Phase_GDC||1|0.25,0.60,0.60|Phase
+Skin=PHASE KITTY|/Game/ParagonPhase/Characters/Heroes/Phase/Skins/Tier_1_5/Kitty/Meshes/Phase_Kitty_GDC.Phase_Kitty_GDC||1|0.25,0.60,0.60|Phase
+Skin=PHASE PANDAPACK|/Game/ParagonPhase/Characters/Heroes/Phase/Skins/Tier_1_5/Pandapack/Meshes/Phase_Pandapack_GDC.Phase_Pandapack_GDC||1|0.25,0.60,0.60|Phase
+Skin=SHINBI|/Game/ParagonShinbi/Characters/Heroes/Shinbi/Meshes/Shinbi.Shinbi||1|0.70,0.20,0.45|Shinbi
+Skin=SHINBI SHINBI DYNASTY|/Game/ParagonShinbi/Characters/Heroes/Shinbi/Skins/Tier_1/Shinbi_Dynasty/Meshes/ShinbiDynasty.ShinbiDynasty||1|0.70,0.20,0.45|Shinbi
+Skin=SHINBI SHINBI JADE|/Game/ParagonShinbi/Characters/Heroes/Shinbi/Skins/Tier_1/Shinbi_Jade/Meshes/ShinbiJade.ShinbiJade||1|0.70,0.20,0.45|Shinbi
+Skin=STEEL|/Game/ParagonSteel/Characters/Heroes/Steel/Meshes/Steel.Steel||1|0.40,0.40,0.80|Steel
+Skin=STEEL AEGIS|/Game/ParagonSteel/Characters/Heroes/Steel/Skins/Aegis/Meshes/Steel_Aegis.Steel_Aegis||1|0.40,0.40,0.80|Steel
+Skin=STEEL BLACK CARBON|/Game/ParagonSteel/Characters/Heroes/Steel/Skins/BlackCarbon/Meshes/Steel_BlackCarbon.Steel_BlackCarbon||1|0.40,0.40,0.80|Steel
+Skin=STEEL COBALT|/Game/ParagonSteel/Characters/Heroes/Steel/Skins/Cobalt/Meshes/Steel_Cobalt.Steel_Cobalt||1|0.40,0.40,0.80|Steel
+Skin=STEEL DIESEL|/Game/ParagonSteel/Characters/Heroes/Steel/Skins/Diesel/Meshes/Steel_Diesel.Steel_Diesel||1|0.40,0.40,0.80|Steel
+Skin=WUKONG|/Game/ParagonSunWukong/Characters/Heroes/Wukong/Meshes/Wukong.Wukong||1|0.60,0.15,0.15|Wukong
+Skin=WUKONG FURY|/Game/ParagonSunWukong/Characters/Heroes/Wukong/Skins/Fury/Meshes/Wukong_Fury.Wukong_Fury||1|0.60,0.15,0.15|Wukong
+; RETIRE (materiau manquant, perso blanc par endroits) Skin=WUKONG FUTURE KING|/Game/ParagonSunWukong/Characters/Heroes/Wukong/Skins/FutureKing/Meshes/Wukong_FutureKing.Wukong_FutureKing||1|0.60,0.15,0.15|Wukong
+Skin=WUKONG GREAT SAGE|/Game/ParagonSunWukong/Characters/Heroes/Wukong/Skins/GreatSage/Meshes/Wukong_GreatSage.Wukong_GreatSage||1|0.60,0.15,0.15|Wukong
+Skin=WUKONG INFERNAL|/Game/ParagonSunWukong/Characters/Heroes/Wukong/Skins/Infernal/Meshes/Wukong_Infernal.Wukong_Infernal||1|0.60,0.15,0.15|Wukong
+Skin=TERRA|/Game/ParagonTerra/Characters/Heroes/Terra/Meshes/Terra.Terra||1|0.45,0.65,0.35|Terra
+Skin=TERRA GRYPHON KNIGHT|/Game/ParagonTerra/Characters/Heroes/Terra/Skins/GryphonKnight/Meshes/Terra_GryphonKnight.Terra_GryphonKnight||1|0.45,0.65,0.35|Terra
+Skin=TERRA MOUNTAIN FORGE|/Game/ParagonTerra/Characters/Heroes/Terra/Skins/MountainForge/Meshes/Terra_MountainForge.Terra_MountainForge||1|0.45,0.65,0.35|Terra
+Skin=YIN|/Game/ParagonYin/Characters/Heroes/Yin/Meshes/Yin.Yin||1|0.55,0.45,0.30|Yin
+Skin=YIN CRYPT GODDESS|/Game/ParagonYin/Characters/Heroes/Yin/Skins/CryptGoddess/Meshes/Yin_CryptGoddess.Yin_CryptGoddess||1|0.55,0.45,0.30|Yin
+Skin=YIN WIND GAUNTLET|/Game/ParagonYin/Characters/Heroes/Yin/Skins/WindGauntlet/Meshes/Yin_WindGauntlet.Yin_WindGauntlet||1|0.55,0.45,0.30|Yin
+Skin=ZINX|/Game/ParagonZinx/Characters/Heroes/Zinx/Meshes/Zinx.Zinx||1|0.20,0.45,0.75|Zinx
+Skin=ZINX BATTLE QUEEN|/Game/ParagonZinx/Characters/Heroes/Zinx/Skins/BattleQueen/Meshes/Zinx_BattleQueen.Zinx_BattleQueen||1|0.20,0.45,0.75|Zinx
+Skin=ZINX STAR QUEEN|/Game/ParagonZinx/Characters/Heroes/Zinx/Skins/StarQueen/Meshes/Zinx_StarQueen.Zinx_StarQueen||1|0.20,0.45,0.75|Zinx
 Skin=SOLDAT D'ORIGINE|Soldat||1||
 
 ; ---------------------------------------------------------------------

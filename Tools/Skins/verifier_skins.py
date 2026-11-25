@@ -1,4 +1,25 @@
 # -*- coding: utf-8 -*-
+# >>> SAUVEGARDE AUTO CHELLES 3D (pose par Tools\Sauvegarde\brancher_sauvegarde_auto.py, ne pas modifier)
+try:
+    import os as _sa_os, sys as _sa_sys
+    _sa_d = _sa_os.path.dirname(_sa_os.path.abspath(globals().get('__file__') or '.'))
+    _sa_m = None
+    while _sa_d:
+        if _sa_os.path.isfile(_sa_os.path.join(_sa_d, 'Tools', 'Sauvegarde', 'sauvegarde_auto.py')):
+            _sa_m = _sa_os.path.join(_sa_d, 'Tools', 'Sauvegarde')
+            break
+        _sa_p = _sa_os.path.dirname(_sa_d)
+        _sa_d = None if _sa_p == _sa_d else _sa_p
+    if _sa_m is None:
+        import unreal as _sa_u
+        _sa_m = _sa_os.path.join(_sa_u.Paths.convert_relative_path_to_full(_sa_u.Paths.project_dir()), 'Tools', 'Sauvegarde')
+    if _sa_m not in _sa_sys.path:
+        _sa_sys.path.insert(0, _sa_m)
+    import sauvegarde_auto as _sa_mod
+    _sa_mod.avant(globals().get('__file__') or 'script')
+except Exception as _sa_e:
+    print('[SauvegardeAuto] non faite : %s' % _sa_e)
+# <<< SAUVEGARDE AUTO CHELLES 3D
 # CHELLES 3D - Agent SKINS / HABILLAGE (25/11/2026)
 # Verifie et repare les apparences de la touche K et du menu HABILLAGE (Plugins\ChellesWraith\Wraith.txt) :
 #   - chaque corps existe, a un squelette, et ses materiaux sont bien la (sinon : perso tout blanc / gris)
@@ -412,6 +433,12 @@ def ajouter_heros_paragon():
             heros_la.add(m[0].lower())
             if len(m) > 1:
                 bp_la.add(m[1].lower())
+        elif t.startswith(";") and "Skin=" in t:
+            # skin retire a la main ou par ce script (materiau manquant) : on ne le remet pas
+            m = [x.strip() for x in t.split("Skin=", 1)[1].split("|")]
+            noms_la.add(m[0].upper())
+            if len(m) > 1:
+                corps_la.add(m[1].lower())
         elif t.lower().startswith("skin="):
             m = [x.strip() for x in t[5:].split("|")]
             noms_la.add(m[0].upper())
@@ -502,6 +529,34 @@ def _ascii_ligne(l):
         return _ascii(l)
 
 
+def retirer_skin(nom):
+    """Met en commentaire la ligne Skin=NOM|... de Wraith.txt (25/11). LENA, SOFIA, LUCIA ne sont jamais retirees."""
+    if nom.upper() in ("LENA", "SOFIA", "LUCIA"):
+        return False
+    try:
+        with io.open(WRAITH_TXT, "r", encoding="latin-1") as f:
+            lignes = f.read().replace("\r\n", "\n").split("\n")
+        fait = False
+        for j, l in enumerate(lignes):
+            if l.strip().lower().startswith("skin=") and l.strip()[5:].split("|")[0].strip().upper() == nom.upper():
+                lignes[j] = "; RETIRE (materiau manquant, perso blanc par endroits) " + l.strip()
+                fait = True
+        if not fait:
+            return False
+        sauvegarde = WRAITH_TXT + ".avant_skins"
+        if not os.path.isfile(sauvegarde):
+            import shutil
+            shutil.copy2(WRAITH_TXT, sauvegarde)
+        while lignes and lignes[-1] == "":
+            lignes.pop()
+        with io.open(WRAITH_TXT, "w", encoding="latin-1", newline="") as f:
+            f.write("\r\n".join(lignes) + "\r\n")
+        return True
+    except Exception as e:
+        unreal.log_warning("[Skins] %s non retire : %s" % (nom, e))
+        return False
+
+
 def main():
     if not os.path.isfile(WRAITH_TXT):
         probleme("Wraith.txt introuvable : " + WRAITH_TXT)
@@ -532,6 +587,9 @@ def main():
                 pose = reparer_materiaux(s["heros"], corps, manquants)
                 if pose:
                     repare("%s : %d materiau(x) manquant(s) -> %s" % (nom, len(manquants), pose))
+                elif retirer_skin(nom):
+                    repare("%s : %d materiau(x) manquant(s) -> skin retire de la liste (perso blanc par endroits)" % (nom, len(manquants)))
+                    continue
                 else:
                     probleme("%s : %d materiau(x) manquant(s) (perso blanc/gris a ces endroits)" % (nom, len(manquants)))
         elif charger(s["tenue"]) is None:
