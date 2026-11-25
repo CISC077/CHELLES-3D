@@ -278,6 +278,13 @@ private:
 	UPROPERTY(Transient)
 	TArray<UClass*> ClassesVehicules;
 
+	/** 25/11/2026 (agent Terrain) : costumes des heros charges en arriere-plan au debut de la partie,
+	 *  gardes ici pour que changer de perso ne bloque plus le jeu le temps de lire le costume. */
+	UPROPERTY(Transient)
+	TArray<UObject*> CostumesPrecharges;
+
+	void PrechargerCostumes();
+
 	/** Termine tout de suite le chargement (normalement en arriere-plan) des classes de vehicules. */
 	void FinirChargementVehicules();
 

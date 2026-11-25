@@ -9,6 +9,11 @@
 #include "GameFramework/GameUserSettings.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/App.h"
+#include "Containers/Ticker.h"
+#include "DynamicRHI.h"
+#include "HAL/PlatformTime.h"
+#include "Misc/CommandLine.h"
+#include "RenderCore.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Scalability.h"
 #include "Styling/CoreStyle.h"
@@ -197,10 +202,71 @@ namespace ChellesGraphismes
 		return false;
 	}
 
+	// ------------------------------------------------ mesure : temps du jeu (processeur), du rendu, de la carte graphique
+
+	struct FMesure
+	{
+		float Image = 0.f;  // ms par image
+		float Jeu = 0.f;    // ms du fil du jeu (Blueprints, IA, physique...)
+		float Rendu = 0.f;  // ms du fil de rendu (preparation des objets a dessiner)
+		float Gpu = 0.f;    // ms de la carte graphique
+	};
+
+	static FMesure GMesure;
+	static bool GCompteurEcranActif();
+
+	static void Mesurer()
+	{
+		static uint64 DerniereImage = 0;
+		if (GFrameCounter == DerniereImage)
+		{
+			return; // une fois par image
+		}
+		DerniereImage = GFrameCounter;
+		const float A = 0.05f; // lissage
+		auto Lisser = [A](float& Valeur, float Nouvelle) { Valeur = (Valeur <= 0.f) ? Nouvelle : FMath::Lerp(Valeur, Nouvelle, A); };
+		Lisser(GMesure.Image, FMath::Max((float)FApp::GetDeltaTime(), 0.0001f) * 1000.f);
+		Lisser(GMesure.Jeu, (float)FPlatformTime::ToMilliseconds(GGameThreadTime));
+		Lisser(GMesure.Rendu, (float)FPlatformTime::ToMilliseconds(GRenderThreadTime));
+		Lisser(GMesure.Gpu, (float)FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles()));
+	}
+
+	static const TCHAR* Limite()
+	{
+		const float M = FMath::Max3(GMesure.Jeu, GMesure.Rendu, GMesure.Gpu);
+		if (M <= 0.f) { return TEXT("?"); }
+		if (M == GMesure.Gpu) { return TEXT("CARTE GRAPHIQUE"); }
+		if (M == GMesure.Rendu) { return TEXT("RENDU (trop d'objets)"); }
+		return TEXT("JEU (processeur)");
+	}
+
+	/** Toutes les 2 s dans le journal (compteur affiche, ou jeu lance par le testeur -ChellesTest). */
+	static bool JournalPerf(float)
+	{
+		if (!GMonde.IsValid())
+		{
+			return true;
+		}
+		static const bool bTest = FParse::Param(FCommandLine::Get(), TEXT("ChellesTest"));
+		if (!bTest && !GCompteurEcranActif())
+		{
+			return true;
+		}
+		Mesurer();
+		UE_LOG(LogTemp, Log, TEXT("[Perf] fps=%d image=%.1f jeu=%.1f rendu=%.1f gpu=%.1f limite=%s"),
+			FMath::RoundToInt(1000.f / FMath::Max(GMesure.Image, 0.1f)), GMesure.Image, GMesure.Jeu, GMesure.Rendu, GMesure.Gpu, Limite());
+		return true;
+	}
+
 	// ------------------------------------------------ compteur FPS (Slate, marche aussi dans le jeu exporte)
 
 	static TSharedPtr<SWidget> GCompteur;
 	static TWeakObjectPtr<UGameViewportClient> GCompteurEcran;
+
+	static bool GCompteurEcranActif()
+	{
+		return GCompteurEcran.IsValid();
+	}
 
 	static void RetirerCompteur()
 	{
@@ -224,10 +290,9 @@ namespace ChellesGraphismes
 		{
 			auto FaireTexte = []()
 			{
-				static float Lisse = 0.f;
-				const float Delta = FMath::Max((float)FApp::GetDeltaTime(), 0.0001f);
-				Lisse = (Lisse <= 0.f) ? Delta : FMath::Lerp(Lisse, Delta, 0.05f);
-				return FText::FromString(FString::Printf(TEXT("%d FPS  |  %.1f ms"), FMath::RoundToInt(1.f / Lisse), Lisse * 1000.f));
+				Mesurer();
+				return FText::FromString(FString::Printf(TEXT("%d FPS  |  %.1f ms\nJEU %.1f  RENDU %.1f  GPU %.1f\nfreine : %s"),
+					FMath::RoundToInt(1000.f / FMath::Max(GMesure.Image, 0.1f)), GMesure.Image, GMesure.Jeu, GMesure.Rendu, GMesure.Gpu, Limite()));
 			};
 			auto FaireCouleur = []()
 			{
@@ -423,6 +488,12 @@ namespace ChellesGraphismes
 	void AppliquerAuDemarrage(UWorld* Monde)
 	{
 		GMonde = Monde;
+		static bool bJournal = false;
+		if (!bJournal)
+		{
+			bJournal = true;
+			FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&JournalPerf), 2.f);
+		}
 		ReappliquerTout();
 		MontrerCompteur(CompteurVoulu());
 	}

@@ -341,8 +341,55 @@ void ARoueModes::BeginPlay()
 	}
 
 	PreparerCasesSoldatVolant();
+	PrechargerCostumes();
 	ChercherPlugins();
 	LierClavier();
+}
+
+void ARoueModes::PrechargerCostumes()
+{
+	// Avant : le costume (mesh + materiaux + textures) etait lu d'un coup au changement de perso (TryLoad),
+	// ce qui faisait une petite saccade. On les lit maintenant en arriere-plan des le debut.
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+	TSet<FString> Paquets;
+	for (const FModeRoue& M : Modes)
+	{
+		for (const FSoftObjectPath* Chemin : { &M.Costume, &M.CostumeSoldat })
+		{
+			if (Chemin->IsNull())
+			{
+				continue;
+			}
+			if (UObject* Deja = Chemin->ResolveObject())
+			{
+				CostumesPrecharges.AddUnique(Deja);
+				continue;
+			}
+			const FString Paquet = Chemin->GetLongPackageName();
+			if (Paquet.IsEmpty() || Paquets.Contains(Paquet))
+			{
+				continue;
+			}
+			Paquets.Add(Paquet);
+			TWeakObjectPtr<ARoueModes> Moi(this);
+			const FSoftObjectPath Copie = *Chemin;
+			LoadPackageAsync(Paquet, FLoadPackageAsyncDelegate::CreateLambda(
+				[Moi, Copie](const FName&, UPackage*, EAsyncLoadingResult::Type)
+				{
+					if (Moi.IsValid())
+					{
+						if (UObject* Objet = Copie.ResolveObject())
+						{
+							Moi->CostumesPrecharges.AddUnique(Objet);
+						}
+					}
+				}));
+		}
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Roue] %d costume(s) de heros charges en arriere-plan."), Paquets.Num());
 }
 
 void ARoueModes::FinirChargementVehicules()

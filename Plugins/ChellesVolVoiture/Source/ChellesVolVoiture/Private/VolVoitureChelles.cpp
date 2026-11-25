@@ -544,6 +544,19 @@ APawn* AVolVoitureChelles::FaireApparaitre(UClass* Classe, const FVector& Lieu, 
 	}
 	Pose.Z += 60.f;
 
+	// 25/11/2026 (agent Terrain) : place deja prise (trottoir, arbre, autre voiture) ? On ne tente pas :
+	// avant, Unreal essayait quand meme, echouait et ecrivait 2 avertissements a chaque fois.
+	if (bGaree)
+	{
+		FCollisionQueryParams Place(SCENE_QUERY_STAT(VolVoiturePlace), false, this);
+		const FVector Centre = Pose + FVector(0.f, 0.f, 70.f);
+		if (Monde->OverlapBlockingTestByChannel(Centre, FRotator(0.f, Yaw, 0.f).Quaternion(), ECC_Vehicle,
+			FCollisionShape::MakeBox(FVector(240.f, 105.f, 60.f)), Place))
+		{
+			return nullptr;
+		}
+	}
+
 	FActorSpawnParameters Apparition;
 	Apparition.SpawnCollisionHandlingOverride = bGaree ? ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding
 		: ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
