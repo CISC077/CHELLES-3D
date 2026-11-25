@@ -228,7 +228,7 @@ private:
 	bool bDanseArretSeulement = false;
 	bool bDanseLocale = false;
 	TMap<FString, TArray<FString>> DansesLues;    // Danses=Nom|... (relie aux heros a la fin de LireReglages)
-	TSet<FString> SkinsVIP;                       // 25/11 : VIP=MR.SHEMS (en majuscules) : pas sur K tant que le code n'est pas tape
+	TSet<FString> SkinsVIP;                       // 25/11 : VIP de ChellesMenu\VIP.txt (+ VIP= de Wraith.txt) : pas sur K tant que le code n'est pas tape
 	/** Skin VIP pas encore debloque sur ce PC (GameUserSettings [ChellesVIP] NOM=True, ecrit par le lobby). */
 	bool SkinBloque(int32 Index) const;
 	bool DanseDe(ACharacter* C) const;

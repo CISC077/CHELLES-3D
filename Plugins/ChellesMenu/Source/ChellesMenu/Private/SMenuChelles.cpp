@@ -2339,14 +2339,14 @@ namespace LobbyChelles
 		int32 k = 0;
 		for (const int32 Perso : ChellesHabillage::PersosWraith())
 		{
+			if (ChellesHabillage::EstPersoVIP(Perso))
+			{
+				// 25/11/2026 : personnages VIP (Plugins\ChellesMenu\VIP.txt), carte doree ; "CODE" tant que le code n'a pas ete tape
+				Liste.Add({ Perso, ChellesHabillage::NomPersoWraith(Perso), ChellesHabillage::PersoDebloque(Perso) ? TEXT("VIP") : TEXT("VIP  -  CODE"), FLinearColor(0.85f, 0.62f, 0.08f) });
+				continue;
+			}
 			if (ChellesHabillage::EstPersoCree(Perso))
 			{
-				if (ChellesHabillage::EstPersoVIP(Perso))
-				{
-					// 25/11/2026 : Mr.SHEMS, carte doree ; cadenas tant que le code n'a pas ete tape
-					Liste.Add({ Perso, ChellesHabillage::NomPersoWraith(Perso), ChellesHabillage::PersoDebloque(Perso) ? TEXT("VIP") : TEXT("VIP  -  CODE"), FLinearColor(0.85f, 0.62f, 0.08f) });
-					continue;
-				}
 				Liste.Add({ Perso, ChellesHabillage::NomPersoWraith(Perso), TEXT("PERSONNAGE"), Couleurs[k++ % UE_ARRAY_COUNT(Couleurs)] });
 			}
 			else
@@ -3244,7 +3244,7 @@ TSharedRef<SWidget> SMenuChelles::EcranCodeVIP()
 	const TCHAR* Nom = ChellesHabillage::NomPersoWraith(PersoVIPDemande);
 	const FString NomVIP = Nom ? FString(Nom) : FString(TEXT("VIP"));
 	return SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("PERSONNAGE VIP")), FText::FromString(FString::Printf(TEXT("// %s EST R\u00C9SERV\u00C9 : TAPE SON CODE"), *NomVIP))) ]
+		+ SVerticalBox::Slot().AutoHeight()[ Titre(FText::FromString(TEXT("PERSONNAGE VIP")), FText::FromString(FString::Printf(TEXT("// %s EST R\u00C9SERV\u00C9 : TAPE LE CODE VIP"), *NomVIP))) ]
 		+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Left).Padding(FMargin(0.f, 10.f))
 		[
 			SNew(SBox)
@@ -3283,7 +3283,7 @@ TSharedRef<SWidget> SMenuChelles::EcranCodeVIP()
 			.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 22))
 			.ColorAndOpacity(FLinearColor(0.95f, 0.10f, 0.10f))
 		]
-		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Le code n'est demand\u00E9 qu'une fois sur ce PC."))) ];
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Un seul code pour tous les personnages VIP, demand\u00E9 une seule fois sur ce PC."))) ];
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranSearch()

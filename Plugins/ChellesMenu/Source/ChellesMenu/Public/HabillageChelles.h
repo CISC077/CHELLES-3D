@@ -55,11 +55,11 @@ namespace ChellesHabillage
 	CHELLESMENU_API bool EstPersoCree(int32 Sexe);
 	/** Couleur de la carte du heros (5e valeur de sa ligne Skin=), noir si aucune. */
 	CHELLESMENU_API FLinearColor CouleurPersoWraith(int32 Sexe);
-	/** Personnage VIP (Mr.SHEMS) : il faut taper son code dans le lobby avant de pouvoir le jouer. */
+	/** Personnage VIP (liste dans Plugins\ChellesMenu\VIP.txt) : il faut taper le code VIP dans le lobby avant de le jouer. */
 	CHELLESMENU_API bool EstPersoVIP(int32 Sexe);
-	/** Vrai si ce n'est pas un VIP, ou si son code a deja ete tape sur ce PC (GameUserSettings [ChellesVIP]). */
+	/** Vrai si ce n'est pas un VIP, ou si le code VIP a deja ete tape sur ce PC (GameUserSettings [ChellesVIP] Debloque). */
 	CHELLESMENU_API bool PersoDebloque(int32 Sexe);
-	/** Verifie le code ; s'il est bon le personnage reste debloque sur ce PC. */
+	/** Verifie le code (CODE= de VIP.txt) ; s'il est bon TOUS les VIP restent debloques sur ce PC. */
 	CHELLESMENU_API bool DebloquerPerso(int32 Sexe, const FString& Code);
 
 	/** Le choix du joueur, enregistre dans GameUserSettings.ini (section ChellesHabillage, cle Tenue). */

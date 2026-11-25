@@ -49,15 +49,14 @@ namespace HabillageInterne
 		const TCHAR* Nom;      // nom du skin dans Wraith.txt (Skin=LENA)
 		const TCHAR* Dossier;  // dossier sous /Game/Personnages
 		const TCHAR* Prefixe;  // SK_<Prefixe>, A_<Prefixe>_...
-		const TCHAR* CodeVIP;  // 25/11 : code a taper dans le lobby (nullptr = personnage libre)
 	};
 	static const FPersoWraithInfo PersosWraithInfos[] =
 	{
-		{ ChellesHabillage::Lena,  TEXT("LENA"),  TEXT("LENA"),  TEXT("Lena"), nullptr },
-		{ ChellesHabillage::Sofia, TEXT("SOFIA"), TEXT("SOFIA"), TEXT("Sofia"), nullptr },
-		{ ChellesHabillage::Lucia, TEXT("LUCIA"), TEXT("LUCIA"), TEXT("Lucia"), nullptr },
-		{ ChellesHabillage::Brenda, TEXT("BRENDA"), TEXT("BRENDA"), TEXT("Brenda"), nullptr },
-		{ ChellesHabillage::Shems, TEXT("MR.SHEMS"), TEXT("Shems"), TEXT("Shems"), TEXT("2468") },
+		{ ChellesHabillage::Lena,  TEXT("LENA"),  TEXT("LENA"),  TEXT("Lena") },
+		{ ChellesHabillage::Sofia, TEXT("SOFIA"), TEXT("SOFIA"), TEXT("Sofia") },
+		{ ChellesHabillage::Lucia, TEXT("LUCIA"), TEXT("LUCIA"), TEXT("Lucia") },
+		{ ChellesHabillage::Brenda, TEXT("BRENDA"), TEXT("BRENDA"), TEXT("Brenda") },
+		{ ChellesHabillage::Shems, TEXT("MR.SHEMS"), TEXT("Shems"), TEXT("Shems") },
 	};
 	static const FPersoWraithInfo* InfoPerso(int32 Sexe)
 	{
@@ -1034,38 +1033,108 @@ namespace ChellesHabillage
 		return HabillageInterne::InfoPerso(Sexe) != nullptr;
 	}
 
+	// ---- Personnages VIP (25/11/2026) : Plugins\ChellesMenu\VIP.txt (Bloc-notes, sans recompiler)
+	//   CODE=2468           un seul code pour TOUS les VIP
+	//   VIP=MR.SHEMS        un nom de personnage (comme sur sa carte du lobby) par ligne
+	// Le code tape une fois debloque tous les VIP sur ce PC : GameUserSettings [ChellesVIP] Debloque=True
+	// (lu aussi par ChellesWraith : la touche K saute les VIP tant que ce n'est pas fait).
+	namespace
+	{
+		FString NomVIP(const FString& Brut)
+		{
+			FString R;
+			for (TCHAR C : Brut.ToUpper())
+			{
+				switch (C)
+				{
+				case 0x00C9: case 0x00C8: case 0x00CA: case 0x00CB: case 0x00E9: case 0x00E8: case 0x00EA: case 0x00EB: C = TEXT('E'); break;
+				case 0x00C0: case 0x00C2: case 0x00C4: case 0x00E0: case 0x00E2: case 0x00E4: C = TEXT('A'); break;
+				case 0x00CE: case 0x00CF: case 0x00EE: case 0x00EF: C = TEXT('I'); break;
+				case 0x00D4: case 0x00D6: case 0x00F4: case 0x00F6: C = TEXT('O'); break;
+				default: break;
+				}
+				if (FChar::IsAlnum(C))
+				{
+					R.AppendChar(C);
+				}
+			}
+			return R;
+		}
+
+		struct FListeVIP
+		{
+			FString Code;
+			TSet<FString> Noms;
+		};
+
+		const FListeVIP& ListeVIP()
+		{
+			static FListeVIP L;
+			static bool bLu = false;
+			if (!bLu)
+			{
+				bLu = true;
+				TArray<FString> Lignes;
+				const FString Fichier = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesMenu"), TEXT("VIP.txt"));
+				if (!FFileHelper::LoadFileToStringArray(Lignes, *Fichier))
+				{
+					// Fichier absent (jeu exporte sans lui) : la liste du 25/11
+					Lignes = { TEXT("CODE=2468"), TEXT("VIP=MR.SHEMS"), TEXT("VIP=LENA"), TEXT("VIP=SOFIA"), TEXT("VIP=LUCIA"), TEXT("VIP=BRENDA") };
+				}
+				for (const FString& Brute : Lignes)
+				{
+					const FString Ligne = Brute.TrimStartAndEnd();
+					FString Cle, Valeur;
+					if (Ligne.StartsWith(TEXT("#")) || Ligne.StartsWith(TEXT(";")) || !Ligne.Split(TEXT("="), &Cle, &Valeur))
+					{
+						continue;
+					}
+					Cle = Cle.TrimStartAndEnd();
+					Valeur = Valeur.TrimStartAndEnd();
+					if (Cle.Equals(TEXT("CODE"), ESearchCase::IgnoreCase))
+					{
+						L.Code = Valeur;
+					}
+					else if (Cle.Equals(TEXT("VIP"), ESearchCase::IgnoreCase) && !NomVIP(Valeur).IsEmpty())
+					{
+						L.Noms.Add(NomVIP(Valeur));
+					}
+				}
+			}
+			return L;
+		}
+	}
+
 	bool EstPersoVIP(int32 Sexe)
 	{
-		const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe);
-		return P && P->CodeVIP;
+		const TCHAR* Nom = NomPersoWraith(Sexe);
+		return Nom && ListeVIP().Noms.Contains(NomVIP(Nom));
 	}
 
 	bool PersoDebloque(int32 Sexe)
 	{
-		const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe);
-		if (!P || !P->CodeVIP)
+		if (!EstPersoVIP(Sexe))
 		{
 			return true;
 		}
 		bool bOui = false;
-		return GConfig && GConfig->GetBool(TEXT("ChellesVIP"), P->Nom, bOui, GGameUserSettingsIni) && bOui;
+		return GConfig && GConfig->GetBool(TEXT("ChellesVIP"), TEXT("Debloque"), bOui, GGameUserSettingsIni) && bOui;
 	}
 
 	bool DebloquerPerso(int32 Sexe, const FString& Code)
 	{
-		const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe);
-		if (!P || !P->CodeVIP)
+		if (!EstPersoVIP(Sexe))
 		{
 			return true;
 		}
-		if (!Code.TrimStartAndEnd().Equals(P->CodeVIP))
+		const FString& Bon = ListeVIP().Code;
+		if (Bon.IsEmpty() || !Code.TrimStartAndEnd().Equals(Bon))
 		{
 			return false;
 		}
 		if (GConfig)
 		{
-			// Lu aussi par ChellesWraith (touche K) : [ChellesVIP] MR.SHEMS=True
-			GConfig->SetBool(TEXT("ChellesVIP"), P->Nom, true, GGameUserSettingsIni);
+			GConfig->SetBool(TEXT("ChellesVIP"), TEXT("Debloque"), true, GGameUserSettingsIni);
 			GConfig->Flush(false, GGameUserSettingsIni);
 		}
 		return true;

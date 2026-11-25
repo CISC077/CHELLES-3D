@@ -295,6 +295,27 @@ void AWraithChelles::EndPlay(const EEndPlayReason::Type Raison)
 	Super::EndPlay(Raison);
 }
 
+namespace
+{
+	/** Nom de VIP compare sans espaces, points ni accents (MR.SHEMS = Mr Shems, LENA = Lena). */
+	FString NomVIPWraith(const FString& Brut)
+	{
+		FString R;
+		for (TCHAR C : Brut.ToUpper())
+		{
+			if (C == 0x00C9 || C == 0x00C8 || C == 0x00CA || C == 0x00E9 || C == 0x00E8 || C == 0x00EA)
+			{
+				C = TEXT('E');
+			}
+			if (FChar::IsAlnum(C))
+			{
+				R.AppendChar(C);
+			}
+		}
+		return R;
+	}
+}
+
 void AWraithChelles::LireReglages()
 {
 	// Heros et skins par defaut (si Wraith.txt est absent ou n'a pas de ligne Heros= / Skin=)
@@ -385,6 +406,22 @@ void AWraithChelles::LireReglages()
 		Lignes.Append(TenuesDefaut);
 	}
 
+	// 25/11 : liste des VIP commune au lobby : Plugins\ChellesMenu\VIP.txt (VIP=NOM), sinon la liste du 25/11
+	{
+		TArray<FString> LignesVIP;
+		if (!FFileHelper::LoadFileToStringArray(LignesVIP, *FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesMenu"), TEXT("VIP.txt"))))
+		{
+			LignesVIP = { TEXT("VIP=MR.SHEMS"), TEXT("VIP=LENA"), TEXT("VIP=SOFIA"), TEXT("VIP=LUCIA"), TEXT("VIP=BRENDA") };
+		}
+		for (const FString& L : LignesVIP)
+		{
+			FString Cle, Valeur;
+			if (L.TrimStart().Split(TEXT("="), &Cle, &Valeur) && Cle.TrimStartAndEnd().Equals(TEXT("VIP"), ESearchCase::IgnoreCase))
+			{
+				SkinsVIP.Add(NomVIPWraith(Valeur));
+			}
+		}
+	}
 	for (FString Ligne : Lignes)
 	{
 		Ligne = Ligne.TrimStartAndEnd();
@@ -433,7 +470,7 @@ void AWraithChelles::LireReglages()
 		else if (Cle.Equals(TEXT("VIP"), ESearchCase::IgnoreCase))
 		{
 			// VIP=MR.SHEMS : personnage reserve, debloque par son code dans le lobby
-			SkinsVIP.Add(Valeur.ToUpper());
+			SkinsVIP.Add(NomVIPWraith(Valeur));
 		}
 		else if (Cle.Equals(TEXT("Danses"), ESearchCase::IgnoreCase))
 		{
@@ -708,12 +745,13 @@ int32 AWraithChelles::SkinSuivant(int32 Index) const
 
 bool AWraithChelles::SkinBloque(int32 Index) const
 {
-	if (!Skins.IsValidIndex(Index) || SkinsVIP.Num() == 0 || !SkinsVIP.Contains(Skins[Index].Nom.ToUpper()))
+	if (!Skins.IsValidIndex(Index) || SkinsVIP.Num() == 0 || !SkinsVIP.Contains(NomVIPWraith(Skins[Index].Nom)))
 	{
 		return false;
 	}
+	// Un seul code pour tous les VIP, tape dans le lobby : [ChellesVIP] Debloque=True
 	bool bOui = false;
-	return !(GConfig && GConfig->GetBool(TEXT("ChellesVIP"), *Skins[Index].Nom.ToUpper(), bOui, GGameUserSettingsIni) && bOui);
+	return !(GConfig && GConfig->GetBool(TEXT("ChellesVIP"), TEXT("Debloque"), bOui, GGameUserSettingsIni) && bOui);
 }
 
 void AWraithChelles::AvisUneFois(const FString& Cle, const FString& Texte, bool bEcran)
