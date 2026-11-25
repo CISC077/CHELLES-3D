@@ -39,7 +39,8 @@ namespace ChellesHabillage
 		 *  Pour en ajouter un : une valeur ici + une ligne dans PersosWraith (HabillageChelles.cpp). */
 		Lena = 4,
 		Sofia = 5,
-		Lucia = 6
+		Lucia = 6,
+		Brenda = 7     // 25/11/2026
 	};
 
 	/** Nom du personnage pose par ChellesWraith pour ce choix (LENA, SOFIA...), nullptr pour les autres choix. */

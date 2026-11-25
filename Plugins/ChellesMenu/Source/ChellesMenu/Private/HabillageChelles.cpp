@@ -28,6 +28,7 @@
 #include "Misc/Crc.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Misc/PackageName.h"
 #include "Net/UnrealNetwork.h"
 #include "UObject/UnrealType.h"
 
@@ -54,6 +55,7 @@ namespace HabillageInterne
 		{ ChellesHabillage::Lena,  TEXT("LENA"),  TEXT("LENA"),  TEXT("Lena") },
 		{ ChellesHabillage::Sofia, TEXT("SOFIA"), TEXT("SOFIA"), TEXT("Sofia") },
 		{ ChellesHabillage::Lucia, TEXT("LUCIA"), TEXT("LUCIA"), TEXT("Lucia") },
+		{ ChellesHabillage::Brenda, TEXT("BRENDA"), TEXT("BRENDA"), TEXT("Brenda") },
 	};
 	static const FPersoWraithInfo* InfoPerso(int32 Sexe)
 	{
@@ -919,7 +921,11 @@ namespace ChellesHabillage
 		TArray<int32> Liste;
 		for (const HabillageInterne::FPersoWraithInfo& P : HabillageInterne::PersosWraithInfos)
 		{
-			Liste.Add(P.Sexe);
+			// 25/11 : carte montree seulement si le perso est cree (BRENDA : apres Tools\Personnages\CREER_PERSONNAGES.bat)
+			if (FPackageName::DoesPackageExist(FString::Printf(TEXT("/Game/Personnages/%s/Joueur/SK_%s"), P.Dossier, P.Prefixe)))
+			{
+				Liste.Add(P.Sexe);
+			}
 		}
 		for (const HabillageInterne::FHerosSkin& H : HabillageInterne::HerosSkins())
 		{
@@ -2083,9 +2089,9 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 		else
 		{
 			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-			if (UAnimationAsset* Attente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+			if (UAnimationAsset* AnimAttente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
 			{
-				Corps->PlayAnimation(Attente, true);
+				Corps->PlayAnimation(AnimAttente, true);
 			}
 		}
 		return;
@@ -2097,9 +2103,9 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 		Corps->SetSkeletalMesh(MeshPantera);
 		HabillageInterne::RenduCache(Corps, false, true);
 		Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-		if (UAnimationAsset* Attente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+		if (UAnimationAsset* AnimAttente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
 		{
-			Corps->PlayAnimation(Attente, true);
+			Corps->PlayAnimation(AnimAttente, true);
 		}
 		HabillageInterne::YeuxPantera(Corps, true);
 		return;
@@ -2112,9 +2118,9 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 			Corps->SetSkeletalMesh(Spider);
 			HabillageInterne::RenduCache(Corps, false, true);
 			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-			if (UAnimationAsset* Attente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+			if (UAnimationAsset* AnimAttente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
 			{
-				Corps->PlayAnimation(Attente, true);
+				Corps->PlayAnimation(AnimAttente, true);
 			}
 			return;
 		}
