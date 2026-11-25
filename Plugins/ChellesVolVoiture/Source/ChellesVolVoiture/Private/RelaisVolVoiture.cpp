@@ -60,6 +60,22 @@ void ARelaisVolVoiture::ServeurDescendre_Implementation()
 	}
 }
 
+void ARelaisVolVoiture::ServeurActionVoiture_Implementation(uint8 Action)
+{
+	if (AVolVoitureChelles* G = Gestionnaire())
+	{
+		G->ActionVoitureServeur(this, Action);
+	}
+}
+
+void ARelaisVolVoiture::MulticastActionVoiture_Implementation(APawn* VoitureVisee, uint8 Action)
+{
+	if (AVolVoitureChelles* G = Gestionnaire())
+	{
+		G->ActionVoitureLocale(VoitureVisee, Action);
+	}
+}
+
 void ARelaisVolVoiture::ClientAvis_Implementation(const FString& Texte, float Duree)
 {
 	if (AVolVoitureChelles* G = Gestionnaire())

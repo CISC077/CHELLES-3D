@@ -16,6 +16,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "InputCoreTypes.h"
+#include "HoroChelles.h"
 #include "VolVoitureChelles.generated.h"
 
 class APawn;
@@ -106,6 +107,14 @@ private:
 	void ConduirePoursuivant(FPoursuivantVol& P, float Dt);
 	bool TrouverPlaceHorsDeVue(const FVector& Centre, float DistMin, float DistMax, FVector& OutLieu, float& OutYaw);
 
+	// ---- 25/11 : voitures DV_Car_Horo (et Bugatti) : options, plaques, actions du pack en multi
+	void HabillerVoituresHoro();
+	void ActionVoitureServeur(ARelaisVolVoiture* R, uint8 Action);
+	void ActionVoitureLocale(APawn* Voiture, uint8 Action);
+	void TouchesHoro(APlayerController* PC, ARelaisVolVoiture* R, APawn* Voiture);
+	bool CameraDuPack(const APawn* Voiture) const;
+	FString AideConduite(const APawn* Voiture) const;
+
 	// ---- Joueur local
 	void JoueurLocal(float Dt);
 	void InstallerCamera(APawn* Voiture);
@@ -124,6 +133,15 @@ private:
 	float DistanceVol = 400.f;          // cm
 	TMap<FString, FString> CheminsModeles; // nom de modele (sans SM_/SK_) -> Blueprint conduit
 	TArray<FString> CheminsSecours;
+	/** 25/11 : autos garees (chemin de Blueprint + poids) ; vide = comme avant (modeles + secours) */
+	TArray<TPair<FString, int32>> CheminsGarees;
+	// Horo : options du pack, plaques, touches des actions, Bugatti
+	TMap<FString, bool> OptionsHoro;
+	FString TextePlaque = TEXT("CHELLES-3D");
+	FKey ToucheActions[EActionHoro::Nombre];
+	bool bCameraPack = true;
+	FString CheminsBugatti[5];          // carrosserie puis 4 roues (AVG, AVD, ARG, ARD)
+	FHabillageBugatti Bugatti;
 	FString CheminPolice;
 	FString CheminFuyard;
 	FString CheminAnimFuyard;
@@ -151,6 +169,14 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<UClass*> ClassesSecours;
+
+	/** Autos garees (une entree par poids : 3 = trois fois dans la liste) */
+	UPROPERTY(Transient)
+	TArray<UClass*> ClassesGarees;
+
+	/** Meshes de la Bugatti (gardes en memoire) */
+	UPROPERTY(Transient)
+	TArray<UObject*> ObjetsBugatti;
 
 	UPROPERTY(Transient)
 	UClass* ClassePolice = nullptr;
@@ -183,4 +209,7 @@ private:
 	float ProchainesGarees = 3.f;
 	float ProchaineRechercheCirc = 0.f;
 	int32 EtoilesAffichees = -1;
+	float ProchainHabillage = 0.5f;
+	bool bCamPackActive = false;
+	bool bEtaitEnHoro = false;
 };

@@ -12,7 +12,11 @@ public class ChellesVolVoiture : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
-			"PhysXVehicles"
+			"PhysXVehicles",
+			// 25/11 : plaques CHELLES-3D (widgets UMG du pack DV_Car_Horo)
+			"UMG",
+			"Slate",
+			"SlateCore"
 		});
 	}
 }

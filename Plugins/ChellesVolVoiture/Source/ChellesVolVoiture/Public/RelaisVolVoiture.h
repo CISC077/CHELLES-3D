@@ -30,6 +30,14 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServeurDescendre();
 
+	/** 25/11 : action du pack DV_Car_Horo (phares, saut americain, reinitialiser, clignotants, warnings) sur la voiture conduite. */
+	UFUNCTION(Server, Reliable)
+	void ServeurActionVoiture(uint8 Action);
+
+	/** Rejoue l'action chez tout le monde (serveur compris) pour que tous voient les phares, le saut... */
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastActionVoiture(APawn* VoitureVisee, uint8 Action);
+
 	/** Message affiche sur l'ecran de ce joueur seulement. */
 	UFUNCTION(Client, Reliable)
 	void ClientAvis(const FString& Texte, float Duree);

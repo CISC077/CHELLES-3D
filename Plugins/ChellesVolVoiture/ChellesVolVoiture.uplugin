@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0",
 	"FriendlyName": "Chelles Vol de voiture",
-	"Description": "Vol de voiture facon GTA : touche F pres d'une voiture de la circulation (le conducteur s'enfuit) ou d'une voiture garee, autos supplementaires garees dans les rues (Vehicle Variety Pack, sportives, buggy), niveau RECHERCHE avec poursuite de la police. Reglages dans VolVoiture.txt.",
+	"Description": "Vol de voiture facon GTA : touche F pres d'une voiture de la circulation (le conducteur s'enfuit) ou d'une voiture garee, autos garees dans les rues (pack DV_Car_Horo et Bugatti, plaques CHELLES-3D, phares / saut / clignotants en multi), niveau RECHERCHE avec poursuite de la police. Reglages dans VolVoiture.txt.",
 	"Category": "Chelles 3D",
 	"CreatedBy": "CHELLES 3D",
 	"EnabledByDefault": true,

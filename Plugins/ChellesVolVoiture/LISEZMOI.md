@@ -9,8 +9,7 @@ Il ne modifie aucun Blueprint, aucun pack et aucun autre plugin.
 - **F près d'une voiture de la circulation** : le conducteur est éjecté et s'enfuit en courant
   (personnage du pack *Hijacker*), et tu prends le volant d'une vraie voiture du même modèle
   (*Vehicle Variety Pack* : Hatchback, SUV, Pickup, Sportive, Camion).
-- **Autos garées** : 8 autos libres sont garées au bord des rues autour de toi (Vehicle Variety Pack,
-  2 sportives du *Sports Vehicles Pack*, le *Buggy*). Elles apparaissent hors de ta vue et
+- **Autos garées** : 8 autos libres sont garées au bord des rues autour de toi (DV_Car_Horo et Bugatti). Elles apparaissent hors de ta vue et
   disparaissent quand tu t'éloignes, pour garder le jeu fluide. **F** à côté = monter.
 - **Conduite** : Z/S avancer/reculer, Q/D tourner, Espace frein à main, souris pour regarder,
   H klaxon (plugin Sons des véhicules), **F** ou **E** pour descendre.
@@ -19,6 +18,21 @@ Il ne modifie aucun Blueprint, aucun pack et aucun autre plugin.
   allumée. Reste loin d'elle (plus de 120 m) pendant 25 secondes pour perdre une étoile.
   Immobile à moins de 7 m d'une voiture de police pendant 4 secondes = **ARRÊTÉ**, étoiles effacées.
 - Marche en solo et en multijoueur (le serveur crée les voitures, chacun voit les mêmes).
+
+## 25/11/2026 : autos garées DV_Car_Horo + Bugatti
+
+- Les autos garées au bord des rues sont maintenant les voitures du pack **DV_Car_Horo** (3 sur 4)
+  et la **Bugatti** de Rachid (1 sur 4). Toutes les plaques affichent **CHELLES-3D**.
+- Dans une DV_Car_Horo : **L** phares, **R** saut américain, **Retour arrière** remettre sur ses roues + réparer,
+  **G** / **U** clignotants gauche / droite, **V** warnings, **H** klaxon, **C** caméra intérieure / extérieure,
+  **Inser** ordinateur de bord, **F** ou **E** descendre. Phares, saut, réparation, clignotants et warnings
+  sont rejoués chez tous les joueurs en multijoueur.
+- La Bugatti est une DV_Car_Horo (même conduite, mêmes fonctions) dont l'apparence est remplacée :
+  carrosserie de Rachid + 4 roues accrochées aux os des roues de la Horo, calées toutes seules.
+- Installation : `Tools\VoituresHoro\INSTALLER_VOITURES_HORO.bat` (Unreal fermé) : compile ce plugin,
+  importe la Bugatti dans `/Game/Chelles/Bugatti`, crée `BP_Bugatti_Chelles`, ajoute les touches C et Inser.
+- Réglages : section « 25/11 » de `VolVoiture.txt` (liste `Garees`, `Plaque`, touches, options du pack,
+  retouches de la Bugatti).
 
 ## Installation (une seule fois)
 

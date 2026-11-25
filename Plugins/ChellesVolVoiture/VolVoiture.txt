@@ -1,4 +1,4 @@
-﻿# ================================================================
+# ================================================================
 #  CHELLES 3D - Reglages du vol de voiture (facon GTA)
 #  Ouvrez ce fichier avec le Bloc-notes, changez une valeur, enregistrez.
 #  Pas besoin de recompiler : relancez la partie (ou tapez Chelles.Vol Relire
@@ -21,7 +21,7 @@ Modele.SUV = /Game/VehicleVarietyPack/Blueprints/SUV/BP_SUV.BP_SUV_C
 Modele.Pickup = /Game/VehicleVarietyPack/Blueprints/Pickup/BP_Pickup.BP_Pickup_C
 Modele.SportsCar = /Game/VehicleVarietyPack/Blueprints/SportsCar/BP_SportsCar.BP_SportsCar_C
 Modele.Truck_Box = /Game/VehicleVarietyPack/Blueprints/BoxTruck/BP_BoxTruck.BP_BoxTruck_C
-# Voitures en plus (garees dans les rues, et pour les modeles inconnus), separees par des virgules
+# Voitures pour les modeles inconnus de la circulation (et garees si Garees est vide), separees par des virgules
 # 25/11 : VH_Buggy retire (il a besoin du module C++ VehicleGame, absent de l'editeur -> 230 erreurs a chaque Play). Copie : VolVoiture.txt.avant_buggy_2026-11-25
 Secours =
 
@@ -63,3 +63,44 @@ HauteurCamera = 1.7
 # Aide : la voiture glisse moins sur le cote dans les virages (Oui / Non)
 AideConduite = Oui
 Adherence = 8
+
+# --- 25/11 : autos garees = pack DV_Car_Horo + Bugatti de Rachid ---
+# Liste des voitures garees : chemin du Blueprint *poids (3 = trois fois plus souvent). Vide = comme avant.
+Garees = /Game/DV_Car_Horo/Blueprints/BP_Car_Hatchback_Horo.BP_Car_Hatchback_Horo_C *3, /Game/Chelles/Bugatti/BP_Bugatti_Chelles.BP_Bugatti_Chelles_C *1
+# Texte de toutes les plaques d'immatriculation
+Plaque = CHELLES-3D
+# Cameras du pack (exterieure / cockpit avec la touche C). Non = camera du plugin derriere la voiture
+CameraDuPack = Oui
+# Touches des fonctions du pack (jouees chez tous les joueurs en multi). H klaxon = plugin Sons des vehicules.
+TouchePhares = L
+ToucheSaut = R
+ToucheReinitialiser = BackSpace
+ToucheClignotantGauche = G
+ToucheClignotantDroit = U
+ToucheWarnings = V
+# Options du pack (nom exact de la variable du Blueprint = Oui / Non)
+Option.bUse_Low_Rider_? = Oui
+Option.bUse_Can_Be_Repaired_? = Oui
+Option.bUse_Fuel_? = Non
+Option.bUse_Random_Licence_Plate_? = Non
+Option.bUse_Car_Locked_? = Non
+Option.bUse_Car_Alarm_Activated_? = Non
+
+# --- Bugatti (apparence posee sur une DV_Car_Horo ; calee toute seule sur les roues) ---
+Bugatti.Carrosserie = /Game/Chelles/Bugatti/SM_Bugatti_Carrosserie.SM_Bugatti_Carrosserie
+Bugatti.RoueAVG = /Game/Chelles/Bugatti/SM_Bugatti_Roue_AVG.SM_Bugatti_Roue_AVG
+Bugatti.RoueAVD = /Game/Chelles/Bugatti/SM_Bugatti_Roue_AVD.SM_Bugatti_Roue_AVD
+Bugatti.RoueARG = /Game/Chelles/Bugatti/SM_Bugatti_Roue_ARG.SM_Bugatti_Roue_ARG
+Bugatti.RoueARD = /Game/Chelles/Bugatti/SM_Bugatti_Roue_ARD.SM_Bugatti_Roue_ARD
+# Centre des roues dans la Bugatti (cm : avant, droite, haut) et rayons
+Bugatti.CentreAVG = 126.25 -82.2 38.75
+Bugatti.CentreAVD = 126.25 82.11 38.75
+Bugatti.CentreARG = -141.25 -80.94 34.25
+Bugatti.CentreARD = -141.25 81.25 34.25
+Bugatti.RayonAvant = 39
+Bugatti.RayonArriere = 34.5
+# Retouches si besoin (1 = rien) : largeur, hauteur, decalage en cm (avant droite haut), rotation en degres
+Bugatti.Largeur = 1
+Bugatti.Hauteur = 1
+Bugatti.Decalage = 0 0 0
+Bugatti.Rotation = 0
