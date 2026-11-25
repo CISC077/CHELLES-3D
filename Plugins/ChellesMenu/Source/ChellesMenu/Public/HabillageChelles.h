@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Engine/StreamableManager.h"
 #include "HabillageChelles.generated.h"
 
 class USkeletalMesh;
@@ -190,6 +191,7 @@ private:
 
 	TMap<TWeakObjectPtr<APawn>, FHabille> Habilles;
 	float ProchainControle = 0.f;
+	bool bCatalogueLance = false;   // catalogue des tenues charge en arriere-plan (25/11)
 	float ProchainEnvoi = 0.f;
 	FString DernierEnvoi;
 };
@@ -246,6 +248,15 @@ private:
 	UPROPERTY(Transient)
 	TArray<UObject*> DejaVus;
 	void GarderDejaVu();
+
+	/** 25/11/2026 : corps lourds (heros Paragon, LENA...) charges en arriere-plan ; l'apercu d'avant reste affiche
+	 *  pendant le chargement, puis Tick montre le perso demande (plus de gel du menu HABILLAGE). */
+	FStreamableManager Chargeur;
+	TSharedPtr<FStreamableHandle> Attente;
+	ChellesHabillage::FTenue TenueAttendue;
+	TWeakObjectPtr<USkeletalMesh> SpiderAttendu;
+	TWeakObjectPtr<UClass> AnimAttendue;
+	bool bApresAttente = false;
 
 	float Angle = 0.f;
 	float Pause = 0.f;

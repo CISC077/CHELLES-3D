@@ -101,13 +101,13 @@ namespace HabillageInterne
 			L.TrimStartAndEndInline();
 			if (L.StartsWith(TEXT("Danses=")))
 			{
-				FString Nom, Liste, Premiere, Reste;
-				if (L.Mid(7).Split(TEXT("|"), &Nom, &Liste))
+				FString Nom, ListeDanses, Premiere, Reste;
+				if (L.Mid(7).Split(TEXT("|"), &Nom, &ListeDanses))
 				{
-					Liste.TrimStartAndEndInline();
-					if (!Liste.Split(TEXT(";"), &Premiere, &Reste))
+					ListeDanses.TrimStartAndEndInline();
+					if (!ListeDanses.Split(TEXT(";"), &Premiere, &Reste))
 					{
-						Premiere = Liste;
+						Premiere = ListeDanses;
 					}
 					Premiere.TrimStartAndEndInline();
 					if (!Premiere.IsEmpty() && !DanseDuHeros.Contains(Nom.TrimStartAndEnd()))
@@ -1615,6 +1615,13 @@ void AHabillageChelles::Tick(float Delta)
 	{
 		return;
 	}
+	// 25/11 : le catalogue des tenues (tables + tous les vetements, ~17 s) se charge en arriere-plan des le debut
+	// de la partie. Avant, personne ne le lancait : l'ouverture du menu HABILLAGE gelait le jeu 17 s (test auto 25/11).
+	if (!bCatalogueLance && Monde->GetTimeSeconds() > 3.f && !Monde->IsNetMode(NM_DedicatedServer))
+	{
+		bCatalogueLance = true;
+		ChellesHabillage::PrechargerCatalogue();
+	}
 	ProchainEnvoi -= Delta;
 	ProchainControle -= Delta;
 	DemanderPantera(Delta);
@@ -1943,6 +1950,53 @@ void AApercuHabillage::BeginPlay()
 
 void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalMesh* MeshSpiderMan, UClass* AnimSpiderMan)
 {
+	// 25/11 : le menu HABILLAGE ne gele plus : ce qui n'est pas encore en memoire est charge en arriere-plan,
+	// le perso d'avant reste affiche, et Tick montre le nouveau des qu'il est pret.
+	if (!bApresAttente)
+	{
+		TArray<FSoftObjectPath> AFaire;
+		auto Ajouter = [&AFaire](const FString& Chemin)
+		{
+			const FSoftObjectPath P(Chemin);
+			if (!Chemin.IsEmpty() && Chemin.StartsWith(TEXT("/Game/")) && P.IsValid() && !P.ResolveObject())
+			{
+				AFaire.Add(P);
+			}
+		};
+		if (const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Tenue.Sexe))
+		{
+			Ajouter(FString::Printf(TEXT("/Game/Personnages/%s/Joueur/SK_%s.SK_%s"), P->Dossier, P->Prefixe, P->Prefixe));
+			static const TCHAR* const AnimsAttente[] = { TEXT("Danse"), TEXT("Marche") };
+			for (const TCHAR* Quoi : AnimsAttente)
+			{
+				const FString Nom = FString::Printf(TEXT("A_%s_%s_Anim"), P->Prefixe, Quoi);
+				Ajouter(FString::Printf(TEXT("/Game/Personnages/%s/Joueur/Anims/%s.%s"), P->Dossier, *Nom, *Nom));
+			}
+		}
+		else if (const HabillageInterne::FHerosSkin* H = HabillageInterne::InfoHeros(Tenue.Sexe))
+		{
+			Ajouter(H->Corps);
+			Ajouter(H->Danse);
+			Ajouter(H->Materiau);
+			Ajouter(H->Anim);
+		}
+		if (Attente.IsValid())
+		{
+			Attente->CancelHandle(); // un autre perso a ete choisi entre-temps
+			Attente.Reset();
+		}
+		if (AFaire.Num() > 0)
+		{
+			TenueAttendue = Tenue;
+			SpiderAttendu = MeshSpiderMan;
+			AnimAttendue = AnimSpiderMan;
+			Attente = Chargeur.RequestAsyncLoad(AFaire, FStreamableDelegate(), FStreamableManager::AsyncLoadHighPriority, false);
+			if (Attente.IsValid())
+			{
+				return;
+			}
+		}
+	}
 	for (USkeletalMeshComponent* C : Morceaux)
 	{
 		if (C)
@@ -2116,6 +2170,14 @@ void AApercuHabillage::GarderDejaVu()
 void AApercuHabillage::Tick(float Delta)
 {
 	Super::Tick(Delta);
+	if (Attente.IsValid() && !Attente->IsLoadingInProgress())
+	{
+		// Chargement fini (ou echoue : Montrer se debrouille alors comme avant)
+		Attente.Reset();
+		bApresAttente = true;
+		Montrer(TenueAttendue, SpiderAttendu.Get(), AnimAttendue.Get());
+		bApresAttente = false;
+	}
 	if (Pause > 0.f)
 	{
 		Pause -= Delta;
