@@ -355,12 +355,16 @@ def creer_materiau(p):
     fichier_relief = os.path.join(dossier_tex, "texture_normal.png")
     if not os.path.isfile(fichier_relief):
         fichier_relief = _image([dossier_tex, p.get("racine", "")], IMAGES_RELIEF) or fichier_relief
+    # 25/11 : textures deja importees par Rachid dans /Game/Personnages/<DOSSIER> (BRENDA) : on les reprend
+    deja = "/Game/Personnages/%s/" % dossier
     couleurs = EAL.load_asset("%s/T_%s_Couleurs" % (destination, nom)) or \
+        (EAL.load_asset(deja + "texture_diffuse") if EAL.does_asset_exist(deja + "texture_diffuse") else None) or \
         importer_texture(fichier_couleurs, destination, "T_%s_Couleurs" % nom)
     if not couleurs:
         unreal.log_warning("[Personnages] %s : pas de texture_diffuse.png dans %s" % (nom, dossier_tex))
         return None
     relief = EAL.load_asset("%s/T_%s_Relief" % (destination, nom)) or \
+        (EAL.load_asset(deja + "texture_normal") if EAL.does_asset_exist(deja + "texture_normal") else None) or \
         importer_texture(fichier_relief, destination, "T_%s_Relief" % nom)
     MEL = unreal.MaterialEditingLibrary
     mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
