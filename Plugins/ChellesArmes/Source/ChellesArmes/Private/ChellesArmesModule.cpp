@@ -7,6 +7,7 @@
 #include "ArmesChelles.h"
 #include "ArsenalChelles.h"
 #include "CoffresFPS.h"
+#include "CaisseMunitions.h"
 
 namespace
 {
@@ -85,6 +86,25 @@ namespace
 		TEXT("Coffres d'armes du kit FPS_Game : Chelles.CoffresFPS Liste (journal) | Ouvrir (ouvre le plus proche)"),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeCoffres));
 
+	/** Console (25/11/2026) : Chelles.Caisses Nombre | Relire | Reposer  (caisses de munitions) */
+	void CommandeCaisses(const TArray<FString>& Arguments, UWorld* Monde)
+	{
+		if (!Monde)
+		{
+			return;
+		}
+		for (TActorIterator<ACaissesMunitionsGestion> It(Monde); It; ++It)
+		{
+			It->Commande(Arguments);
+			return;
+		}
+	}
+
+	FAutoConsoleCommandWithWorldAndArgs GCommandeCaisses(
+		TEXT("Chelles.Caisses"),
+		TEXT("Caisses de munitions : Chelles.Caisses Nombre | Relire (relit Arsenal.txt) | Reposer (les reposer ailleurs)"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&CommandeCaisses));
+
 	FAutoConsoleCommandWithWorldAndArgs GCommandeArmes(
 		TEXT("Chelles.Armes"),
 		TEXT("Chelles.Armes 0 = armes d'origine du kit FPS_Game, Chelles.Armes 1 = nouvelles apparences."),
@@ -122,6 +142,11 @@ private:
 		if (!TActorIterator<AArsenalChelles>(MondeDuJeu))
 		{
 			MondeDuJeu->SpawnActor<AArsenalChelles>(AArsenalChelles::StaticClass(), FTransform::Identity, Params);
+		}
+		// Caisses de munitions dispersees (25/11/2026) : posees par le serveur / l'hote / le solo
+		if (!TActorIterator<ACaissesMunitionsGestion>(MondeDuJeu) && MondeDuJeu->GetNetMode() != NM_Client)
+		{
+			MondeDuJeu->SpawnActor<ACaissesMunitionsGestion>(ACaissesMunitionsGestion::StaticClass(), FTransform::Identity, Params);
 		}
 		// Coffres d'armes du kit FPS_Game (25/11/2026) : E ouvre le coffre le plus proche si le kit ne le fait plus
 		if (!TActorIterator<ACoffresFPS>(MondeDuJeu) && MondeDuJeu->GetNetMode() != NM_DedicatedServer)

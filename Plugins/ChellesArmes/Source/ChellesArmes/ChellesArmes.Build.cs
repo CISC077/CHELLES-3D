@@ -14,7 +14,8 @@ public class ChellesArmes : ModuleRules
 			"InputCore",
 			"Slate",
 			"SlateCore",
-			"AIModule"
+			"AIModule",
+			"NavigationSystem"
 		});
 	}
 }
