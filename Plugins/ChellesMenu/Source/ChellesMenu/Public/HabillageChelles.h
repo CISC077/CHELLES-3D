@@ -122,7 +122,9 @@ namespace ChellesHabillage
 	/** Les packs sont-ils dans le projet ? */
 	CHELLESMENU_API bool PacksPresents();
 	/** Lance le chargement du catalogue en arriere-plan (appele a l'ouverture du menu). */
-	CHELLESMENU_API void PrechargerCatalogue();
+	/** 25/11 : a appeler a chaque image jusqu'a ce qu'il rende vrai : charge en arriere-plan les tables ET tout ce
+	 *  qu'elles designent (tetes, sous-tables), puis prepare le catalogue. Ouvrir HABILLAGE ne gele plus. */
+	CHELLESMENU_API bool PrechargerCatalogue();
 }
 
 /**

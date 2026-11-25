@@ -832,16 +832,108 @@ namespace ChellesHabillage
 		return Liste;
 	}
 
-	void PrechargerCatalogue()
+	// Chemins "doux" (soft) d'une table : tetes, vetements, sous-tables. Sans eux, le catalogue les chargeait
+	// d'un coup (TryLoad) a l'ouverture du menu : 5 a 17 s de gel (tests auto du 25/11).
+	static void CheminsDoux(UDataTable* Table, TArray<FSoftObjectPath>& Sortie)
 	{
-		// 2026-11-12 : le catalogue (tables + tous les vetements qu'elles referencent) mettait ~30 s a
-		// se charger au clic sur JOUER. On le charge en arriere-plan pendant que le menu est affiche.
-		static bool bLance = false;
-		if (bLance)
+		if (!Table || !Table->GetRowStruct())
 		{
 			return;
 		}
-		bLance = true;
+		const UScriptStruct* Struct = Table->GetRowStruct();
+		for (const TPair<FName, uint8*>& Paire : Table->GetRowMap())
+		{
+			for (TFieldIterator<FProperty> It(Struct); It; ++It)
+			{
+				const FProperty* P = *It;
+				const void* Valeur = P->ContainerPtrToValuePtr<void>(Paire.Value);
+				if (CastField<FSoftObjectProperty>(P))
+				{
+					const FSoftObjectPath Chemin = static_cast<const FSoftObjectPtr*>(Valeur)->ToSoftObjectPath();
+					if (!Chemin.IsNull() && !Chemin.ResolveObject())
+					{
+						Sortie.AddUnique(Chemin);
+					}
+				}
+				else if (const FMapProperty* PM = CastField<FMapProperty>(P))
+				{
+					if (!CastField<FSoftObjectProperty>(PM->ValueProp))
+					{
+						continue;
+					}
+					FScriptMapHelper Aide(PM, Valeur);
+					for (int32 i = 0; i < Aide.GetMaxIndex(); ++i)
+					{
+						if (Aide.IsValidIndex(i))
+						{
+							const FSoftObjectPath Chemin = reinterpret_cast<const FSoftObjectPtr*>(Aide.GetValuePtr(i))->ToSoftObjectPath();
+							if (!Chemin.IsNull() && !Chemin.ResolveObject())
+							{
+								Sortie.AddUnique(Chemin);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	bool PrechargerCatalogue()
+	{
+		// Etapes, une par image : 0 = tables, 1 = ce que designent les tables (un tour),
+		// 2 = catalogue prepare (rapide : tout est deja en memoire).
+		static int32 Etape = -1;
+		static int32 Tours = 0;
+		static FStreamableManager Chargeur;
+		static TSharedPtr<FStreamableHandle> Poignee;
+		if (Etape == 2)
+		{
+			return true;
+		}
+		if (Poignee.IsValid() && Poignee->IsLoadingInProgress())
+		{
+			return false;
+		}
+		if (Etape == 1 || Etape == 0)
+		{
+			TArray<UDataTable*> Tables;
+			if (UDataTable* T = Cast<UDataTable>(FSoftObjectPath(TableTetes).ResolveObject()))
+			{
+				Tables.Add(T);
+			}
+			for (const TCHAR* Chemin : TablesMannequin)
+			{
+				if (UDataTable* T = Cast<UDataTable>(FSoftObjectPath(Chemin).ResolveObject()))
+				{
+					Tables.Add(T);
+				}
+			}
+			static int32 Attentes = 0;
+			if (Etape == 0 && Tables.Num() < 1 + int32(UE_ARRAY_COUNT(TablesMannequin)) && ++Attentes < 900)
+			{
+				return false; // les tables arrivent encore (on attend au plus ~15 s ; pack absent : on continue)
+			}
+			// Seulement ce que le catalogue lit a l'ouverture (tetes, corps mannequin, sous-tables Upper/Lower...) :
+			// les vetements des sous-tables restent charges a la demande (sinon des centaines de Mo en memoire).
+			TArray<FSoftObjectPath> AFaire;
+			for (UDataTable* T : Tables)
+			{
+				CheminsDoux(T, AFaire);
+			}
+			Etape = 1;
+			if (AFaire.Num() > 0 && Tours < 1)
+			{
+				++Tours;
+				UE_LOG(LogTemp, Log, TEXT("[Habillage] Prechargement du catalogue en arriere-plan : %d fichiers (tour %d)."), AFaire.Num(), Tours);
+				Poignee = Chargeur.RequestAsyncLoad(AFaire, FStreamableDelegate(), FStreamableManager::DefaultAsyncLoadPriority, false);
+				return false;
+			}
+			Poignee.Reset();
+			Etape = 2;
+			Modeles(); // tout est en memoire : prepare tout de suite, sans gel
+			return true;
+		}
+		Etape = 0;
 		TArray<const TCHAR*> Chemins;
 		Chemins.Add(TableTetes);
 		for (const TCHAR* Chemin : TablesMannequin)
@@ -851,11 +943,12 @@ namespace ChellesHabillage
 		for (const TCHAR* Chemin : Chemins)
 		{
 			const FSoftObjectPath Objet(Chemin);
-			if (Objet.ResolveObject() == nullptr)
+			if (Objet.ResolveObject() == nullptr && FPackageName::DoesPackageExist(Objet.GetLongPackageName()))
 			{
 				LoadPackageAsync(Objet.GetLongPackageName());
 			}
 		}
+		return false;
 	}
 
 	bool PacksPresents()
@@ -1625,8 +1718,7 @@ void AHabillageChelles::Tick(float Delta)
 	// de la partie. Avant, personne ne le lancait : l'ouverture du menu HABILLAGE gelait le jeu 17 s (test auto 25/11).
 	if (!bCatalogueLance && Monde->GetTimeSeconds() > 3.f && !Monde->IsNetMode(NM_DedicatedServer))
 	{
-		bCatalogueLance = true;
-		ChellesHabillage::PrechargerCatalogue();
+		bCatalogueLance = ChellesHabillage::PrechargerCatalogue(); // une etape par image, jusqu'au bout
 	}
 	ProchainEnvoi -= Delta;
 	ProchainControle -= Delta;
