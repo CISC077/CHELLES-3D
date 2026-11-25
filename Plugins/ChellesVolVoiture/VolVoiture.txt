@@ -1,0 +1,65 @@
+﻿# ================================================================
+#  CHELLES 3D - Reglages du vol de voiture (facon GTA)
+#  Ouvrez ce fichier avec le Bloc-notes, changez une valeur, enregistrez.
+#  Pas besoin de recompiler : relancez la partie (ou tapez Chelles.Vol Relire
+#  dans la console, touche ²).
+#  Une ligne qui commence par # est un commentaire.
+# ================================================================
+
+# --- Touches ---
+# Voler une voiture / monter dans une voiture garee / descendre
+ToucheVoler = F
+# Autre touche pour descendre
+ToucheDescendre = E
+# Distance pour pouvoir voler une voiture (metres)
+DistanceVol = 4
+
+# --- Quelle voiture on obtient en volant une voiture de la circulation ---
+# Modele.<nom du modele de la circulation sans SM_> = Blueprint conduit
+Modele.Hatchback = /Game/VehicleVarietyPack/Blueprints/Hatchback/BP_Hatchback.BP_Hatchback_C
+Modele.SUV = /Game/VehicleVarietyPack/Blueprints/SUV/BP_SUV.BP_SUV_C
+Modele.Pickup = /Game/VehicleVarietyPack/Blueprints/Pickup/BP_Pickup.BP_Pickup_C
+Modele.SportsCar = /Game/VehicleVarietyPack/Blueprints/SportsCar/BP_SportsCar.BP_SportsCar_C
+Modele.Truck_Box = /Game/VehicleVarietyPack/Blueprints/BoxTruck/BP_BoxTruck.BP_BoxTruck_C
+# Voitures en plus (garees dans les rues, et pour les modeles inconnus), separees par des virgules
+# 25/11 : VH_Buggy retire (il a besoin du module C++ VehicleGame, absent de l'editeur -> 230 erreurs a chaque Play). Copie : VolVoiture.txt.avant_buggy_2026-11-25
+Secours =
+
+# --- Le conducteur ejecte (il s'enfuit en courant) ---
+ConducteurEjecte = Oui
+ModeleConducteur = /Game/Hijacker/Mesh/SK_hijacker.SK_hijacker
+CourseConducteur = /Game/Hijacker/Animations/ThirdPersonRun.ThirdPersonRun
+
+# --- Autos garees au bord des rues autour du joueur ---
+# Nombre d'autos libres autour de chaque joueur (0 = aucune)
+AutosGarees = 8
+# Rayon autour du joueur (metres) ; plus loin elles sont retirees (fluidite)
+RayonGarees = 150
+# Nombre maximum d'autos de ce plugin sur la carte (garees + volees)
+MaxVoitures = 20
+# Ecart entre le milieu de la voie et la place de parking (metres)
+EcartTrottoir = 3
+
+# --- Niveau RECHERCHE (etoiles) et police ---
+Recherche = Oui
+EtoilesParVol = 1
+EtoilesMax = 5
+# Voitures de police par etoile, et au maximum
+# 21/11 : 0 = plus aucune voiture de police (demande MERIDJA). Remettre 1 et 3 pour les revoir.
+PoliceParEtoile = 0
+PoliceMax = 0
+# Secondes loin de la police pour perdre une etoile
+DureeEtoile = 25
+# Distance (metres) au-dela de laquelle la police ne te voit plus
+DistanceVuePolice = 120
+# Vitesse maximum de la police (km/h)
+VitessePolice = 110
+VoiturePolice =
+
+# --- Conduite ---
+# Camera derriere la voiture (metres)
+DistanceCamera = 6.5
+HauteurCamera = 1.7
+# Aide : la voiture glisse moins sur le cote dans les virages (Oui / Non)
+AideConduite = Oui
+Adherence = 8
