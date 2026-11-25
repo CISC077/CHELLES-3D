@@ -27,24 +27,6 @@ if "%ECHECS%"=="0" (echo TERMINE.) else (echo %ECHECS% plugin^(s^) en echec : en
 pause
 exit /b %ECHECS%
 
-:compiler ChellesMenu
-
-echo.
-echo ===== ETAPE 2/2 : objets en double dans Rachid (3 a 10 minutes) =====
-copy /y "%PROJET%\Tools\Terrain\doublons_rachid.py" "%TEMP%\chelles_doublons.py" >nul
-"%UE%\Engine\Binaries\Win64\UE4Editor-Cmd.exe" "%PROJET%\FPS_Chelles.uproject" -run=pythonscript -script="%TEMP%\chelles_doublons.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -unattended -nosplash -stdout > "%PROJET%\Tools\out\terrain_unreal.log" 2>&1
-findstr /L /C:"[Terrain]" "%PROJET%\Tools\out\terrain_unreal.log"
-
-echo.
-if "%ECHECS%"=="0" (
-    echo TERMINE. Ouvrez CHELLES 3D : MENU ^> OPTIONS ^> AVANCES.
-) else (
-    echo La compilation du menu a echoue : envoyez une photo de cette fenetre a Claude.
-    echo Journal : Tools\out\terrain_ChellesMenu.log
-)
-pause
-exit /b %ECHECS%
-
 :compiler
 set "NOM=%~1"
 set "SORTIE=%TEMP%\Chelles_Terrain_%NOM%"
