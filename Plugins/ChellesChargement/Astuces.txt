@@ -1,0 +1,33 @@
+﻿# CHELLES 3D - ECRAN DE CHARGEMENT : reglages et astuces
+# Modifiable avec le Bloc-notes. Les lignes qui commencent par # sont ignorees.
+# Relancer le jeu (ou l'editeur) pour voir les changements. Pas besoin de recompiler.
+
+[Reglages]
+# Temps minimum a l'ecran, en secondes
+DureeMini=2.5
+# Au debut de la partie, l'ecran part au plus tard apres X secondes
+DureeMaxi=10
+# Une nouvelle astuce toutes les X secondes
+SecondesParAstuce=4
+# 1 = ecran pendant le chargement d'une carte (jeu final, rejoindre un serveur), 0 = non
+ChargementCarte=1
+# 1 = ecran au debut de la partie, aussi avec le bouton Jouer de l'editeur, 0 = non
+DebutPartie=1
+
+[Astuces]
+# Une astuce par ligne :  TOUCHE | texte   (sans touche : juste le texte)
+P | Utilise le POUVOIR de ton personnage.
+J | Danse ! Chaque appui lance la danse suivante. Bouge pour arrêter.
+I | Ouvre l'inventaire ARMEMENTS pour choisir ton arme.
+² | Ouvre la console (la touche juste sous Échap).
+F11 | Passe en plein écran, ou reviens en fenêtre.
+TAB | La roue des armes : change d'arme en un clin d'œil.
+ESPACE | Tout le monde vole : appuie sur ESPACE pour t'envoler.
+ÉCHAP | Menu PAUSE : options, habillage et quitter.
+B | Chat global : parle avec les autres joueurs.
+E | Ouvre les coffres, les portes du bus et les râteliers d'armes.
+H | Klaxonne quand tu conduis.
+MOLETTE | Clic molette : signale un objet à tes amis.
+Toutes les 2 heures, les zombies envahissent Chelles : trouve un abri !
+Plus tu joues, plus tu gagnes d'XP et de nouveaux pouvoirs.
+Change de personnage et de tenue dans le lobby HABILLAGE.
