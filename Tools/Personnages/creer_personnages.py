@@ -429,6 +429,8 @@ def creer_materiau(p):
         exn.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
         MEL.connect_material_property(exn, "RGB", unreal.MaterialProperty.MP_NORMAL)
     mat.set_editor_property("two_sided", False)
+    # 25/11 (SHEMS gris) : sans ce drapeau, en jeu Unreal remplace le materiau par le gris par defaut
+    mat.set_editor_property("used_with_skeletal_mesh", True)
     MEL.recompile_material(mat)
     sauver(mat)
     dire("%s : materiau M_%s cree avec ses textures" % (nom, nom))
@@ -534,6 +536,12 @@ def creer(p):
     if not materiau:
         TRAVAIL["import"] = True
         materiau = creer_materiau(p)
+    if materiau and isinstance(materiau, unreal.Material) and not materiau.get_editor_property("used_with_skeletal_mesh"):
+        # 25/11 : materiau deja cree sans "Used with Skeletal Mesh" (M_Shems) -> corrige une fois
+        materiau.set_editor_property("used_with_skeletal_mesh", True)
+        unreal.MaterialEditingLibrary.recompile_material(materiau)
+        sauver(materiau)
+        dire("%s : %s marque pour les corps animes (n'etait plus gris en jeu)" % (nom, materiau.get_name()))
     if materiau:
         mats = corps.get_editor_property("materials")
         for i in range(len(mats)):
