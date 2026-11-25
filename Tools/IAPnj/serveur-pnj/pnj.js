@@ -70,8 +70,11 @@ for (let i = 1; i <= 5; i++) {
   ajouter("gemini" + i, ENV["CLE_GEMINI_" + i], "gemini", "https://generativelanguage.googleapis.com/v1beta/models/",
     (ENV.MODELES_GEMINI || "gemini-3.5-flash-lite,gemini-flash-lite-latest").split(","));
 }
-ajouter("openrouter", ENV.CLE_OPENROUTER, "openai", "https://openrouter.ai/api/v1/chat/completions",
-  (ENV.MODELES_OPENROUTER || "google/gemini-flash-lite-latest,meta-llama/llama-3.1-8b-instruct").split(","));
+// OpenRouter : la clé la plus récente en premier (CLE_OPENROUTER_5 ... _2), puis CLE_OPENROUTER
+for (const nomCle of ["CLE_OPENROUTER_5", "CLE_OPENROUTER_4", "CLE_OPENROUTER_3", "CLE_OPENROUTER_2", "CLE_OPENROUTER"]) {
+  ajouter(nomCle === "CLE_OPENROUTER" ? "openrouter" : "openrouter" + nomCle.slice(-1), ENV[nomCle], "openai", "https://openrouter.ai/api/v1/chat/completions",
+    (ENV.MODELES_OPENROUTER || "google/gemini-flash-lite-latest,meta-llama/llama-3.1-8b-instruct").split(","));
+}
 ajouter("deepseek", ENV.CLE_DEEPSEEK, "openai", "https://api.deepseek.com/chat/completions", ["deepseek-chat"]);
 ajouter("groq", ENV.CLE_GROQ, "openai", "https://api.groq.com/openai/v1/chat/completions",
   (ENV.MODELES_GROQ || "llama-3.1-8b-instant").split(","));
