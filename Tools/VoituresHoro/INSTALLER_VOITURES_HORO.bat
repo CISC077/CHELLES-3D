@@ -43,6 +43,11 @@ call :compiler ChellesVolVoiture
 
 echo.
 echo ===== ETAPE 2/2 : import de la Bugatti dans Unreal (3 a 10 minutes) =====
+set "BUG=%PROJET%\Tools\VoituresHoro\Bugatti"
+if not exist "%BUG%\SM_Bugatti_Carrosserie.fbx" if exist "%BUG%\SM_Bugatti_Carrosserie.zip" (
+    echo Decompression de la carrosserie...
+    powershell -NoProfile -Command "Expand-Archive -Force -LiteralPath '%BUG%\SM_Bugatti_Carrosserie.zip' -DestinationPath '%BUG%'"
+)
 if exist "%PROJET%\Tools\VoituresHoro\etat.txt" del "%PROJET%\Tools\VoituresHoro\etat.txt"
 copy /y "%PROJET%\Tools\VoituresHoro\installer_voitures_horo.py" "%TEMP%\chelles_voitures_horo.py" >nul
 "%UE%\Engine\Binaries\Win64\UE4Editor-Cmd.exe" "%PROJET%\FPS_Chelles.uproject" -run=pythonscript -script="%TEMP%\chelles_voitures_horo.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -unattended -nosplash -stdout > "%PROJET%\Tools\out\voitures_horo_unreal.log" 2>&1
