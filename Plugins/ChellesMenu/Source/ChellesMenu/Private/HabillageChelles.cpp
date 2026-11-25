@@ -25,6 +25,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/ScopeExit.h"
 #include "Misc/ConfigCacheIni.h"
+#include "HAL/IConsoleManager.h"
 #include "Misc/Crc.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -1036,10 +1037,16 @@ namespace ChellesHabillage
 	// ---- Personnages VIP (25/11/2026) : Plugins\ChellesMenu\VIP.txt (Bloc-notes, sans recompiler)
 	//   CODE=2468           un seul code pour TOUS les VIP
 	//   VIP=MR.SHEMS        un nom de personnage (comme sur sa carte du lobby) par ligne
-	// Le code tape une fois debloque tous les VIP sur ce PC : GameUserSettings [ChellesVIP] Debloque=True
-	// (lu aussi par ChellesWraith : la touche K saute les VIP tant que ce n'est pas fait).
+	// Le code debloque tous les VIP jusqu'a la FERMETURE du jeu (demande MERIDJA 25/11 : a retaper a chaque lancement).
+	// Rien n'est enregistre : variable Chelles.VIPDebloque en memoire, en lecture seule pour la console ²
+	// (lue aussi par ChellesWraith : la touche K saute les VIP tant que ce n'est pas fait).
 	namespace
 	{
+		TAutoConsoleVariable<int32> CVarVIPDebloque(
+			TEXT("Chelles.VIPDebloque"), 0,
+			TEXT("1 = code VIP tape depuis le lancement du jeu (jamais enregistre)."),
+			ECVF_ReadOnly);
+
 		FString NomVIP(const FString& Brut)
 		{
 			FString R;
@@ -1117,8 +1124,7 @@ namespace ChellesHabillage
 		{
 			return true;
 		}
-		bool bOui = false;
-		return GConfig && GConfig->GetBool(TEXT("ChellesVIP"), TEXT("Debloque"), bOui, GGameUserSettingsIni) && bOui;
+		return CVarVIPDebloque.GetValueOnGameThread() != 0;
 	}
 
 	bool DebloquerPerso(int32 Sexe, const FString& Code)
@@ -1132,11 +1138,7 @@ namespace ChellesHabillage
 		{
 			return false;
 		}
-		if (GConfig)
-		{
-			GConfig->SetBool(TEXT("ChellesVIP"), TEXT("Debloque"), true, GGameUserSettingsIni);
-			GConfig->Flush(false, GGameUserSettingsIni);
-		}
+		CVarVIPDebloque->Set(1, ECVF_SetByCode);
 		return true;
 	}
 

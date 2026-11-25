@@ -3283,7 +3283,7 @@ TSharedRef<SWidget> SMenuChelles::EcranCodeVIP()
 			.Font(FCoreStyle::GetDefaultFontStyle(TEXT("Bold"), 22))
 			.ColorAndOpacity(FLinearColor(0.95f, 0.10f, 0.10f))
 		]
-		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Un seul code pour tous les personnages VIP, demand\u00E9 une seule fois sur ce PC."))) ];
+		+ SVerticalBox::Slot().AutoHeight()[ Petit(FText::FromString(TEXT("Un seul code pour tous les personnages VIP, \u00E0 retaper \u00E0 chaque lancement du jeu."))) ];
 }
 
 TSharedRef<SWidget> SMenuChelles::EcranSearch()

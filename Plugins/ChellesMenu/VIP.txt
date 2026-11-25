@@ -3,7 +3,7 @@
 # Les lignes qui commencent par # sont des commentaires.
 #
 # CODE = le code a taper dans le lobby. UN SEUL code pour TOUS les VIP.
-#        Tape une fois, tous les VIP sont debloques sur ce PC.
+#        Il debloque tous les VIP jusqu'a la fermeture du jeu : a retaper a chaque lancement.
 # VIP  = un personnage reserve (son nom comme sur sa carte du lobby).
 #        Pour en ajouter un : une nouvelle ligne VIP=NOM.
 #        Marche aussi pour les heros (ex : VIP=AURORA).

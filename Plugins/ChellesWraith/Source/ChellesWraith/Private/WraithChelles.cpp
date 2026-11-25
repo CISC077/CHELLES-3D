@@ -33,6 +33,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Misc/ConfigCacheIni.h"
+#include "HAL/IConsoleManager.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Particles/ParticleSystem.h"
@@ -749,9 +750,9 @@ bool AWraithChelles::SkinBloque(int32 Index) const
 	{
 		return false;
 	}
-	// Un seul code pour tous les VIP, tape dans le lobby : [ChellesVIP] Debloque=True
-	bool bOui = false;
-	return !(GConfig && GConfig->GetBool(TEXT("ChellesVIP"), TEXT("Debloque"), bOui, GGameUserSettingsIni) && bOui);
+	// Un seul code pour tous les VIP, tape dans le lobby, valable jusqu'a la fermeture du jeu (Chelles.VIPDebloque, ChellesMenu)
+	const IConsoleVariable* V = IConsoleManager::Get().FindConsoleVariable(TEXT("Chelles.VIPDebloque"));
+	return !(V && V->GetInt() != 0);
 }
 
 void AWraithChelles::AvisUneFois(const FString& Cle, const FString& Texte, bool bEcran)
