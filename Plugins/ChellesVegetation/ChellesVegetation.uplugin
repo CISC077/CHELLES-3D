@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Vegetation",
+	"Description": "Arbres, buissons, haies, roseaux et pierres poses en instances (HISM) : des milliers de plantes pour le prix de quelques objets. Utilise par Tools/VegetationEau.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesVegetation",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
