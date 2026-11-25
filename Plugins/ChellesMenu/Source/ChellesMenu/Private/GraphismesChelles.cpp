@@ -236,6 +236,12 @@ namespace ChellesGraphismes
 
 	static const TCHAR* Limite()
 	{
+		// Le temps du jeu/rendu n'est pas toujours fourni par Unreal (0) : si la carte graphique a fini
+		// bien avant la fin de l'image, c'est le processeur qui freine (jeu, Blueprints, autre programme...).
+		if (GMesure.Gpu > 0.f && GMesure.Gpu < GMesure.Image * 0.75f && FMath::Max(GMesure.Jeu, GMesure.Rendu) < GMesure.Image * 0.5f)
+		{
+			return TEXT("PROCESSEUR");
+		}
 		const float M = FMath::Max3(GMesure.Jeu, GMesure.Rendu, GMesure.Gpu);
 		if (M <= 0.f) { return TEXT("?"); }
 		if (M == GMesure.Gpu) { return TEXT("CARTE GRAPHIQUE"); }

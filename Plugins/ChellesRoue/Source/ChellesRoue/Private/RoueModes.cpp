@@ -341,7 +341,9 @@ void ARoueModes::BeginPlay()
 	}
 
 	PreparerCasesSoldatVolant();
-	PrechargerCostumes();
+	// 25/11 15h agent Terrain : PrechargerCostumes() retire. En jeu -game non cuit, ses ~400 paquets en
+	// arriere-plan restaient en cours des minutes, et le 1er chargement direct (coffre, effet d'arme)
+	// forcait Unreal a tout finir d'un coup : gels de 10 a 18 s. Les changements de perso etaient deja fluides.
 	ChercherPlugins();
 	LierClavier();
 }

@@ -8,7 +8,8 @@ rem  ChellesRoue (costumes des heros charges en avance),
 rem  ChellesVolVoiture (autos garees : plus d'essais rates sur les trottoirs).
 rem  25/11 13h : ne recompile plus que ChellesMenu (mesure [Perf] juste) et ChellesButin
 rem  (coffre charge au demarrage : fin du gel de 10 s en Zone 1). Les autres sont deja faits.
-rem  Retour arriere : fichiers *.avant_perf a cote des fichiers modifies.
+rem  25/11 15h : ChellesMenu (qui freine : PROCESSEUR ou CARTE GRAPHIQUE) + ChellesRoue (prechargement
+rem  des costumes retire : il causait les gels de 10-18 s). Retour arriere : fichiers *.avant_perf3.
 rem =====================================================================
 setlocal
 set "PROJET=%~dp0..\.."
@@ -23,7 +24,7 @@ if not errorlevel 1 (
 if not exist "%PROJET%\Tools\out" mkdir "%PROJET%\Tools\out"
 set "PLUGINS=%PROJET%\Plugins"
 set "ECHECS=0"
-for %%P in (ChellesMenu ChellesButin) do call :compiler %%P
+for %%P in (ChellesMenu ChellesRoue) do call :compiler %%P
 echo.
 if "%ECHECS%"=="0" (echo TERMINE.) else (echo %ECHECS% plugin^(s^) en echec : envoyez une photo de cette fenetre a Claude.)
 pause

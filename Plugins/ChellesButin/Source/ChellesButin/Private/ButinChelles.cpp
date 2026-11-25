@@ -1105,11 +1105,11 @@ void AButinChelles::GererRadar(APlayerController* PC, APawn* Pion, bool bActif)
 			continue;
 		}
 		const float Haut = E->GetCapsuleComponent() ? E->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 90.f;
-		FVector2D Ecran;
-		if (PC->ProjectWorldLocationToScreen(E->GetActorLocation() + FVector(0.f, 0.f, Haut + 30.f), Ecran, false))
+		FVector2D PosEcran;
+		if (PC->ProjectWorldLocationToScreen(E->GetActorLocation() + FVector(0.f, 0.f, Haut + 30.f), PosEcran, false))
 		{
 			FPointRadar P;
-			P.Ecran = Ecran;
+			P.Ecran = PosEcran;
 			P.Distance = Distance;
 			PointsRadar.Add(P);
 			if (PointsRadar.Num() >= 40)
