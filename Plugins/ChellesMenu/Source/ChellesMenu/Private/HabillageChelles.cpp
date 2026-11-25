@@ -23,6 +23,7 @@
 #include "GameFramework/PlayerState.h"
 #include "Materials/MaterialInterface.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Misc/ScopeExit.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Crc.h"
 #include "Misc/FileHelper.h"
@@ -1932,6 +1933,13 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 	UClass* Anim = nullptr;
 	USkeletalMesh* Squelette = nullptr;
 	HabillageInterne::YeuxPantera(Corps, false);
+	// 25/11 : on repart sans materiau du perso d'avant (ex. tenue SCI-FI qui restait sur PANTERA ou SPIDER-MALE)
+	if (!Corps)
+	{
+		return;
+	}
+	Corps->EmptyOverrideMaterials();
+	ON_SCOPE_EXIT { GarderDejaVu(); };
 	const HabillageInterne::FPersoWraithInfo* Perso = HabillageInterne::InfoPerso(Tenue.Sexe);
 	USkeletalMesh* MeshPerso = Perso ? LoadObject<USkeletalMesh>(nullptr,
 		*FString::Printf(TEXT("/Game/Personnages/%s/Joueur/SK_%s.SK_%s"), Perso->Dossier, Perso->Prefixe, Perso->Prefixe)) : nullptr;
@@ -2049,6 +2057,28 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 	TArray<USkeletalMeshComponent*> Crees;
 	ChellesHabillage::Construire(this, Corps, nullptr, Pieces, Crees, true);
 	Morceaux = Crees;
+}
+
+void AApercuHabillage::GarderDejaVu()
+{
+	if (!Corps)
+	{
+		return;
+	}
+	UObject* AGarder[] = { Corps->SkeletalMesh, Corps->GetAnimClass(), Corps->AnimationData.AnimToPlay };
+	for (UObject* O : AGarder)
+	{
+		if (O)
+		{
+			DejaVus.Remove(O);
+			DejaVus.Add(O); // le plus recent a la fin
+		}
+	}
+	const int32 Maximum = 9; // environ les 3 derniers persos (corps + animation)
+	if (DejaVus.Num() > Maximum)
+	{
+		DejaVus.RemoveAt(0, DejaVus.Num() - Maximum);
+	}
 }
 
 void AApercuHabillage::Tick(float Delta)

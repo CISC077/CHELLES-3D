@@ -241,6 +241,12 @@ private:
 	UPROPERTY(Transient)
 	TArray<USkeletalMeshComponent*> Morceaux;
 
+	/** 25/11/2026 : les derniers corps / animations montres restent en memoire pendant que le menu est ouvert :
+	 *  revenir sur un perso deja vu ne recharge plus son corps (LUCIA, SOFIA = plus de 120 Mo) -> plus d'a-coup. */
+	UPROPERTY(Transient)
+	TArray<UObject*> DejaVus;
+	void GarderDejaVu();
+
 	float Angle = 0.f;
 	float Pause = 0.f;
 };

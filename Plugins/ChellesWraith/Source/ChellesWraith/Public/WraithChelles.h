@@ -12,6 +12,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "InputCoreTypes.h"
+#include "Engine/StreamableManager.h"
 #include "WraithChelles.generated.h"
 
 class ACharacter;
@@ -51,7 +52,9 @@ struct FHerosWraith
 	FName OsArriere;
 	FName OsAvant;
 	FName OsHaut;
-	UClass* ClasseAnim = nullptr;
+	UClass* ClasseAnim = nullptr;   // charge seulement quand un skin de ce heros est choisi (25/11 : plus de gros chargement au demarrage)
+	FString CheminAnim;             // chemin de l'Animation Blueprint (ligne Heros=)
+	bool bAnimIntrouvable = false;  // Animation Blueprint absent : on ne le cherche plus
 	bool bPoseSoldat = false;       // AnimBP "Soldat" : le corps copie les mouvements du soldat (squelette mannequin)
 	bool bAnimsSimples = false;     // "Anims:repos;marche;course;vol;accroupi;chute" : animations jouees selon la vitesse (LENA)
 	FAnimSimpleWraith Anims[(int32)EEtatAnimWraith::Nombre];
@@ -77,6 +80,7 @@ struct FSkinWraith
 	FString NomHeros;              // Wraith, Dekker, SciFi...
 	UMaterialInterface* Materiau = nullptr; // tenue : materiau pose sur tout le corps (facultatif)
 	int32 Heros = 0;
+	bool bIntrouvable = false;     // corps absent du projet : on garde le soldat d'origine (et on ne le recherche plus a chaque image)
 };
 
 /** Une ligne Tenue= de Wraith.txt : couleur d'un heros de la roue (Spider-Male, Spider-Femelle, PANTERA). */
@@ -130,6 +134,7 @@ struct FSoldatWraith
 	int32 Heros = -1;
 	int32 SkinBras = -1;
 	bool bIntroJouee = false;
+	bool bPoseAFaire = false;       // corps tout neuf : calculer sa pose tout de suite (sinon 1 image en T-pose)
 
 	// Animations simples (LENA)
 	TWeakObjectPtr<UAnimSequenceBase> AnimJouee;
@@ -266,18 +271,27 @@ private:
 	float FinAnnonce = 0.f;
 
 	APlayerController* GetPC() const;
-	USkeletalMesh* Charger(const FString& Chemin) const;
+
+	// ---- Chargement en arriere-plan des skins (25/11/2026 : plus d'a-coup quand on change d'apparence) ----
+	/** Lance le chargement (sans bloquer le jeu) du corps + Animation Blueprint d'un skin. */
+	void Precharger(int32 Index);
+	/** Vrai quand tout le skin est en memoire. Faux = encore en chargement (on garde l'apparence d'avant) ou introuvable. */
+	bool SkinPret(int32 Index);
+	/** Garde en memoire le skin choisi, le suivant (touche K) et ceux des autres joueurs ; libere les autres. */
+	void NettoyerChargements();
+	int32 SkinSuivant(int32 Index) const;
+	/** Message (journal + ecran) donne une seule fois par sujet. */
+	void AvisUneFois(const FString& Cle, const FString& Texte, bool bEcran);
+	FStreamableManager Chargeur;
+	TMap<int32, TSharedPtr<FStreamableHandle>> ChargementsSkins;
+	TSet<FString> AvisDonnes;
 
 	TArray<FSoldatWraith> Soldats;
 	float ProchaineRecherche = 0.f;
-	bool bAvisPack = false;
 
 	/** Animations, montages, effets des heros : gardes en memoire. */
 	UPROPERTY()
 	TArray<UObject*> Gardes;
-
-	UPROPERTY()
-	TArray<USkeletalMesh*> CorpsCharges;
 
 	UPROPERTY()
 	TMap<FString, USoundBase*> Sons;

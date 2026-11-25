@@ -13,9 +13,11 @@
 #include "WraithChelles.h"
 #include "WraithRelais.h"
 
+#include "Animation/AnimBlueprintGeneratedClass.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimSequenceBase.h"
+#include "Animation/Skeleton.h"
 #include "Components/AudioComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
@@ -265,6 +267,9 @@ void AWraithChelles::BeginPlay()
 			}
 		}
 	}
+	// Le skin choisi et le suivant (touche K) se chargent en arriere-plan pendant que la partie demarre
+	Precharger(SkinLocal);
+	Precharger(SkinSuivant(SkinLocal));
 	UE_LOG(LogTemp, Log, TEXT("[Wraith] %d tenues pour les heros de la roue."), Tenues.Num());
 	UE_LOG(LogTemp, Log, TEXT("[Wraith] %s, %d skins, skin choisi : %s, touche %s"),
 		bActif ? TEXT("actif") : TEXT("coupe"), Skins.Num(), Skins.IsValidIndex(SkinLocal) ? *Skins[SkinLocal].Nom : TEXT("?"), *Touche.ToString());
@@ -279,6 +284,14 @@ void AWraithChelles::EndPlay(const EEndPlayReason::Type Raison)
 	Soldats.Reset();
 	RetirerTenues();
 	RetirerAnnonce();
+	for (TPair<int32, TSharedPtr<FStreamableHandle>>& P : ChargementsSkins)
+	{
+		if (P.Value.IsValid())
+		{
+			P.Value->CancelHandle();
+		}
+	}
+	ChargementsSkins.Reset();
 	Super::EndPlay(Raison);
 }
 
@@ -337,6 +350,15 @@ void AWraithChelles::LireReglages()
 	Heros.Reset();
 	Gardes.Reset();
 	DansesLues.Reset();
+	for (TPair<int32, TSharedPtr<FStreamableHandle>>& P : ChargementsSkins)
+	{
+		if (P.Value.IsValid())
+		{
+			P.Value->ReleaseHandle(); // les numeros de skins peuvent changer apres Relire
+		}
+	}
+	ChargementsSkins.Reset();
+	AvisDonnes.Reset();
 	ToucheDanse = EKeys::J;
 	bDanseAlt = false;
 	bDanseCtrl = bDanseShift = false;
@@ -439,7 +461,10 @@ void AWraithChelles::LireReglages()
 			H.Nom = M[0];
 			H.bPoseSoldat = M[1].Equals(TEXT("Soldat"), ESearchCase::IgnoreCase);
 			H.bAnimsSimples = M[1].StartsWith(TEXT("Anims:"), ESearchCase::IgnoreCase);
-			H.ClasseAnim = (H.bPoseSoldat || H.bAnimsSimples) ? nullptr : LoadObject<UClass>(nullptr, *M[1]);
+			// Animation Blueprint : charge plus tard, en arriere-plan, seulement si un skin de ce heros est choisi
+			// (avant le 25/11 : les 4 Animation Blueprint Paragon et toutes leurs animations etaient charges au demarrage)
+			H.ClasseAnim = nullptr;
+			H.CheminAnim = (H.bPoseSoldat || H.bAnimsSimples) ? FString() : M[1];
 			if (H.bAnimsSimples)
 			{
 				// Anims:repos;marche;course;vol;accroupi;chute   (chemin@0 = image figee au temps 0)
@@ -496,7 +521,7 @@ void AWraithChelles::LireReglages()
 			if (Os.IsValidIndex(2) && !Os[2].IsEmpty()) H.OsAvant = FName(*Os[2].TrimStartAndEnd());
 			if (Os.IsValidIndex(3) && !Os[3].IsEmpty()) H.OsHaut = FName(*Os[3].TrimStartAndEnd());
 			H.EffetBouche = M[8].IsEmpty() ? nullptr : LoadObject<UParticleSystem>(nullptr, *M[8]);
-			UObject* AGarder[] = { H.ClasseAnim, H.MontageTir, H.AnimMort, H.EffetBouche };
+			UObject* AGarder[] = { H.MontageTir, H.AnimMort, H.EffetBouche };
 			for (UObject* O : AGarder)
 			{
 				if (O)
@@ -504,9 +529,9 @@ void AWraithChelles::LireReglages()
 					Gardes.Add(O);
 				}
 			}
-			if (!H.ClasseAnim && !H.bPoseSoldat && !H.bAnimsSimples)
+			if (H.CheminAnim.IsEmpty() && !H.bPoseSoldat && !H.bAnimsSimples)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : Animation Blueprint introuvable (%s)"), *H.Nom, *M[1]);
+				UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s : pas d'Animation Blueprint dans la ligne Heros="), *H.Nom);
 			}
 			Heros.Add(H);
 		}
@@ -664,18 +689,134 @@ const FHerosWraith* AWraithChelles::HerosDe(const FSoldatWraith& S) const
 	return Heros.IsValidIndex(S.Heros) ? &Heros[S.Heros] : nullptr;
 }
 
-USkeletalMesh* AWraithChelles::Charger(const FString& Chemin) const
+int32 AWraithChelles::SkinSuivant(int32 Index) const
 {
-	USkeletalMesh* M = FindObject<USkeletalMesh>(nullptr, *Chemin);
-	if (!M)
+	const int32 N = Skins.Num();
+	return N > 0 ? (((Index + 1) % N) + N) % N : 0;
+}
+
+void AWraithChelles::AvisUneFois(const FString& Cle, const FString& Texte, bool bEcran)
+{
+	if (AvisDonnes.Contains(Cle))
 	{
-		M = LoadObject<USkeletalMesh>(nullptr, *Chemin);
-		if (M)
+		return;
+	}
+	AvisDonnes.Add(Cle);
+	UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s"), *Texte);
+	if (bEcran)
+	{
+		Annonce(Texte);
+	}
+}
+
+void AWraithChelles::Precharger(int32 Index)
+{
+	if (!Skins.IsValidIndex(Index) || Skins[Index].bSoldat || Skins[Index].bIntrouvable || ChargementsSkins.Contains(Index))
+	{
+		return;
+	}
+	const FSkinWraith& Skin = Skins[Index];
+	TArray<FSoftObjectPath> Chemins;
+	const FSoftObjectPath CheminCorps(Skin.Corps);
+	if (CheminCorps.IsValid())
+	{
+		Chemins.Add(CheminCorps);
+	}
+	if (Heros.IsValidIndex(Skin.Heros))
+	{
+		const FHerosWraith& H = Heros[Skin.Heros];
+		if (!H.ClasseAnim && !H.bAnimIntrouvable && !H.CheminAnim.IsEmpty())
 		{
-			const_cast<AWraithChelles*>(this)->CorpsCharges.AddUnique(M);
+			const FSoftObjectPath CheminAnim(H.CheminAnim);
+			if (CheminAnim.IsValid())
+			{
+				Chemins.Add(CheminAnim);
+			}
 		}
 	}
-	return M;
+	if (Chemins.Num() == 0)
+	{
+		Skins[Index].bIntrouvable = true;
+		AvisUneFois(TEXT("Chemin ") + Skin.Nom, FString::Printf(TEXT("%s : chemin du corps invalide dans Wraith.txt (%s)."), *Skin.Nom, *Skin.Corps), false);
+		return;
+	}
+	// Ne bloque pas le jeu : Unreal charge pendant qu'on joue, SkinPret() dit quand c'est fini
+	TSharedPtr<FStreamableHandle> Poignee = Chargeur.RequestAsyncLoad(Chemins, FStreamableDelegate(), FStreamableManager::AsyncLoadHighPriority, false);
+	ChargementsSkins.Add(Index, Poignee);
+}
+
+bool AWraithChelles::SkinPret(int32 Index)
+{
+	if (!Skins.IsValidIndex(Index) || Skins[Index].bSoldat)
+	{
+		return false;
+	}
+	FSkinWraith& Skin = Skins[Index];
+	if (Skin.bIntrouvable || !Heros.IsValidIndex(Skin.Heros))
+	{
+		return false;
+	}
+	FHerosWraith& H = Heros[Skin.Heros];
+	USkeletalMesh* Corps = Cast<USkeletalMesh>(FSoftObjectPath(Skin.Corps).ResolveObject());
+	if (!H.ClasseAnim && !H.bAnimIntrouvable && !H.CheminAnim.IsEmpty())
+	{
+		if (UClass* Classe = Cast<UClass>(FSoftObjectPath(H.CheminAnim).ResolveObject()))
+		{
+			H.ClasseAnim = Classe;
+			Gardes.Add(Classe); // garde en memoire (H.ClasseAnim n'est pas vu par le ramasse-miettes)
+		}
+	}
+	const bool bAnimOk = H.ClasseAnim || H.bAnimIntrouvable || H.CheminAnim.IsEmpty();
+	if (Corps && bAnimOk)
+	{
+		return true;
+	}
+	TSharedPtr<FStreamableHandle>* Poignee = ChargementsSkins.Find(Index);
+	if (!Poignee)
+	{
+		Precharger(Index);
+		return false; // le chargement commence : on garde l'apparence d'avant en attendant
+	}
+	if (Poignee->IsValid() && (*Poignee)->IsLoadingInProgress())
+	{
+		return false;
+	}
+	// Chargement fini mais il manque quelque chose
+	if (!Corps)
+	{
+		Skin.bIntrouvable = true;
+		AvisUneFois(TEXT("Corps ") + Skin.Nom, FString::Printf(TEXT("%s introuvable (%s) : soldat d'origine a la place. Verifiez que le pack est dans Content."), *Skin.Nom, *Skin.Corps), true);
+		return false;
+	}
+	if (!H.ClasseAnim && !H.CheminAnim.IsEmpty())
+	{
+		H.bAnimIntrouvable = true;
+		AvisUneFois(TEXT("Anim ") + H.Nom, FString::Printf(TEXT("%s : Animation Blueprint introuvable (%s)."), *H.Nom, *H.CheminAnim), false);
+	}
+	return true;
+}
+
+void AWraithChelles::NettoyerChargements()
+{
+	TSet<int32> AGarder;
+	AGarder.Add(SkinLocal);
+	AGarder.Add(SkinSuivant(SkinLocal));
+	for (const FSoldatWraith& S : Soldats)
+	{
+		AGarder.Add(S.Skin);
+		AGarder.Add(SkinDe(S.Soldat.Get()));
+	}
+	for (auto It = ChargementsSkins.CreateIterator(); It; ++It)
+	{
+		if (!AGarder.Contains(It.Key()))
+		{
+			if (It.Value().IsValid())
+			{
+				It.Value()->ReleaseHandle(); // Unreal pourra liberer la memoire de ce skin
+			}
+			It.RemoveCurrent();
+		}
+	}
 }
 
 APlayerController* AWraithChelles::GetPC() const
@@ -770,7 +911,13 @@ void AWraithChelles::Tick(float DeltaSeconds)
 		const bool bDejaHabille = Skins.IsValidIndex(SkinLocal) && !Skins[SkinLocal].bSoldat;
 		if (EstSoldat(Moi) && !Moi->Tags.Contains(TagSansHabillage) && (bCorpsMannequin || bDejaHabille))
 		{
-			ChangerSkin(SkinLocal + 1, true);
+			// On saute les apparences dont le pack manque
+			int32 Prochain = SkinLocal + 1;
+			for (int32 n = 0; n < Skins.Num() && Skins[Prochain % Skins.Num()].bIntrouvable; ++n)
+			{
+				++Prochain;
+			}
+			ChangerSkin(Prochain, true);
 		}
 		else if (Moi)
 		{
@@ -909,7 +1056,7 @@ void AWraithChelles::Suivre(FSoldatWraith& S, float Dt)
 {
 	ACharacter* C = S.Soldat.Get();
 	const int32 Index = SkinDe(C);
-	const bool bVeut = bActif && C && Skins.IsValidIndex(Index) && !Skins[Index].bSoldat
+	const bool bVeut = bActif && C && Skins.IsValidIndex(Index) && !Skins[Index].bSoldat && !Skins[Index].bIntrouvable
 		&& !C->Tags.Contains(TagSansHabillage)
 		&& C->GetMesh() && EstCorpsDeSoldat(C->GetMesh()->SkeletalMesh);
 	if (!bVeut)
@@ -928,6 +1075,18 @@ void AWraithChelles::Suivre(FSoldatWraith& S, float Dt)
 	}
 	SuivreVoix(S, Dt);
 	AnimerSimple(S);
+	if (S.bPoseAFaire)
+	{
+		// Corps tout neuf : sa pose est calculee tout de suite (sinon il apparait une image en T-pose)
+		S.bPoseAFaire = false;
+		const FHerosWraith* H = HerosDe(S);
+		USkeletalMeshComponent* W = S.Corps.Get();
+		if (W && !(H && H->bPoseSoldat))
+		{
+			W->TickAnimation(0.f, false);
+			W->RefreshBoneTransforms();
+		}
+	}
 	if (C->IsLocallyControlled())
 	{
 		SuivreTirs(S);
@@ -947,19 +1106,18 @@ void AWraithChelles::Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 
 {
 	ACharacter* C = S.Soldat.Get();
 	USkeletalMeshComponent* Mesh = C->GetMesh();
-	USkeletalMesh* Corps = Charger(Skin.Corps);
+	// 25/11 : le skin se charge en arriere-plan. Tant qu'il n'est pas pret, on garde l'apparence d'avant (pas d'a-coup).
+	if (!SkinPret(Index))
+	{
+		if (Skins.IsValidIndex(Index) && Skins[Index].bIntrouvable && (S.Corps.IsValid() || S.CachesCorps.Num() > 0))
+		{
+			Retirer(S); // corps introuvable : soldat d'origine
+		}
+		return;
+	}
+	USkeletalMesh* Corps = Cast<USkeletalMesh>(FSoftObjectPath(Skin.Corps).ResolveObject());
 	if (!Corps)
 	{
-		if (!bAvisPack)
-		{
-			bAvisPack = true;
-			const FString Texte = FString::Printf(TEXT("%s introuvable (%s). Ajoutez le pack gratuit Paragon au projet."), *Skin.Nom, *Skin.Corps);
-			UE_LOG(LogTemp, Warning, TEXT("[Wraith] %s"), *Texte);
-			if (C->IsLocallyControlled())
-			{
-				Annonce(Texte);
-			}
-		}
 		return;
 	}
 	const FHerosWraith& H = Heros[Skin.Heros];
@@ -1001,11 +1159,19 @@ void AWraithChelles::Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 
 		}
 		else if (H.ClasseAnim)
 		{
+			// Squelette du corps different de celui de l'Animation Blueprint = T-pose : on le dit (une fois)
+			const UAnimBlueprintGeneratedClass* Genere = Cast<UAnimBlueprintGeneratedClass>(H.ClasseAnim);
+			if (Genere && Genere->TargetSkeleton && Corps->Skeleton && Genere->TargetSkeleton != Corps->Skeleton)
+			{
+				AvisUneFois(TEXT("Squelette ") + Skin.Nom, FString::Printf(TEXT("%s : le squelette du corps (%s) n'est pas celui de l'animation (%s) -> T-pose possible. Lancez Tools\\Skins\\REPARER_SKINS.bat."),
+					*Skin.Nom, *GetNameSafe(Corps->Skeleton), *GetNameSafe(Genere->TargetSkeleton)), false);
+			}
 			W->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 			W->SetAnimInstanceClass(H.ClasseAnim);
 		}
 		S.Corps = W;
 		S.Skin = -1;
+		S.bPoseAFaire = true;
 		UE_LOG(LogTemp, Log, TEXT("[Wraith] %s habille en %s."), *C->GetName(), *H.Nom);
 	}
 
@@ -1014,6 +1180,7 @@ void AWraithChelles::Appliquer(FSoldatWraith& S, const FSkinWraith& Skin, int32 
 		if (W->SkeletalMesh != Corps)
 		{
 			W->SetSkeletalMesh(Corps, false);
+			S.bPoseAFaire = true;
 		}
 		W->EmptyOverrideMaterials();
 		if (Skin.Materiau)
@@ -1466,6 +1633,10 @@ void AWraithChelles::ChangerSkin(int32 Nouveau, bool bAnnoncer)
 	}
 	SkinLocal = ((Nouveau % N) + N) % N;
 	Danser(false, false);
+	// Le skin choisi et le suivant se chargent en arriere-plan ; les anciens sont liberes
+	Precharger(SkinLocal);
+	Precharger(SkinSuivant(SkinLocal));
+	NettoyerChargements();
 	if (GConfig)
 	{
 		GConfig->SetInt(Section, TEXT("Skin"), SkinLocal, GGameUserSettingsIni);
@@ -1477,7 +1648,8 @@ void AWraithChelles::ChangerSkin(int32 Nouveau, bool bAnnoncer)
 	}
 	if (bAnnoncer)
 	{
-		Annonce(FString::Printf(TEXT("SOLDAT : %s      (%s = skin suivant)"), *Skins[SkinLocal].Nom, *Touche.GetDisplayName().ToString()));
+		const bool bPret = Skins[SkinLocal].bSoldat || SkinPret(SkinLocal);
+		Annonce(FString::Printf(TEXT("SOLDAT : %s%s      (%s = skin suivant)"), *Skins[SkinLocal].Nom, bPret ? TEXT("") : TEXT("  (chargement...)"), *Touche.GetDisplayName().ToString()));
 		APlayerController* PC = GetPC();
 		for (FSoldatWraith& S : Soldats)
 		{
@@ -2182,6 +2354,11 @@ void AWraithChelles::AnimerSimple(FSoldatWraith& S)
 	}
 	if (S.AnimJouee.Get() != A.Anim || S.EtatAnim != (int32)Etat)
 	{
+		if (Corps->SkeletalMesh && A.Anim->GetSkeleton() && A.Anim->GetSkeleton() != Corps->SkeletalMesh->Skeleton)
+		{
+			AvisUneFois(TEXT("SqueletteAnim ") + A.Anim->GetName(), FString::Printf(TEXT("%s : l'animation %s n'a pas le squelette du corps (%s) -> T-pose. Lancez Tools\\Skins\\REPARER_SKINS.bat."),
+				*H->Nom, *A.Anim->GetName(), *GetNameSafe(Corps->SkeletalMesh->Skeleton)), false);
+		}
 		// Accroupi / chute (saut) : joues une fois, on garde la derniere image ; le reste tourne en boucle
 		const bool bBoucle = Etat != EEtatAnimWraith::Accroupi && Etat != EEtatAnimWraith::Chute && A.Fige < 0.f;
 		Corps->PlayAnimation(A.Anim, bBoucle);
