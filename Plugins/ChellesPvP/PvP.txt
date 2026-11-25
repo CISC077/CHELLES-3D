@@ -1,0 +1,53 @@
+# CHELLES 3D - Réglages du PvP (combats entre joueurs)
+# Ouvrez ce fichier avec le Bloc-notes, changez un nombre, enregistrez.
+# Le jeu le relit à chaque lancement (ou tout de suite avec la commande Chelles.PvPManche, touche ²).
+# Tout ce qui suit un # est un commentaire.
+
+# PvP permis (Oui / Non). Le réglage PVP du menu OPTIONS de l'hôte compte aussi.
+Actif = Oui
+
+# Durée d'une manche PvP, en minutes (0 = sans limite)
+DureeMancheMinutes = 10
+
+# Nombre de coups reçus d'autres joueurs avant de tomber à terre
+CoupsAvantATerre = 5
+
+# Temps passé à terre avant d'être éliminé si aucun ami ne jette de kit de survie (secondes)
+DureeATerreSecondes = 30
+
+# Un coup est "oublié" à chaque période sans être touché (secondes, 0 = jamais)
+RecuperationCoupSecondes = 20
+
+# Vie rendue quand un kit de survie réanime un joueur (en % de la vie max)
+VieApresReanimation = 50
+
+# Kits de survie : au départ, maximum, et rendus au début de chaque manche (Oui / Non)
+KitsDeSurvieDepart = 2
+KitsDeSurvieMax = 5
+KitsRendusAChaqueManche = Oui
+
+# Touche pour jeter un kit de survie (noms Unreal : Y, G, Four, MiddleMouseButton...)
+ToucheKit = Y
+
+# Le kit réanime s'il tombe à moins de ... mètres du joueur à terre
+RayonKitMetres = 2.5
+
+# Aide au lancer : en regardant un ami à terre à moins de ... mètres, le kit part tout seul vers lui
+AideAuLancerMetres = 25
+
+# Force du lancer quand personne n'est visé (cm/s)
+ForceLancer = 1100
+
+# Un kit qui n'a servi à personne disparaît au bout de ... secondes
+DureeVieKitSecondes = 30
+
+# Nombre de joueurs pour lancer une manche (1 = permet de tester seul)
+JoueursMinimum = 2
+
+# Temps du tableau des scores entre deux manches (secondes, trêve : pas de PvP)
+DureeScoresSecondes = 12
+
+# Modèle du kit (facultatif) : chemin d'un Static Mesh du projet, par exemple
+# ModeleKit = /Game/MonPack/Meshes/SM_FirstAidKit.SM_FirstAidKit
+# Laissez vide pour la boîte verte à croix blanche.
+ModeleKit =
