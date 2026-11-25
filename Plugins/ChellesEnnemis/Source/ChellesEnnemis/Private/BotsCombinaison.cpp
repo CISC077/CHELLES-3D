@@ -112,18 +112,18 @@ using namespace ChellesBots;
 
 const FName ABotsCombinaison::MarqueBot(TEXT("ChellesBotCombinaison"));
 
-static const FName MarqueVuParEnnemis(TEXT("ChellesEnnemiVu")); // AEnnemisChelles ne l'habille pas en humain
-static const FName MarqueJoueurHorsJeu(TEXT("ChellesHorsJeu"));
-static const FName NomTenueBot(TEXT("TenueBotChelles"));
-static const FName NomTenueHumain(TEXT("TenueEnnemiChelles"));
-static const FName NomEtiquette(TEXT("NomBotChelles"));
-static const FString RaisonVol(TEXT("ChellesBotVol"));
+static const FName BotMarqueVuParEnnemis(TEXT("ChellesEnnemiVu")); // AEnnemisChelles ne l'habille pas en humain
+static const FName BotMarqueJoueurHorsJeu(TEXT("ChellesHorsJeu"));
+static const FName BotNomTenueBot(TEXT("TenueBotChelles"));
+static const FName BotNomTenueHumain(TEXT("TenueEnnemiChelles"));
+static const FName BotNomEtiquette(TEXT("NomBotChelles"));
+static const FString BotRaisonVol(TEXT("ChellesBotVol"));
 
 namespace
 {
 	// --------- Variables des Blueprints (lues sans modifier les fichiers) ---------
 
-	FProperty* TrouverVariable(UObject* Objet, std::initializer_list<const TCHAR*> Noms)
+	FProperty* BotTrouverVariable(UObject* Objet, std::initializer_list<const TCHAR*> Noms)
 	{
 		if (!Objet)
 		{
@@ -142,9 +142,9 @@ namespace
 		return nullptr;
 	}
 
-	bool LireNombre(UObject* Objet, std::initializer_list<const TCHAR*> Noms, float& Valeur)
+	bool BotLireNombre(UObject* Objet, std::initializer_list<const TCHAR*> Noms, float& Valeur)
 	{
-		FNumericProperty* P = CastField<FNumericProperty>(TrouverVariable(Objet, Noms));
+		FNumericProperty* P = CastField<FNumericProperty>(BotTrouverVariable(Objet, Noms));
 		if (!P)
 		{
 			return false;
@@ -154,9 +154,9 @@ namespace
 		return true;
 	}
 
-	void MultiplierNombre(UObject* Objet, std::initializer_list<const TCHAR*> Noms, float Facteur)
+	void BotMultiplierNombre(UObject* Objet, std::initializer_list<const TCHAR*> Noms, float Facteur)
 	{
-		FNumericProperty* P = CastField<FNumericProperty>(TrouverVariable(Objet, Noms));
+		FNumericProperty* P = CastField<FNumericProperty>(BotTrouverVariable(Objet, Noms));
 		if (!P)
 		{
 			return;
@@ -172,9 +172,9 @@ namespace
 		}
 	}
 
-	bool LireBooleen(UObject* Objet, std::initializer_list<const TCHAR*> Noms, bool& Valeur)
+	bool BotLireBooleen(UObject* Objet, std::initializer_list<const TCHAR*> Noms, bool& Valeur)
 	{
-		FBoolProperty* P = CastField<FBoolProperty>(TrouverVariable(Objet, Noms));
+		FBoolProperty* P = CastField<FBoolProperty>(BotTrouverVariable(Objet, Noms));
 		if (!P)
 		{
 			return false;
@@ -183,48 +183,48 @@ namespace
 		return true;
 	}
 
-	bool EstVivant(APawn* Joueur)
+	bool BotEstVivant(APawn* Joueur)
 	{
-		if (!IsValid(Joueur) || Joueur->Tags.Contains(MarqueJoueurHorsJeu))
+		if (!IsValid(Joueur) || Joueur->Tags.Contains(BotMarqueJoueurHorsJeu))
 		{
 			return false;
 		}
 		bool bMort = false;
-		if (LireBooleen(Joueur, { TEXT("IsDead"), TEXT("isDead"), TEXT("bIsDead"), TEXT("Dead") }, bMort) && bMort)
+		if (BotLireBooleen(Joueur, { TEXT("IsDead"), TEXT("isDead"), TEXT("bIsDead"), TEXT("Dead") }, bMort) && bMort)
 		{
 			return false;
 		}
 		float Vie = 1.f;
-		if (LireNombre(Joueur, { TEXT("HealthCurrent"), TEXT("Health") }, Vie) && Vie <= 0.f)
+		if (BotLireNombre(Joueur, { TEXT("HealthCurrent"), TEXT("Health") }, Vie) && Vie <= 0.f)
 		{
 			return false;
 		}
 		return true;
 	}
 
-	float VieMax(APawn* Joueur)
+	float BotVieMax(APawn* Joueur)
 	{
 		float Max = 100.f;
-		if (LireNombre(Joueur, { TEXT("HealthMax"), TEXT("MaxHealth") }, Max) && Max > 0.f)
+		if (BotLireNombre(Joueur, { TEXT("HealthMax"), TEXT("MaxHealth") }, Max) && Max > 0.f)
 		{
 			return Max;
 		}
 		return 100.f;
 	}
 
-	bool EstUnJoueur(const AActor* Acteur)
+	bool BotEstUnJoueur(const AActor* Acteur)
 	{
 		const APawn* Pion = Cast<APawn>(Acteur);
 		return Pion && Pion->GetController() && Pion->GetController()->IsPlayerController();
 	}
 
-	bool EstOui(const FString& Texte)
+	bool BotEstOui(const FString& Texte)
 	{
 		return Texte.Equals(TEXT("Oui"), ESearchCase::IgnoreCase) || Texte.Equals(TEXT("1")) || Texte.Equals(TEXT("true"), ESearchCase::IgnoreCase)
 			|| Texte.Equals(TEXT("Yes"), ESearchCase::IgnoreCase);
 	}
 
-	FString CheminComplet(const FString& Chemin)
+	FString BotCheminComplet(const FString& Chemin)
 	{
 		if (Chemin.IsEmpty() || Chemin.Contains(TEXT(".")))
 		{
@@ -233,7 +233,7 @@ namespace
 		return Chemin + TEXT(".") + FPaths::GetBaseFilename(Chemin);
 	}
 
-	uint8 ArmeDuTexte(const FString& T)
+	uint8 BotArmeDuTexte(const FString& T)
 	{
 		if (T.Contains(TEXT("FLAM"), ESearchCase::IgnoreCase)) return ArmeFlammes;
 		if (T.Contains(TEXT("ECLAIR"), ESearchCase::IgnoreCase) || T.Contains(TEXT("FOUDRE"), ESearchCase::IgnoreCase)) return ArmeEclairs;
@@ -242,7 +242,7 @@ namespace
 		return ArmeLaser;
 	}
 
-	uint8 PouvoirDuTexte(const FString& T)
+	uint8 BotPouvoirDuTexte(const FString& T)
 	{
 		if (T.Contains(TEXT("PLUIE"), ESearchCase::IgnoreCase) || T.Contains(TEXT("FEU"), ESearchCase::IgnoreCase)) return PouvoirPluieDeFeu;
 		if (T.Contains(TEXT("FOUDRE"), ESearchCase::IgnoreCase)) return PouvoirFoudre;
@@ -254,7 +254,7 @@ namespace
 	// --------- Effets (particules et sons deja presents dans le projet) ---------
 
 	template <typename T>
-	T* ChargerPremier(std::initializer_list<const TCHAR*> Chemins)
+	T* BotChargerPremier(std::initializer_list<const TCHAR*> Chemins)
 	{
 		for (const TCHAR* Chemin : Chemins)
 		{
@@ -267,7 +267,7 @@ namespace
 	}
 
 	template <typename T>
-	struct FMemo
+	struct FBotMemo
 	{
 		TWeakObjectPtr<T> Objet;
 		bool bAbsent = false;
@@ -276,7 +276,7 @@ namespace
 		{
 			if (!Objet.IsValid() && !bAbsent)
 			{
-				Objet = ChargerPremier<T>(Chemins);
+				Objet = BotChargerPremier<T>(Chemins);
 				bAbsent = !Objet.IsValid();
 			}
 			return Objet.Get();
@@ -284,7 +284,7 @@ namespace
 	};
 
 #define CHELLES_BOT_EFFET(Type, Nom, ...) \
-	Type* Nom() { static FMemo<Type> Memo; return Memo.Obtenir({ __VA_ARGS__ }); }
+	Type* Nom() { static FBotMemo<Type> Memo; return Memo.Obtenir({ __VA_ARGS__ }); }
 
 	CHELLES_BOT_EFFET(UParticleSystem, Flammes, TEXT("/Game/FPS_Game/Particles/P_Fire.P_Fire"), TEXT("/Game/StarterContent/Particles/P_Fire.P_Fire"))
 	CHELLES_BOT_EFFET(UParticleSystem, Explosion, TEXT("/Game/FPS_Game/Particles/P_Explosion.P_Explosion"), TEXT("/Game/StarterContent/Particles/P_Explosion.P_Explosion"))
@@ -294,7 +294,7 @@ namespace
 
 #undef CHELLES_BOT_EFFET
 
-	void Bouffee(UWorld* Monde, UParticleSystem* Modele, const FVector& Ou, float Taille, float Duree)
+	void BotBouffee(UWorld* Monde, UParticleSystem* Modele, const FVector& Ou, float Taille, float Duree)
 	{
 		if (!Monde || !Modele || Monde->GetNetMode() == NM_DedicatedServer)
 		{
@@ -370,8 +370,8 @@ const FReglagesBots& FReglagesBots::Lire(bool bRelire)
 			FTypeBot T;
 			T.Nom = Morceaux[0];
 			T.Materiau = Morceaux[1];
-			T.Arme = ArmeDuTexte(Morceaux[2]);
-			T.Pouvoir = PouvoirDuTexte(Morceaux[3]);
+			T.Arme = BotArmeDuTexte(Morceaux[2]);
+			T.Pouvoir = BotPouvoirDuTexte(Morceaux[3]);
 			T.Couleur = Info(T.Arme).Couleur;
 			if (Morceaux.Num() >= 5)
 			{
@@ -384,7 +384,7 @@ const FReglagesBots& FReglagesBots::Lire(bool bRelire)
 			}
 			R.Types.Add(T);
 		}
-		else if (Cle == TEXT("Actif")) R.bActif = EstOui(Valeur);
+		else if (Cle == TEXT("Actif")) R.bActif = BotEstOui(Valeur);
 		else if (Cle == TEXT("NombreDeChaque")) R.NombreDeChaque = FMath::Clamp(FCString::Atoi(*Valeur), 0, 10);
 		else if (Cle == TEXT("Classe")) R.Classe = Valeur;
 		else if (Cle == TEXT("Corps")) R.Corps = Valeur;
@@ -395,7 +395,7 @@ const FReglagesBots& FReglagesBots::Lire(bool bRelire)
 		else if (Cle == TEXT("EcartNiveauRueMetres")) R.EcartNiveauRueMetres = FMath::Max(1.f, Nombre);
 		else if (Cle == TEXT("DistanceDetectionMetres")) R.DistanceDetectionMetres = FMath::Max(5.f, Nombre);
 		else if (Cle == TEXT("DistanceReposMetres")) R.DistanceReposMetres = FMath::Max(20.f, Nombre);
-		else if (Cle == TEXT("Vol")) R.bVol = EstOui(Valeur);
+		else if (Cle == TEXT("Vol")) R.bVol = BotEstOui(Valeur);
 		else if (Cle == TEXT("VolToutesLesSecondes")) R.VolToutesLesSecondes = FMath::Max(3.f, Nombre);
 		else if (Cle == TEXT("DureeVol")) R.DureeVol = FMath::Clamp(Nombre, 1.f, 60.f);
 		else if (Cle == TEXT("HauteurVolMetres")) R.HauteurVolMetres = FMath::Clamp(Nombre, 2.f, 50.f);
@@ -403,7 +403,7 @@ const FReglagesBots& FReglagesBots::Lire(bool bRelire)
 		else if (Cle == TEXT("PorteeArmeMetres")) R.PorteeArmeMetres = FMath::Max(5.f, Nombre);
 		else if (Cle == TEXT("DegatsFois")) R.DegatsFois = FMath::Clamp(Nombre, 0.f, 10.f);
 		else if (Cle == TEXT("RechargePouvoir")) R.RechargePouvoir = FMath::Max(2.f, Nombre);
-		else if (Cle == TEXT("AfficherNom")) R.bAfficherNom = EstOui(Valeur);
+		else if (Cle == TEXT("AfficherNom")) R.bAfficherNom = BotEstOui(Valeur);
 	}
 	R.DistanceReposMetres = FMath::Max(R.DistanceReposMetres, R.DistanceDetectionMetres + 10.f);
 
@@ -550,8 +550,8 @@ void AProjectileBot::Exploser(const FVector& Ou, AActor* ToucheDirect)
 	}
 	AActor* Auteur = GetOwner();
 
-	APawn* Direct = EstUnJoueur(ToucheDirect) ? Cast<APawn>(ToucheDirect) : nullptr;
-	if (Direct && EstVivant(Direct))
+	APawn* Direct = BotEstUnJoueur(ToucheDirect) ? Cast<APawn>(ToucheDirect) : nullptr;
+	if (Direct && BotEstVivant(Direct))
 	{
 		ABotsCombinaison::BlesserJoueur(Direct, DegatsPourcent, Auteur);
 		if (GelSecondes > 0.f && Chef)
@@ -652,14 +652,14 @@ void ABotsCombinaison::BeginPlay()
 	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		CorpsSciFi = LoadObject<USkeletalMesh>(nullptr, *CheminComplet(R.Corps), nullptr, LOAD_NoWarn | LOAD_Quiet);
+		CorpsSciFi = LoadObject<USkeletalMesh>(nullptr, *BotCheminComplet(R.Corps), nullptr, LOAD_NoWarn | LOAD_Quiet);
 		if (!CorpsSciFi)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("[Bots] Combinaison introuvable : %s"), *R.Corps);
 		}
 		for (const FTypeBot& T : R.Types)
 		{
-			UMaterialInterface* M = LoadObject<UMaterialInterface>(nullptr, *CheminComplet(T.Materiau), nullptr, LOAD_NoWarn | LOAD_Quiet);
+			UMaterialInterface* M = LoadObject<UMaterialInterface>(nullptr, *BotCheminComplet(T.Materiau), nullptr, LOAD_NoWarn | LOAD_Quiet);
 			MateriauxTypes.Add(M);
 			if (!M)
 			{
@@ -903,7 +903,7 @@ ACharacter* ABotsCombinaison::PoserBot(uint8 Type)
 	}
 	E->AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 	E->Tags.AddUnique(MarqueBot);
-	E->Tags.AddUnique(MarqueVuParEnnemis); // pas habille en humain par AEnnemisChelles
+	E->Tags.AddUnique(BotMarqueVuParEnnemis); // pas habille en humain par AEnnemisChelles
 	UGameplayStatics::FinishSpawningActor(E, Ou);
 	if (!IsValid(E))
 	{
@@ -916,8 +916,8 @@ ACharacter* ABotsCombinaison::PoserBot(uint8 Type)
 	// Plus solide qu'un soldat normal
 	if (!FMath::IsNearlyEqual(R.VieFois, 1.f))
 	{
-		MultiplierNombre(E, { TEXT("HealthMax"), TEXT("MaxHealth") }, R.VieFois);
-		MultiplierNombre(E, { TEXT("HealthCurrent"), TEXT("Health"), TEXT("CurrentHealth") }, R.VieFois);
+		BotMultiplierNombre(E, { TEXT("HealthMax"), TEXT("MaxHealth") }, R.VieFois);
+		BotMultiplierNombre(E, { TEXT("HealthCurrent"), TEXT("Health"), TEXT("CurrentHealth") }, R.VieFois);
 	}
 	if (UCharacterMovementComponent* M = E->GetCharacterMovement())
 	{
@@ -966,12 +966,12 @@ bool ABotsCombinaison::EstMort(ACharacter* E) const
 		return false;
 	}
 	bool bMort = false;
-	if (LireBooleen(E, { TEXT("isDead"), TEXT("IsDead"), TEXT("bIsDead"), TEXT("Dead"), TEXT("bDead") }, bMort) && bMort)
+	if (BotLireBooleen(E, { TEXT("isDead"), TEXT("IsDead"), TEXT("bIsDead"), TEXT("Dead"), TEXT("bDead") }, bMort) && bMort)
 	{
 		return true;
 	}
 	float Vie = 1.f;
-	if (LireNombre(E, { TEXT("HealthCurrent"), TEXT("Health"), TEXT("CurrentHealth") }, Vie) && Vie <= 0.f)
+	if (BotLireNombre(E, { TEXT("HealthCurrent"), TEXT("Health"), TEXT("CurrentHealth") }, Vie) && Vie <= 0.f)
 	{
 		return true;
 	}
@@ -1050,7 +1050,7 @@ void ABotsCombinaison::JoueursVivants(TArray<APawn*>& Resultat) const
 	{
 		APlayerController* PC = It->Get();
 		APawn* Pion = PC ? PC->GetPawn() : nullptr;
-		if (Pion && EstVivant(Pion))
+		if (Pion && BotEstVivant(Pion))
 		{
 			Resultat.Add(Pion);
 		}
@@ -1063,7 +1063,7 @@ void ABotsCombinaison::BlesserJoueur(APawn* Joueur, float Pourcent, AActor* Aute
 	{
 		return;
 	}
-	const float Degats = VieMax(Joueur) * Pourcent / 100.f * FReglagesBots::Lire().DegatsFois;
+	const float Degats = BotVieMax(Joueur) * Pourcent / 100.f * FReglagesBots::Lire().DegatsFois;
 	if (Degats <= 0.f)
 	{
 		return;
@@ -1110,7 +1110,7 @@ void ABotsCombinaison::Piloter(FBotServeur& B, ACharacter* E, float Maintenant, 
 	if (B.RafaleRestante > 0 && Maintenant >= B.ProchainTirRafale)
 	{
 		APawn* Cible = B.Cible.Get();
-		if (Cible && EstVivant(Cible))
+		if (Cible && BotEstVivant(Cible))
 		{
 			Tirer(B, E, Cible);
 			--B.RafaleRestante;
@@ -1171,7 +1171,7 @@ void ABotsCombinaison::Piloter(FBotServeur& B, ACharacter* E, float Maintenant, 
 	{
 		B.Cible = Proche;
 	}
-	else if (B.Cible.IsValid() && (!EstVivant(B.Cible.Get()) || FVector::Dist(B.Cible->GetActorLocation(), E->GetActorLocation()) > Detection * 1.6f))
+	else if (B.Cible.IsValid() && (!BotEstVivant(B.Cible.Get()) || FVector::Dist(B.Cible->GetActorLocation(), E->GetActorLocation()) > Detection * 1.6f))
 	{
 		B.Cible = nullptr;
 	}
@@ -1233,7 +1233,7 @@ void ABotsCombinaison::Decoller(FBotServeur& B, ACharacter* E, float Maintenant)
 		C->StopMovement();
 		if (UBrainComponent* Cerveau = C->GetBrainComponent())
 		{
-			Cerveau->PauseLogic(RaisonVol);
+			Cerveau->PauseLogic(BotRaisonVol);
 		}
 	}
 	if (UCharacterMovementComponent* M = E->GetCharacterMovement())
@@ -1261,7 +1261,7 @@ void ABotsCombinaison::Atterrir(FBotServeur& B, ACharacter* E)
 	{
 		if (UBrainComponent* Cerveau = C->GetBrainComponent())
 		{
-			Cerveau->ResumeLogic(RaisonVol);
+			Cerveau->ResumeLogic(BotRaisonVol);
 		}
 	}
 	B.bEnVol = false;
@@ -1512,45 +1512,45 @@ void ABotsCombinaison::MulticastEffet_Implementation(uint8 Effet, FVector Ou, fl
 	switch (Effet)
 	{
 	case EffetImpact:
-		Bouffee(W, Etincelles(), Ou, 0.6f * TailleEffet, 0.4f);
+		BotBouffee(W, Etincelles(), Ou, 0.6f * TailleEffet, 0.4f);
 		break;
 	case EffetFlammes:
-		Bouffee(W, Flammes(), Ou, 0.5f * TailleEffet, 0.8f);
+		BotBouffee(W, Flammes(), Ou, 0.5f * TailleEffet, 0.8f);
 		break;
 	case EffetExplosion:
-		Bouffee(W, Explosion(), Ou, TailleEffet, 2.f);
+		BotBouffee(W, Explosion(), Ou, TailleEffet, 2.f);
 		if (USoundBase* Son = SonExplosion())
 		{
 			UGameplayStatics::PlaySoundAtLocation(W, Son, Ou, 0.7f);
 		}
 		break;
 	case EffetGlace:
-		Bouffee(W, Vapeur(), Ou, TailleEffet, 1.5f);
-		Bouffee(W, Etincelles(), Ou, 0.5f * TailleEffet, 0.6f);
+		BotBouffee(W, Vapeur(), Ou, TailleEffet, 1.5f);
+		BotBouffee(W, Etincelles(), Ou, 0.5f * TailleEffet, 0.6f);
 		break;
 	case EffetFoudre:
 		// Un trait d'etincelles du ciel jusqu'au sol, puis l'explosion
 		for (int32 i = 0; i < 8; ++i)
 		{
 			const FVector Point = Ou + FVector(FMath::FRandRange(-40.f, 40.f), FMath::FRandRange(-40.f, 40.f), i * 300.f);
-			Bouffee(W, Etincelles(), Point, 0.8f * TailleEffet, 0.4f);
+			BotBouffee(W, Etincelles(), Point, 0.8f * TailleEffet, 0.4f);
 		}
-		Bouffee(W, Explosion(), Ou, 0.6f * TailleEffet, 1.5f);
+		BotBouffee(W, Explosion(), Ou, 0.6f * TailleEffet, 1.5f);
 		if (USoundBase* Son = SonExplosion())
 		{
 			UGameplayStatics::PlaySoundAtLocation(W, Son, Ou, 0.8f, 1.6f);
 		}
 		break;
 	case EffetFumee:
-		Bouffee(W, Vapeur(), Ou, TailleEffet, 1.f);
+		BotBouffee(W, Vapeur(), Ou, TailleEffet, 1.f);
 		break;
 	case EffetMarqueFoudre:
-		Bouffee(W, Etincelles(), Ou, 1.2f * TailleEffet, 1.f);
+		BotBouffee(W, Etincelles(), Ou, 1.2f * TailleEffet, 1.f);
 		break;
 	case EffetOnde:
 	default:
-		Bouffee(W, Explosion(), Ou, TailleEffet, 2.f);
-		Bouffee(W, Vapeur(), Ou, 1.5f * TailleEffet, 1.5f);
+		BotBouffee(W, Explosion(), Ou, TailleEffet, 2.f);
+		BotBouffee(W, Vapeur(), Ou, 1.5f * TailleEffet, 1.5f);
 		if (USoundBase* Son = SonExplosion())
 		{
 			UGameplayStatics::PlaySoundAtLocation(W, Son, Ou, 1.f, 0.7f);
@@ -1690,7 +1690,7 @@ void ABotsCombinaison::Habiller(ACharacter* E, uint8 Type)
 	E->GetComponents<USkeletalMeshComponent>(Composants);
 	for (USkeletalMeshComponent* C : Composants)
 	{
-		if (C && C != Corps && C->GetFName() == NomTenueHumain)
+		if (C && C != Corps && C->GetFName() == BotNomTenueHumain)
 		{
 			C->SetVisibility(false);
 		}
@@ -1698,7 +1698,7 @@ void ABotsCombinaison::Habiller(ACharacter* E, uint8 Type)
 
 	// La combinaison a les memes os que le mannequin : elle suit exactement ses animations
 	Corps->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
-	USkeletalMeshComponent* Habit = NewObject<USkeletalMeshComponent>(E, NomTenueBot);
+	USkeletalMeshComponent* Habit = NewObject<USkeletalMeshComponent>(E, BotNomTenueBot);
 	Habit->SetSkeletalMesh(CorpsSciFi);
 	Habit->SetupAttachment(Corps);
 	Habit->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -1721,7 +1721,7 @@ void ABotsCombinaison::Habiller(ACharacter* E, uint8 Type)
 	// Son nom au-dessus de la tete
 	if (R.bAfficherNom && R.Types.IsValidIndex(Type))
 	{
-		UTextRenderComponent* Etiquette = NewObject<UTextRenderComponent>(E, NomEtiquette);
+		UTextRenderComponent* Etiquette = NewObject<UTextRenderComponent>(E, BotNomEtiquette);
 		Etiquette->SetupAttachment(E->GetRootComponent());
 		Etiquette->RegisterComponent();
 		Etiquette->AttachToComponent(E->GetRootComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
