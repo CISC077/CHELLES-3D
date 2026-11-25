@@ -1,0 +1,79 @@
+# CHELLES 3D - Reglages des ennemis (plugin ChellesEnnemis)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = le plugin travaille, Non = il ne fait plus rien
+Actif=Oui
+
+# ---------------------------------------------------------------
+# 1) Ennemis eparpilles a chaque lancement (solo et multi : c'est le serveur qui les pose)
+# ---------------------------------------------------------------
+# Nombre d'ennemis de CHAQUE dossier (Charger, Other, Patrol, Soldier, Zombie) poses au hasard
+# dans la carte a chaque lancement. 10 x 5 dossiers = 50 ennemis (en plus de ceux deja poses dans la carte).
+NombreParDossier=10
+# Pour changer un seul dossier (enlevez le # devant) :
+#Nombre.Charger=10
+#Nombre.Other=10
+#Nombre.Patrol=10
+#Nombre.Soldier=10
+#Nombre.Zombie=10
+
+# Un ennemi tue est remplace par un autre du meme dossier apres X secondes (0 = jamais remplace)
+ReapparitionSecondes=90
+# Distance minimum entre deux ennemis poses (metres)
+EspacementMetres=25
+# Distance minimum entre un ennemi pose et un joueur ou un depart de joueur (metres)
+LoinDesJoueursMetres=40
+# Les ennemis ne sont poses qu'a peu pres au niveau de la rue (pas sur les toits) : ecart permis en metres
+EcartNiveauRueMetres=12
+
+# Ou chercher les ennemis
+DossierIA=/Game/FPS_Game/Blueprints/Bonus/AI
+DossierAuto=/Game/FPS_Game/Blueprints/Bonus/AI/Other
+# Blueprints jamais utilises (separes par des virgules). Les deux premiers sont une vieille copie
+# cassee du pack (ils provoquent "BLUEPRINT COMPILE ERROR") : ne les enlevez pas de la liste.
+# AI_Super_Heros : son animation ne va pas avec son corps (erreurs "GetAnimInstance" en jeu).
+Exclus=BP_SimplePrototypingZombie,BP_EnemySpawner,AI_Super_Heros
+
+# ---------------------------------------------------------------
+# 2) Dossier Other : tout personnage depose dedans devient un ennemi des joueurs
+#    (c'est le plugin qui le dirige : il cherche le joueur le plus proche, le poursuit et le frappe)
+# ---------------------------------------------------------------
+# Il repere les joueurs a moins de X metres (ou des qu'on lui tire dessus), sinon il se promene
+DistanceDetectionMetres=40
+# Il arrete de poursuivre un joueur a plus de X metres
+DistanceAbandonMetres=80
+# Un coup retire X % de la vie du joueur
+DegatsPourcent=15
+# Temps entre deux coups (secondes)
+TempsEntreCoups=1.5
+# Une balle dans le corps retire X % de sa vie (25 = 4 balles). Une balle dans la tete le tue (TeteTue=Oui).
+DegatsCorpsPourcent=25
+TeteTue=Oui
+# Vitesse de course quand il poursuit un joueur (0 = garder celle de son Blueprint)
+VitesseCourse=450
+# Oui = il se promene doucement quand il n'a repere personne
+Promenade=Oui
+
+# Zombies du dossier Zombie : Oui = le plugin les fait mourir lui-meme (balle dans la tete = mort,
+# balle dans le corps = DegatsCorpsPourcent), meme si leur Blueprint ne les tue pas. Non = comme avant.
+ZombiesTuables=Oui
+
+# ---------------------------------------------------------------
+# 3) Tenues : de VRAIS HUMAINS habilles (pas de couleurs unies)
+# ---------------------------------------------------------------
+# Les ennemis Soldier, Charger, Patrol (et Other s'il a le mannequin gris) prennent l'apparence
+# d'une vraie personne scannee (pack Scanned3DPeoplePack) : jean, blouson, chemise, robe...
+# Chaque ennemi en recoit une au hasard ; en multijoueur tout le monde voit la meme.
+Habiller=Oui
+# Oui = les bandits de couleur deja poses dans la carte deviennent aussi de vrais humains
+RemplacerBandits=Oui
+# Liste des personnes utilisees (une ligne par personne). Enlevez une ligne pour ne plus l'utiliser.
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_eric_rigged_001_ue4/rp_eric_rigged_001_ue4
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_manuel_rigged_001_ue4/rp_manuel_rigged_001_ue4
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_nathan_rigged_003_ue4/rp_nathan_rigged_003_ue4
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_carla_rigged_001_ue4/rp_carla_rigged_001_ue4
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_claudia_rigged_002_ue4/rp_claudia_rigged_002_ue4
+Personne=/Game/Scanned3DPeoplePack/RP_Character/rp_sophia_rigged_003_ue4/rp_sophia_rigged_003_ue4
+# Zombie : vrai zombie avec pantalon (pack DecayedZombieB)
+PeauZombie=/Game/DecayedZombieB/Mesh/SK_DecayedZombie_B_wPants

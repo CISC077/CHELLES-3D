@@ -1,0 +1,70 @@
+# CHELLES 3D - Les 5 bots ennemis en combinaison (plugin ChellesEnnemis)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires. Pas d'accents dans les valeurs.
+
+# Oui = les bots sont poses a chaque partie, Non = plus de bots
+Actif=Oui
+
+# Combien de bots de CHAQUE couleur (1 = 5 bots en tout, 2 = 10 bots...)
+NombreDeChaque=1
+
+# ---------------------------------------------------------------
+# Les bots : Bot=NOM|couleur de la combinaison|ARME|POUVOIR|couleur du nom (R,G,B)
+#   ARME    : LASER, FLAMMES, ECLAIRS, GLACE ou ROQUETTES
+#   POUVOIR : TELEPORTATION, PLUIE DE FEU, FOUDRE, GEL ou ONDE DE CHOC
+# ---------------------------------------------------------------
+# Noir : rafales laser violettes, se teleporte dans le dos du joueur et tire aussitot
+Bot=SPECTRE|/Game/SciFiSoldier/Materials/MI_SciFiSoldier.MI_SciFiSoldier|LASER|TELEPORTATION|0.65,0.2,1
+# Rouge : lance-flammes de pres, fait tomber 6 boules de feu du ciel autour du joueur
+Bot=BRASIER|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_2.MI_SciFiSoldier_2|FLAMMES|PLUIE DE FEU|1,0.2,0.05
+# Jaune : fusil a eclairs tres rapide, fait tomber la foudre sur le joueur (1 seconde pour s'ecarter)
+Bot=FOUDRE|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_3.MI_SciFiSoldier_3|ECLAIRS|FOUDRE|1,0.85,0.1
+# Bleu : canon a glace qui ralentit, gele le joueur sur place 2,5 secondes
+Bot=GIVRE|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_4.MI_SciFiSoldier_4|GLACE|GEL|0.3,0.7,1
+# Kaki : lance-roquettes, pique du ciel et projette les joueurs autour de lui
+Bot=TITAN|/Game/SciFiSoldier/Materials/MI_SciFiSoldier_5.MI_SciFiSoldier_5|ROQUETTES|ONDE DE CHOC|0.5,0.6,0.25
+
+# Soldat FPS_Game qui sert de base (son cerveau, ses animations, sa vie)
+Classe=/Game/FPS_Game/Blueprints/Bonus/AI/AI_Soldier.AI_Soldier_C
+# Combinaison posee par-dessus (la meme que la touche K du joueur)
+Corps=/Game/SciFiSoldier/Meshes/SK_SciFiSoldier.SK_SciFiSoldier
+
+# ---------------------------------------------------------------
+# Apparition
+# ---------------------------------------------------------------
+# Un bot tue revient (ailleurs) apres X secondes (0 = jamais)
+ReapparitionSecondes=120
+# Vie d'un bot = vie d'un soldat x VieFois
+VieFois=3
+# Distance minimum entre deux bots, et entre un bot et un joueur, au moment ou il apparait (metres)
+EspacementMetres=60
+LoinDesJoueursMetres=50
+EcartNiveauRueMetres=12
+
+# ---------------------------------------------------------------
+# Combat
+# ---------------------------------------------------------------
+# Il repere le joueur a moins de X metres (son arme et son pouvoir ne servent qu'en dessous)
+DistanceDetectionMetres=50
+# Plus aucun joueur a moins de X metres : le bot se repose (economise le processeur)
+DistanceReposMetres=150
+# Portee des armes (metres) ; le lance-flammes ne tire qu'a 12 m
+PorteeArmeMetres=35
+# Degats des armes et pouvoirs x DegatsFois (0.5 = deux fois moins, 2 = deux fois plus)
+DegatsFois=1
+# Secondes entre deux pouvoirs
+RechargePouvoir=12
+# Oui = le nom du bot s'affiche au-dessus de sa tete (de sa couleur)
+AfficherNom=Oui
+
+# ---------------------------------------------------------------
+# Vol (tous les bots volent, avec des flammes sous les pieds)
+# ---------------------------------------------------------------
+Vol=Oui
+# Il decolle environ toutes les X secondes (quand il a repere un joueur)
+VolToutesLesSecondes=15
+# Il reste X secondes en l'air en tournant autour du joueur
+DureeVol=8
+# Hauteur au-dessus du joueur (metres) et vitesse en vol (cm/s)
+HauteurVolMetres=8
+VitesseVol=900
