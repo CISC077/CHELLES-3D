@@ -33,3 +33,19 @@ Windows 10/11 : Paramètres > Heure et langue > Voix > Ajouter des voix > Franç
 ## Réglages
 
 Posez vous-même l'acteur « Paroles des passants (Chelles) » dans le niveau pour changer : distance, chance de parler, volume, portée de la voix, sous-titres toujours affichés, délai entre deux phrases…
+
+## Phrases inventées par l'IA (serveur CHELLES 3D)
+
+Les passants disent aussi des phrases **nouvelles, inventées par une IA** (Gemini, avec bascule automatique sur d'autres IA si une clé ne marche plus). Les phrases tiennent compte du moment de la journée (matin, soir, nuit, Noël…).
+
+- Le jeu demande les phrases au serveur VPS : `http://51.178.54.208:8081/api/pnj`. **Aucune clé API n'est dans le jeu** : les clés restent sur le VPS (`/opt/chelles3d/pnj/.env`).
+- 7 phrases sur 10 viennent de l'IA (réglage `ChanceIA`), les autres de `Repliques.txt`. Une phrase IA s'affiche dans la bulle, sans voix enregistrée.
+- Sans Internet, ou si le serveur est en panne, les passants utilisent seulement `Repliques.txt`, comme avant.
+- Couper l'IA sans recompiler : dans `Config\DefaultGame.ini`, ajouter
+  ```
+  [ChellesParoles]
+  IA=False
+  ```
+  (on peut aussi y mettre `AdresseIA=` ou `ChanceIA=0.5`).
+
+Côté VPS : `sudo systemctl status chelles3d-pnj`, journal `sudo journalctl -u chelles3d-pnj -n 40`, test des clés `sudo -u chelles bash -c "cd /opt/chelles3d/pnj && node pnj.js --tester"`.

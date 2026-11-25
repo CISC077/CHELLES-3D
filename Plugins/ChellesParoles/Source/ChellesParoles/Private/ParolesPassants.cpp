@@ -16,6 +16,15 @@
 #include "Engine/GameViewportClient.h"
 #include "GameFramework/PlayerController.h"
 #include "SBullesParoles.h"
+#include "HttpModule.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "GenericPlatform/GenericPlatformHttp.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/PlatformTime.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogChellesParoles, Log, All);
 
@@ -97,6 +106,27 @@ void AParolesPassants::BeginPlay()
 	Super::BeginPlay();
 
 	ChargerRepliques();
+
+	// Phrases IA du serveur : reglages facultatifs dans DefaultGame.ini, section [ChellesParoles].
+	if (GConfig)
+	{
+		GConfig->GetBool(TEXT("ChellesParoles"), TEXT("IA"), bUtiliserIA, GGameIni);
+		GConfig->GetString(TEXT("ChellesParoles"), TEXT("AdresseIA"), AdresseIA, GGameIni);
+		GConfig->GetFloat(TEXT("ChellesParoles"), TEXT("ChanceIA"), ChanceIA, GGameIni);
+	}
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		bUtiliserIA = false; // le serveur de jeu n'affiche rien : inutile
+	}
+	if (bUtiliserIA && !AdresseIA.IsEmpty())
+	{
+		static const TCHAR* const Categories[] = { TEXT("Salut"), TEXT("Bousculade"), TEXT("Vehicule"), TEXT("Remarque") };
+		for (const TCHAR* Categorie : Categories)
+		{
+			DemanderPhrasesIA(Categorie, true);
+			DemanderPhrasesIA(Categorie, false);
+		}
+	}
 
 	// Le son vient de la bouche du passant et baisse avec la distance.
 	Attenuation = NewObject<USoundAttenuation>(this);
@@ -284,6 +314,84 @@ const FSonCharge* AParolesPassants::ChargerSon(const FString& Fichier)
 	return &Son;
 }
 
+void AParolesPassants::DemanderPhrasesIA(const FString& Categorie, bool bFeminin)
+{
+	const FString Cle = Categorie + (bFeminin ? TEXT("|F") : TEXT("|M"));
+	const double Maintenant = FPlatformTime::Seconds();
+	const double* Prochaine = ProchaineDemandeIA.Find(Cle);
+	if (DemandesIAEnCours.Contains(Cle) || (Prochaine && Maintenant < *Prochaine))
+	{
+		return;
+	}
+	DemandesIAEnCours.Add(Cle);
+	ProchaineDemandeIA.Add(Cle, Maintenant + 30.0);
+
+	const FString Url = FString::Printf(TEXT("%s?categorie=%s&genre=%s&nb=12"), *AdresseIA,
+		*FGenericPlatformHttp::UrlEncode(Categorie), bFeminin ? TEXT("F") : TEXT("M"));
+	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Requete = FHttpModule::Get().CreateRequest();
+	Requete->SetURL(Url);
+	Requete->SetVerb(TEXT("GET"));
+	Requete->SetHeader(TEXT("Accept"), TEXT("application/json"));
+	Requete->SetTimeout(12.f);
+
+	TWeakObjectPtr<AParolesPassants> Moi(this);
+	Requete->OnProcessRequestComplete().BindLambda([Moi, Cle](FHttpRequestPtr, FHttpResponsePtr Reponse, bool bReussi)
+	{
+		AParolesPassants* Acteur = Moi.Get();
+		if (!Acteur)
+		{
+			return;
+		}
+		Acteur->DemandesIAEnCours.Remove(Cle);
+		int32 Recues = 0;
+		if (bReussi && Reponse.IsValid() && Reponse->GetResponseCode() == 200)
+		{
+			TSharedPtr<FJsonObject> Objet;
+			const TSharedRef<TJsonReader<>> Lecteur = TJsonReaderFactory<>::Create(Reponse->GetContentAsString());
+			const TArray<TSharedPtr<FJsonValue>>* Liste = nullptr;
+			if (FJsonSerializer::Deserialize(Lecteur, Objet) && Objet.IsValid() && Objet->TryGetArrayField(TEXT("repliques"), Liste))
+			{
+				TArray<FString>& Reserve = Acteur->PhrasesIA.FindOrAdd(Cle);
+				for (const TSharedPtr<FJsonValue>& Valeur : *Liste)
+				{
+					FString Phrase = Valeur.IsValid() ? Valeur->AsString() : FString();
+					Phrase.TrimStartAndEndInline();
+					if (!Phrase.IsEmpty() && Phrase.Len() <= 120 && !Reserve.Contains(Phrase) && Reserve.Num() < 40)
+					{
+						Reserve.Add(Phrase);
+						++Recues;
+					}
+				}
+			}
+		}
+		if (Recues == 0)
+		{
+			// Serveur absent ou sans IA : on reessaie dans 5 minutes, les phrases fixes prennent le relais.
+			Acteur->ProchaineDemandeIA.Add(Cle, FPlatformTime::Seconds() + 300.0);
+		}
+		UE_LOG(LogChellesParoles, Log, TEXT("Phrases IA %s : %d recues."), *Cle, Recues);
+	});
+	Requete->ProcessRequest();
+}
+
+bool AParolesPassants::PrendrePhraseIA(const FString& Categorie, bool bFeminin, FString& Sortie)
+{
+	const FString Cle = Categorie + (bFeminin ? TEXT("|F") : TEXT("|M"));
+	TArray<FString>* Reserve = PhrasesIA.Find(Cle);
+	if (!Reserve || Reserve->Num() < 4)
+	{
+		DemanderPhrasesIA(Categorie, bFeminin); // on refait le plein en arriere-plan
+	}
+	if (!Reserve || Reserve->Num() == 0)
+	{
+		return false;
+	}
+	const int32 i = FMath::RandRange(0, Reserve->Num() - 1);
+	Sortie = (*Reserve)[i];
+	Reserve->RemoveAtSwap(i); // une phrase IA n'est dite qu'une fois
+	return true;
+}
+
 void AParolesPassants::Parler(ACharacter* Passant, FEtatPassant& Etat, const FString& Categorie, bool bPrioritaire)
 {
 	UWorld* Monde = GetWorld();
@@ -330,7 +438,15 @@ void AParolesPassants::Parler(ACharacter* Passant, FEtatPassant& Etat, const FSt
 
 	FString Texte;
 	float Duree = 0.f;
-	if (Choix.Num() > 0)
+
+	// Phrase inventee par l'IA du serveur (texte dans la bulle, sans voix enregistree).
+	const bool bPhraseIA = bUtiliserIA && FMath::FRand() < ChanceIA && PrendrePhraseIA(Categorie, Etat.bFeminin, Texte);
+
+	if (bPhraseIA)
+	{
+		// rien d'autre : la bulle s'affiche plus bas
+	}
+	else if (Choix.Num() > 0)
 	{
 		const FRepliqueVoix* R = Choix[FMath::RandRange(0, Choix.Num() - 1)];
 		Texte = R->Texte;
