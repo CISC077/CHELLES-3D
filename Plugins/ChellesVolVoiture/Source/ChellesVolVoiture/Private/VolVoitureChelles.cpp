@@ -147,6 +147,7 @@ AVolVoitureChelles::AVolVoitureChelles()
 		H.Centres[3] = FVector(-141.75f, 93.46f, 38.f);
 		H.RayonAvant = 34.75f;
 		H.RayonArriere = 36.75f;
+		H.PlaqueAvant = FVector(222.5f, 0.f, 48.f); // logo rouge de la calandre
 	}
 	CheminPolice = TEXT("/Game/SportVehiclesPack/Blueprints/Vehicles/BP_WheeledVehicle_Sportcar1_Police.BP_WheeledVehicle_Sportcar1_Police_C");
 	CheminFuyard = TEXT("/Game/Hijacker/Mesh/SK_hijacker.SK_hijacker");
@@ -251,11 +252,7 @@ void AVolVoitureChelles::LireReglages()
 		}
 		else if (Est(TEXT("Plaque")))
 		{
-			TextePlaque = Valeur.Left(16);
-			for (FHabillageBugatti& H : Habillages)
-			{
-				H.TextePlaque = TextePlaque;
-			}
+			TextePlaque = Valeur.Left(16); // plaques du pack (les Bugatti ont leur cle Bugatti.Plaque)
 		}
 		else if (Est(TEXT("CameraDuPack")))       { bCameraPack = EstOuiVol(Valeur); }
 		else if (Cle.StartsWith(TEXT("Bugatti."), ESearchCase::IgnoreCase) || Cle.StartsWith(TEXT("BugattiBrouillard."), ESearchCase::IgnoreCase))
@@ -274,6 +271,9 @@ void AVolVoitureChelles::LireReglages()
 			else if (EstS(TEXT("Hauteur")))      { H.EchelleHauteur = FMath::Clamp(Nombre, 0.5f, 2.f); }
 			else if (EstS(TEXT("Decalage")))     { H.Decalage = LireVecteur(Valeur, FVector::ZeroVector); }
 			else if (EstS(TEXT("Rotation")))     { H.Lacet = FMath::Clamp(Nombre, -360.f, 360.f); }
+			else if (EstS(TEXT("Plaque")))       { H.TextePlaque = Valeur.Left(16); }
+			else if (EstS(TEXT("PlaqueAvant")))  { H.PlaqueAvant = LireVecteur(Valeur, H.PlaqueAvant); }
+			else if (EstS(TEXT("PlaqueArriere"))) { H.PlaqueArriere = LireVecteur(Valeur, H.PlaqueArriere); }
 			else
 			{
 				for (int32 k = 0; k < 4; ++k)

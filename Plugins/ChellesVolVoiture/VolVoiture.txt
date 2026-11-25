@@ -104,6 +104,10 @@ Bugatti.Largeur = 1
 Bugatti.Hauteur = 1
 Bugatti.Decalage = 0 0 0
 Bugatti.Rotation = 0
+# Plaques blanches des Bugatti : texte, et centre de la plaque avant (cm : avant, droite, haut) posee sur le logo
+# (0 0 0 = place automatique ; PlaqueArriere aussi possible)
+Bugatti.Plaque = CHELLES 3D
+Bugatti.PlaqueAvant = 220.5 0 56
 
 # --- 2e Bugatti, couleur Brouillard (memes reglages, cles BugattiBrouillard.) ---
 BugattiBrouillard.Carrosserie = /Game/Chelles/Bugatti/SM_BugattiBrouillard_Carrosserie.SM_BugattiBrouillard_Carrosserie
@@ -121,3 +125,5 @@ BugattiBrouillard.Largeur = 1
 BugattiBrouillard.Hauteur = 1
 BugattiBrouillard.Decalage = 0 0 0
 BugattiBrouillard.Rotation = 0
+BugattiBrouillard.Plaque = CHELLES 3D
+BugattiBrouillard.PlaqueAvant = 222.5 0 48

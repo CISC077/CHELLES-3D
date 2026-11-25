@@ -471,7 +471,7 @@ bool HoroChelles::HabillerBugatti(APawn* Voiture, const FHabillageBugatti& H)
 		Roue->RegisterComponent();
 	}
 
-	// 6) Plaques CHELLES-3D devant et derriere
+	// 6) Plaques blanches CHELLES 3D devant (sur le logo de la calandre) et derriere
 	FBox Boite = H.Carrosserie->GetBoundingBox();
 	const FVector Min = Origine + Boite.Min * Echelle;
 	const FVector Max = Origine + Boite.Max * Echelle;
@@ -479,9 +479,19 @@ bool HoroChelles::HabillerBugatti(APawn* Voiture, const FHabillageBugatti& H)
 	for (int32 Face = 0; Face < 2; ++Face)
 	{
 		const bool bAvant = Face == 0;
-		const float X = bAvant ? Max.X - 6.f : Min.X + 10.f;
-		const float Z = Min.Z + (Max.Z - Min.Z) * (bAvant ? 0.22f : 0.30f);
-		const FVector Centre(X, (Min.Y + Max.Y) * 0.5f, Z);
+		const FVector& Voulu = bAvant ? H.PlaqueAvant : H.PlaqueArriere;
+		FVector Centre;
+		if (!Voulu.IsNearlyZero())
+		{
+			// Place donnee dans la Bugatti (devant le logo) : meme calage que la carrosserie
+			Centre = Origine + Voulu * Echelle;
+		}
+		else
+		{
+			const float X = bAvant ? Max.X - 6.f : Min.X + 10.f;
+			const float Z = Min.Z + (Max.Z - Min.Z) * (bAvant ? 0.22f : 0.30f);
+			Centre = FVector(X, (Min.Y + Max.Y) * 0.5f, Z);
+		}
 		if (Cube)
 		{
 			UStaticMeshComponent* Fond = NouveauMesh(Cube, TEXT("BugattiPlaque"));

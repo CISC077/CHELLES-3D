@@ -51,7 +51,11 @@ struct FHabillageBugatti
 	float EchelleHauteur = 1.f;
 	FVector Decalage = FVector::ZeroVector;
 	float Lacet = 0.f;
-	FString TextePlaque = TEXT("CHELLES-3D");
+	FString TextePlaque = TEXT("CHELLES 3D");
+	/** Centre des plaques blanches dans la Bugatti (cm, comme Centres). Zero = place automatique.
+	 *  L'avant est pose devant le logo de la calandre pour le cacher. */
+	FVector PlaqueAvant = FVector(220.5f, 0.f, 56.f);
+	FVector PlaqueArriere = FVector::ZeroVector;
 
 	bool EstPret() const { return Carrosserie != nullptr; }
 };
