@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Testeur (Agent 5)",
+	"Description": "Test automatique du jeu : parcourt la carte Rachid, ouvre les menus, change de personnage et de vehicule, mesure les FPS et note les erreurs. Ne fait RIEN en jeu normal : il ne demarre que si le jeu est lance avec -ChellesTest (Tools\\Testeur).",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesTesteur",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

@@ -1,0 +1,42 @@
+# CHELLES 3D - Agent 5 "Testeur" (plugin ChellesTesteur)
+# Reglages du test automatique du soir. Modifiez avec le Bloc-notes, pas besoin de recompiler.
+# Les lignes qui commencent par # sont des commentaires.
+# Le test ne tourne QUE quand il est lance par Tools\Testeur (option -ChellesTest) : le jeu normal n'est pas touche.
+
+# --- Personnages et vehicules a essayer (noms de la roue des modes, separes par des virgules) ---
+# Le PREMIER sert a visiter les zones a pied.
+Modes=Soldat, Spider-Male, Spider-Femelle, PANTERA, FLASH ECLAIR, FLAMME FIRE, SuperPowers, DYNAMIC COMBAT, Motoneige, VOITURE, HORSE
+# Personnage remis a la fin (verifie que le retour marche)
+ModeFinal=Soldat
+
+# --- Visite de la carte ---
+# Grille de zones : 3 = 9 zones (3 x 3), 4 = 16 zones, 0 = pas de visite
+Grille=3
+# Secondes passees dans chaque zone (la camera fait un tour complet)
+SecondesParZone=8
+# Endroits en plus a visiter : Point = Nom ; X ; Y ; Z  (coordonnees lues dans l'editeur, Z=0 = posee au sol)
+# Point = Mairie ; 12000 ; -3500 ; 0
+# Point = Gare ; -8000 ; 4200 ; 0
+
+# --- Le reste ---
+# Secondes passees sur chaque personnage / vehicule
+SecondesParMode=8
+# Oui = faire marcher le personnage tout droit quelques secondes
+Marche=Oui
+SecondesMarche=5
+# Oui = ouvrir et fermer les menus ARMEMENTS, HABILLAGE et PAUSE
+Menus=Oui
+# Secondes d'attente apres l'arrivee du joueur (le decor finit de se charger)
+AttenteDepart=15
+# En dessous de ce nombre d'images par seconde, le rapport dit que le jeu rame
+FPSFaible=30
+
+# --- Lancement (lu par Tools\Testeur\tester_le_jeu.py) ---
+# Oui = jeu sans le son pendant le test (il tourne a 23:00), Non = avec le son
+SansSon=Oui
+# Taille de la fenetre du jeu pendant le test
+Fenetre=1600x900
+# Minutes maximum : au-dela, le jeu est considere comme fige et il est ferme
+DureeMax=25
+# Oui = le test du soir tourne, Non = seulement la verification des fichiers
+TestDuSoir=Oui
