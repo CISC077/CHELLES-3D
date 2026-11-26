@@ -149,7 +149,7 @@ MOTS_DANSE = ("danc", "dance", "rumba", "flair", "twerk", "soul", "uprock", "sam
 NOMS_CORPS = ("lod_basic_shaded.fbx", "base_basic_shaded.fbx", "lod_basic_pbr.fbx", "base_basic_pbr.fbx",
               "lod_model.fbx", "base.fbx", "model.fbx", "t-pose.fbx", "t pose.fbx", "tpose.fbx")
 # 25/11 (SHEMS) : marche a reculons, de cote, avec un fusil, accroupi qui se releve... = pas l'etat de base
-MOTS_EXCLUS = ("backward", "rifle", "strafe", "strafing", "sneak", "to stand", "left", "right", "pistol", "gun")
+MOTS_EXCLUS = ("backward", "dwarf", "rifle", "strafe", "strafing", "sneak", "to stand", "left", "right", "pistol", "gun")
 # Gestes joues avec J apres les danses (boxe, bagarre...)
 MOTS_GESTE = ("boxing", "fist fight", "fight", "punch", "kick", "taunt", "salute", "wave", "flex")
 IMAGES_COULEURS = ("texture_diffuse", "diffuse", "basecolor", "base_color", "albedo", "color", "shaded", "texture_pbr")
