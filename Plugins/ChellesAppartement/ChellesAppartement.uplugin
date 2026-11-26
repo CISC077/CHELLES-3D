@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Appartement",
+	"Description": "L'appartement du joueur : touche F1 pour rentrer chez soi. Garde-robe avec les skins portes, garage avec les vehicules conduits, vitrine des trophees. Solo et multijoueur (un appartement par joueur).",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesAppartement",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

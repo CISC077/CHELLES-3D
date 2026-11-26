@@ -1,0 +1,54 @@
+# CHELLES 3D - APPARTEMENT DU JOUEUR (plugin ChellesAppartement)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# En jeu, la console (touche ²) : Chelles.Appartement Relire  = relit ce fichier.
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = l'appartement existe, Non = coupe
+Actif=Oui
+
+# Touche pour rentrer chez soi / ressortir (F1 etait libre depuis la fin du menu F1-F12).
+# Plusieurs touches possibles, separees par des virgules (ex : F1, Home)
+Touche=F1
+
+# Titre au-dessus de la porte
+Titre=MON APPARTEMENT
+
+# --- Ou est cache l'appartement (en cm) : tres haut dans le ciel, personne ne le voit ---
+Hauteur=200000
+PositionX=0
+PositionY=0
+# Distance entre les appartements des joueurs en multijoueur
+Ecart=5000
+
+# --- GARDE-ROBE : les skins portes en entrant (le plus recent en premier) ---
+PlacesGardeRobe=6
+# Oui = les mannequins prennent l'animation du skin (pas de pose en T), Non = immobiles
+AnimerMannequins=Oui
+
+# --- GARAGE : les vehicules conduits plus de 3 secondes (voiture volee, motoneige, drone...) ---
+PlacesGarage=4
+# Longueur max d'un vehicule expose (cm), les plus grands sont reduits
+TailleMaxVehicule=800
+# Dalles vertes "PARTIR ..." : NomDuModeDeLaRoue|Texte affiche, separes par des virgules (5 max)
+Departs=Motoneige|EN MOTONEIGE, VOITURE|EN VOITURE, HORSE|A CHEVAL
+
+# --- TROPHEES : bronze, argent, or ---
+Trophee.Zombies=10, 100, 500
+Trophee.Missions=1, 5, 20
+Trophee.Vague=5, 10, 20
+Trophee.XP=1000, 5000, 20000
+Trophee.Heures=1, 5, 20
+Trophee.Collection=3, 8, 15
+
+# --- Deco (couleurs Rouge, Vert, Bleu de 0 a 1) ---
+CouleurSol=0.32, 0.18, 0.09
+CouleurMurs=0.85, 0.80, 0.70
+CouleurGarage=0.10, 0.10, 0.11
+CouleurNeon=0.10, 0.75, 1.00
+Lumiere=8000
+
+# Oui = petit message en bas de l'ecran (bienvenue, nouveau trophee, vehicule range)
+Messages=Oui
+SonTrophee=/Game/Sounds/InterfaceAudio/Mono/UI_LapComplete_Cue.UI_LapComplete_Cue
+# Son de la porte (vide = aucun)
+SonPorte=
