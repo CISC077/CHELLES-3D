@@ -1,0 +1,72 @@
+﻿# ===========================================================================
+#  CHELLES 3D - COMMERCES : reglages (Bloc-notes, pas besoin de recompiler)
+#  Dans le jeu, console (touche au-dessus de Tab) : Chelles.Commerces Relire  pour relire ce fichier.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# PIÈCES : la monnaie du jeu. Elles sont gardées sur ton PC
+# (Saved\SaveGames\ChellesCommerces.sav) et affichées à droite de l'écran.
+# ---------------------------------------------------------------------------
+# Pièces données au tout premier lancement
+Pieces.Depart=50
+# Pièces par zombie tué / par ennemi (soldat, bandit...) tué
+Pieces.ParZombie=3
+Pieces.ParEnnemi=5
+# Pièces par point d'XP gagné (0,25 = 1 pièce pour 4 XP ; tu gagnes 10 XP par minute de jeu)
+Pieces.ParXP=0,25
+# Pièces par minute de jeu en plus (0 = aucune)
+Pieces.ParMinute=0
+# Afficher le compteur de pièces à droite de l'écran (Oui / Non)
+Pieces.Afficher=Oui
+
+# ---------------------------------------------------------------------------
+# BOUTIQUES : elles s'ouvrent toutes seules quand tu arrives au comptoir
+# (BOULANGERIE et TABAC-PRESSE : Tools\Commerces ; CHELLES BAR : Tools\Bar).
+# Clique sur un article pour l'acheter. FERMER : elle se rouvre si tu
+# t'éloignes puis reviens au comptoir.
+# ---------------------------------------------------------------------------
+# Distance du comptoir pour ouvrir la boutique (mètres)
+Boutique.Distance=2,5
+
+# Noms affichés et étiquettes des comptoirs dans la carte (à ne changer que si besoin)
+Commerce.Boulangerie.Nom=BOULANGERIE
+Commerce.Boulangerie.Tag=ChellesComptoir_Boulangerie
+Commerce.Tabac.Nom=TABAC - PRESSE
+Commerce.Tabac.Tag=ChellesComptoir_Tabac
+Commerce.Bar.Nom=CHELLES BAR
+Commerce.Bar.Tag=ChellesBarComptoir
+
+# ---------------------------------------------------------------------------
+# ARTICLES (8 au plus par commerce) :
+#   Article = Commerce | Nom | Prix | EFFET | Valeur | Durée (secondes)
+# EFFET :
+#   VIE       + Valeur points de vie (999 = vie au maximum)
+#   REGEN     + Valeur points de vie chaque seconde, pendant Durée
+#   VITESSE   course plus rapide : x Valeur (1,4 = 40 % plus vite), pendant Durée
+#   SAUT      saut plus haut : x Valeur, pendant Durée
+#   BOUCLIER  Valeur % des dégâts reçus sont rendus, pendant Durée
+#   XP        + Valeur XP (pouvoirs)
+#   MUNITIONS + Valeur munitions pour la mitrailleuse et le lance-flammes
+#   GRATTAGE  carte à gratter : on peut gagner jusqu'à Valeur pièces... ou rien
+# Mettre # devant une ligne pour retirer l'article.
+# ---------------------------------------------------------------------------
+Article = Boulangerie | Croissant                     | 10 | VIE      | 25
+Article = Boulangerie | Pain au chocolat              | 20 | VIE      | 50
+Article = Boulangerie | Baguette tradition            | 35 | VIE      | 999
+Article = Boulangerie | Gâteau du quartier            | 45 | REGEN    | 3   | 30
+
+Article = Tabac       | Le Journal de Chelles         | 15 | XP       | 40
+Article = Tabac       | Carte à gratter               | 25 | GRATTAGE | 150
+Article = Tabac       | Recharge de munitions         | 40 | MUNITIONS| 150
+Article = Tabac       | Magazine des héros            | 40 | XP       | 120
+
+Article = Bar         | Café serré                    | 15 | VITESSE  | 1,4 | 45
+Article = Bar         | Soda énergie                  | 20 | SAUT     | 1,6 | 45
+Article = Bar         | Diabolo menthe                | 15 | VIE      | 40
+Article = Bar         | Cocktail maison (sans alcool) | 60 | BOUCLIER | 50  | 60
+
+# ---------------------------------------------------------------------------
+# SONS
+# ---------------------------------------------------------------------------
+Son.Achat=/Game/Sounds/InterfaceAudio/Mono/UI_LapComplete_Cue.UI_LapComplete_Cue
+Son.Pieces=/Game/Sounds/InterfaceAudio/Mono/UI_Countdown_Cue.UI_Countdown_Cue
