@@ -1,0 +1,26 @@
+# CHELLES 3D - MODE PHOTO (plugin ChellesPhoto)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+#
+# La TOUCHE du mode photo se change dans le jeu : OPTIONS > CONTROLES > MODE PHOTO (F12 par defaut).
+
+# Oui = le monde se fige (en SOLO seulement : en multijoueur le monde continue de bouger)
+FigerEnSolo=Oui
+
+# Vitesse de la camera (centimetres par seconde). Maj = 3 fois plus vite, Alt = 4 fois plus lent
+Vitesse=600
+
+# Sensibilite de la souris
+Sensibilite=0.15
+
+# Distance maximale entre la camera et ton personnage, en metres (0 = pas de limite)
+DistanceMax=60
+
+# Dossier des photos. Vide = Documents\CHELLES 3D - Photos
+Dossier=
+
+# Oui = le cadre TikTok (vertical 9:16) est actif des l'entree dans le mode photo
+CadreTikTok=Non
+
+# Texte affiche en bas de l'aide (partage)
+Partage=Partage tes photos : TikTok @meridja77  -  Discord discord.gg/MtUru8vyg
