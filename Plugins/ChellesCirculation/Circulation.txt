@@ -1,0 +1,31 @@
+# CHELLES 3D - Circulation (plugin ChellesCirculation)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+
+# Nombre de voitures qui roulent (avant le 26/11 : 50)
+NombreDeVoitures=20
+
+# Place dans la rue : 0.25 = milieu de la voie de DROITE (comme en France).
+# Plus grand = plus pres du trottoir de droite (maximum 0.45). Sens uniques : toujours au milieu.
+PositionVoie=0.25
+
+# Une voiture qui roule a reculons ou de travers : mettez son nom (voir le journal du jeu,
+# lignes "Modele ... : rotation ...") avec 180, 90 ou -90. Exemple :
+#Orientation.SM_Hatchback=180
+
+# Voitures a ne plus jamais faire rouler (noms separes par des virgules). Exemple :
+#Exclure=SM_SUV_01a,SM_Pickup
+
+# ---- FEUX TRICOLORES (26/11) ----
+# 1 = feux aux carrefours, les voitures s'arretent au rouge. 0 = pas de feux.
+FeuxTricolores=1
+# Nombre maximum de carrefours avec des feux (les plus grands d'abord)
+FeuxNombreMaximum=25
+# 1 = seulement les carrefours d'une rue a 50 km/h. 0 = aussi les petites rues a 30 km/h
+FeuxSeulementGrandesRues=1
+# Distance minimum entre deux carrefours a feux (en metres)
+FeuxDistanceMinimum=40
+# Durees en secondes : vert, orange, et rouge des deux cotes (le temps que le carrefour se vide)
+FeuxDureeVert=12
+FeuxDureeOrange=3
+FeuxDureeRougePartout=2
