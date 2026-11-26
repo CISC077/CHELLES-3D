@@ -1,0 +1,85 @@
+# ============================================================
+#  FETES DU CALENDRIER DE CHELLES 3D  (plugin ChellesFetes)
+#  Modifiez une valeur avec le Bloc-notes, enregistrez, puis relancez Play
+#  (ou console touche ² : Chelles.Fetes Relire). Pas besoin de recompiler.
+#  Les lignes qui commencent par # sont des commentaires.
+# ============================================================
+
+# Oui = les fetes arrivent selon la date du PC, Non = plugin eteint
+Actif=Oui
+
+# Auto      = selon la date du PC (voir les dates plus bas)
+# Halloween / 14Juillet / Musique = cette fete tout le temps (pour tester)
+# Non       = aucune fete
+Mode=Auto
+
+# La fete n'a lieu que sur cette carte (Toutes = sur toutes les cartes, menus compris)
+Carte=Rachid
+
+# ---------------- DATES (jour/mois, bornes comprises) ----------------
+HalloweenDebut=25/10
+HalloweenFin=02/11
+JuilletDebut=13/07
+JuilletFin=15/07
+MusiqueDebut=20/06
+MusiqueFin=22/06
+
+# ---------------- HALLOWEEN ----------------
+# Citrouilles posees sur l'herbe autour du point de depart (memes places pour tous les joueurs)
+Citrouilles=40
+# Rayon en metres autour du depart
+CitrouillesRayon=150
+# Taille d'une citrouille en cm
+TailleCitrouille=60
+# Nombre de citrouilles avec une vraie lumiere qui vacille (trop = jeu plus lent)
+BougiesMax=24
+# Fantomes qui flottent au-dessus des rues
+Fantomes=8
+# Pourcentage des passants (et zombies) qui ont une tete de citrouille
+TetesCitrouille=35
+# Laisser vide = citrouille fabriquee par le plugin. Ou le chemin d'une citrouille d'un pack,
+# ex : CitrouilleMaillage=/Game/MonPack/SM_Pumpkin
+CitrouilleMaillage=
+# Son d'ambiance qui fait peur, joue seulement la nuit (vide = pas de son)
+AmbianceHalloween=/Game/Audio/Menu/zapsplat_horror_landscape_drone_dark_night_43217
+VolumeAmbiance=0.35
+
+# ---------------- 14 JUILLET : FEU D'ARTIFICE ----------------
+# Joueur = devant le joueur, la ou il regarde (conseille)
+# Depart = au-dessus du point de depart
+# ou une position X,Y,Z (en cm, lue dans Unreal) ex : LieuFeux=12000,-3500,200
+LieuFeux=Joueur
+# Distance du feu devant le joueur (metres) et hauteur des explosions (metres)
+DistanceFeux=160
+HauteurFeux=90
+# Un spectacle dure DureeSpectacle secondes (bouquet final les 10 dernieres),
+# puis pause de PauseSpectacle secondes, et ca recommence.
+DureeSpectacle=70
+PauseSpectacle=120
+EtincellesParBouquet=90
+TailleEtincelle=1
+# Brillance des etincelles
+ForceLumiere=60
+VolumeFeux=0.7
+SonExplosion=/Game/Audio/Explosion_Cue
+SonDepart=/Game/Audio/SoundFX/Whoosh2_Cue
+# Couleurs R,G,B separees par ;  (bleu ; blanc ; rouge ; or ; vert ; violet)
+# Les 3 premieres font aussi des bouquets tricolores.
+CouleursFeux=0.05,0.25,1 ; 1,1,1 ; 1,0.05,0.05 ; 1,0.7,0.1 ; 0.1,1,0.25 ; 0.75,0.15,1
+
+# ---------------- FETE DE LA MUSIQUE ----------------
+# La scene se pose toute seule sur une place libre pres du depart.
+# Pour la mettre ou vous voulez : en jeu, regardez l'endroit, touche ² puis  Chelles.Fetes PoserScene
+# (la place est gardee dans Plugins\ChellesFetes\Scene_Position.txt)
+Danseurs=12
+# Personnages qui dansent et leurs danses (separes par ;). Une danse ne marche que sur
+# un personnage du meme squelette (ici le mannequin ActorCore et ses 3 danses).
+MaillagesDanseurs=/Game/ActorCore_Sample_Motions/Dummy_Female/Dummy_Female
+Danses=/Game/ActorCore_Sample_Motions/Pose_dance_catwalk_Female/Aerobic_Dance_Anim ; /Game/ActorCore_Sample_Motions/Pose_dance_catwalk_Female/Air_dance_Anim ; /Game/ActorCore_Sample_Motions/Pose_dance_catwalk_Female/Dance_graceful_Anim
+# Si les danseurs regardent de cote, essayez 0 ou 90 ou 180
+RotationDanseurs=-90
+# Morceaux joues l'un apres l'autre sur la scene
+Musiques=/Game/WAV/WAV_Synthwave_Cyberpunk_Track_01 ; /Game/WAV/WAV_Synthwave_Cyberpunk_Track_02 ; /Game/WAV/WAV_Synthwave_Cyberpunk_Track_03 ; /Game/WAV/WAV_Synthwave_Cyberpunk_Track_04 ; /Game/WAV/WAV_Synthwave_Cyberpunk_Track_05
+VolumeMusique=0.8
+# On entend la musique jusqu'a PorteeMusique metres de la scene
+PorteeMusique=70
