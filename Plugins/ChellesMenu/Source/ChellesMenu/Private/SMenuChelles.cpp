@@ -1925,6 +1925,13 @@ void SMenuChelles::MontrerApercu()
 	}
 	PinceauApercu->SetResourceObject(A->Image());
 
+	// 26/11 : carte HEROS / VEHICULE du lobby (cheval, voiture, motoneige...) : son corps a lui dans l'apercu
+	if (!ModeLobby.IsEmpty() && !ModeLobby.Equals(TEXT("Soldat"), ESearchCase::IgnoreCase))
+	{
+		A->MontrerMode(ModeLobby);
+		return;
+	}
+
 	// Spider-Man : on montre le corps du joueur tel qu'il est dans la carte
 	USkeletalMesh* MeshSpider = nullptr;
 	UClass* AnimSpider = nullptr;
@@ -2562,6 +2569,7 @@ void SMenuChelles::ChangerLobby(int32 Sens)
 		if (i >= Persos.Num())
 		{
 			ModeLobby = Modes[i - Persos.Num()].Mode;
+			MontrerApercu();
 			Afficher(EEcranMenu::Habillage);
 		}
 		else
@@ -2643,6 +2651,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 		{
 			GConfig->GetString(TEXT("ChellesLobby"), TEXT("ModeDepart"), ModeLobby, GGameUserSettingsIni);
 		}
+		MontrerApercu(); // mode garde de la derniere partie : son apercu des l'ouverture
 	}
 	const FModeLobby* ModeChoisi = TrouverModeLobby(ModeLobby);
 	const ChellesHabillage::FModele* Modele = ChellesHabillage::TrouverModele(TenueChoisie.Modele);
@@ -2814,6 +2823,7 @@ TSharedRef<SWidget> SMenuChelles::EcranHabillage()
 			{
 				RubanLobby = 0;
 				ModeLobby = Mode;
+				MontrerApercu();
 				Afficher(EEcranMenu::Habillage);
 			}));
 		if (bChoisie)

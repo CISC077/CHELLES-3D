@@ -8,6 +8,7 @@
 
 class USkeletalMesh;
 class USkeletalMeshComponent;
+class UPoseableMeshComponent;
 class UMaterialInterface;
 class UDataTable;
 class USceneCaptureComponent2D;
@@ -43,7 +44,8 @@ namespace ChellesHabillage
 		Brenda = 7,    // 25/11/2026
 		/** Mr.SHEMS (25/11/2026) : personnage VIP, debloque par un code (EstPersoVIP / DebloquerPerso). */
 		Shems = 8,
-		Rebecca = 9    // 26/11/2026
+		Rebecca = 9,   // 26/11/2026
+		Rachid = 10    // 26/11/2026, VIP (Bureau\Rachid_3D)
 	};
 
 	/** Nom du personnage pose par ChellesWraith pour ce choix (LENA, SOFIA...), nullptr pour les autres choix. */
@@ -202,6 +204,27 @@ private:
 	float ProchainPantera = 0.f;
 
 	TMap<TWeakObjectPtr<APawn>, FHabille> Habilles;
+
+	/** 26/11/2026 : perso special (LENA, SOFIA, PANTERA, heros Paragon...) sur le cavalier du cheval.
+	 *  Avant, le cavalier restait en Spider-Male pour tous ces persos. Son corps recopie maintenant la pose
+	 *  du cavalier os par os (noms Mixamo traduits en noms UE4, ecart pose en T / pose en A corrige). */
+	struct FCavalierPerso
+	{
+		FString Chemin;
+		TWeakObjectPtr<USkeletalMeshComponent> Selle;
+		TWeakObjectPtr<UPoseableMeshComponent> Corps;
+		TArray<int32> Source;          // os du cavalier pour chaque os du perso (INDEX_NONE = aucun)
+		TArray<FQuat> Ecart;           // rotation qui amene l'os du perso dans la direction de l'os du cavalier (pose de reference)
+		TArray<FTransform> RefPerso;   // pose de reference du perso, espace du composant
+		TArray<FTransform> RefSelle;   // pose de reference du cavalier, espace du composant
+		int32 Bassin = INDEX_NONE;
+		bool bOmbreSelle = true;
+	};
+	TMap<TWeakObjectPtr<APawn>, FCavalierPerso> Cavaliers;
+	void PersoACheval(APawn* Pion, USkeletalMeshComponent* Selle, const ChellesHabillage::FTenue& Tenue);
+	void RetirerPersoACheval(APawn* Pion);
+	void PoserCavaliers();
+
 	float ProchainControle = 0.f;
 	bool bCatalogueLance = false;   // catalogue des tenues charge en arriere-plan (25/11)
 	float ProchainEnvoi = 0.f;
@@ -218,6 +241,9 @@ public:
 	AApercuHabillage();
 
 	void Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalMesh* MeshSpiderMan, UClass* AnimSpiderMan);
+	/** 26/11/2026 : carte HEROS / VEHICULE du lobby (Spider-Femelle, Flash Eclair, Motoneige, Voiture, Cheval...) :
+	 *  montre son propre corps ou vehicule (avant : l'apercu restait sur le dernier perso choisi). */
+	void MontrerMode(const FString& Mode);
 	void Tourner(float Degres) { Angle += Degres; Pause = 3.f; }
 	UTextureRenderTarget2D* Image() const { return Cible; }
 
@@ -269,6 +295,7 @@ private:
 	TWeakObjectPtr<USkeletalMesh> SpiderAttendu;
 	TWeakObjectPtr<UClass> AnimAttendue;
 	bool bApresAttente = false;
+	FString ModeAttendu;      // MontrerMode en attente de chargement (vide = Montrer)
 
 	float Angle = 0.f;
 	float Pause = 0.f;

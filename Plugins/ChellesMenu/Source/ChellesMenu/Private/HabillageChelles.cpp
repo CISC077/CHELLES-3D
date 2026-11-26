@@ -4,6 +4,7 @@
 #include "Animation/AnimInstance.h"
 #include "Animation/Skeleton.h"
 #include "Components/PointLightComponent.h"
+#include "Components/PoseableMeshComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -27,6 +28,9 @@
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/Crc.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/SCS_Node.h"
+#include "Engine/SimpleConstructionScript.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/PackageName.h"
@@ -59,6 +63,7 @@ namespace HabillageInterne
 		{ ChellesHabillage::Brenda, TEXT("BRENDA"), TEXT("BRENDA"), TEXT("Brenda") },
 		{ ChellesHabillage::Shems, TEXT("MR.SHEMS"), TEXT("Shems"), TEXT("Shems") },
 		{ ChellesHabillage::Rebecca, TEXT("REBECCA"), TEXT("Rebecca"), TEXT("Rebecca") },
+		{ ChellesHabillage::Rachid, TEXT("RACHID"), TEXT("Rachid"), TEXT("Rachid") },   // 26/11/2026, VIP
 	};
 	static const FPersoWraithInfo* InfoPerso(int32 Sexe)
 	{
@@ -1567,6 +1572,13 @@ void AHabillageChelles::EndPlay(const EEndPlayReason::Type Raison)
 		}
 	}
 	Habilles.Reset();
+	TArray<TWeakObjectPtr<APawn>> PionsACheval;
+	Cavaliers.GetKeys(PionsACheval);
+	for (const TWeakObjectPtr<APawn>& P : PionsACheval)
+	{
+		RetirerPersoACheval(P.Get());
+	}
+	Cavaliers.Reset();
 	Super::EndPlay(Raison);
 }
 
@@ -1708,6 +1720,293 @@ USkeletalMeshComponent* AHabillageChelles::Cavalier(APawn* Pion)
 		}
 	}
 	return nullptr;
+}
+
+// ---------------------------------------------------------------- Perso special sur le cheval (26/11/2026)
+
+namespace HabillageInterne
+{
+	/** Nom d'os commun : les os Mixamo (Hips, LeftArm...) prennent le nom UE4 (pelvis, upperarm_l...). */
+	static FString OsCommun(const FName& Nom)
+	{
+		FString N = Nom.ToString().ToLower();
+		N.RemoveFromStart(TEXT("mixamorig:"));
+		N.RemoveFromStart(TEXT("mixamorig_"));
+		N.RemoveFromStart(TEXT("mixamorig"));
+		static const TCHAR* const Table[][2] =
+		{
+			{ TEXT("hips"), TEXT("pelvis") }, { TEXT("spine"), TEXT("spine_01") }, { TEXT("spine1"), TEXT("spine_02") },
+			{ TEXT("spine2"), TEXT("spine_03") }, { TEXT("neck"), TEXT("neck_01") }, { TEXT("head"), TEXT("head") },
+			{ TEXT("leftshoulder"), TEXT("clavicle_l") }, { TEXT("leftarm"), TEXT("upperarm_l") }, { TEXT("leftforearm"), TEXT("lowerarm_l") },
+			{ TEXT("lefthand"), TEXT("hand_l") }, { TEXT("leftupleg"), TEXT("thigh_l") }, { TEXT("leftleg"), TEXT("calf_l") },
+			{ TEXT("leftfoot"), TEXT("foot_l") }, { TEXT("lefttoebase"), TEXT("ball_l") },
+			{ TEXT("rightshoulder"), TEXT("clavicle_r") }, { TEXT("rightarm"), TEXT("upperarm_r") }, { TEXT("rightforearm"), TEXT("lowerarm_r") },
+			{ TEXT("righthand"), TEXT("hand_r") }, { TEXT("rightupleg"), TEXT("thigh_r") }, { TEXT("rightleg"), TEXT("calf_r") },
+			{ TEXT("rightfoot"), TEXT("foot_r") }, { TEXT("righttoebase"), TEXT("ball_r") },
+		};
+		for (const auto& L : Table)
+		{
+			if (N == L[0])
+			{
+				return L[1];
+			}
+		}
+		// Doigts Mixamo : LeftHandIndex1 -> index_01_l (le 4e = bout du doigt, sans equivalent)
+		for (const TCHAR* Cote : { TEXT("left"), TEXT("right") })
+		{
+			const FString Debut = FString(Cote) + TEXT("hand");
+			if (N.StartsWith(Debut) && N.Len() > Debut.Len() + 1)
+			{
+				const FString Reste = N.Mid(Debut.Len());
+				const TCHAR Chiffre = Reste[Reste.Len() - 1];
+				if (Chiffre >= TEXT('1') && Chiffre <= TEXT('3'))
+				{
+					return FString::Printf(TEXT("%s_0%c_%c"), *Reste.LeftChop(1), Chiffre, Cote[0] == TEXT('l') ? TEXT('l') : TEXT('r'));
+				}
+			}
+		}
+		return N;
+	}
+
+	/** Os "enfant" qui donne la direction d'un os (bras, jambes, colonne, doigts). */
+	static FString OsDirection(const FString& Os)
+	{
+		static const TCHAR* const Table[][2] =
+		{
+			{ TEXT("clavicle"), TEXT("upperarm") }, { TEXT("upperarm"), TEXT("lowerarm") }, { TEXT("lowerarm"), TEXT("hand") },
+			{ TEXT("hand"), TEXT("middle_01") }, { TEXT("thigh"), TEXT("calf") }, { TEXT("calf"), TEXT("foot") }, { TEXT("foot"), TEXT("ball") },
+		};
+		for (const auto& L : Table)
+		{
+			for (const TCHAR* Cote : { TEXT("_l"), TEXT("_r") })
+			{
+				if (Os == FString(L[0]) + Cote)
+				{
+					return FString(L[1]) + Cote;
+				}
+			}
+		}
+		if (Os == TEXT("spine_01")) return TEXT("spine_02");
+		if (Os == TEXT("spine_02")) return TEXT("spine_03");
+		if (Os == TEXT("spine_03")) return TEXT("neck_01");
+		if (Os == TEXT("neck_01")) return TEXT("head");
+		for (const TCHAR* Doigt : { TEXT("thumb"), TEXT("index"), TEXT("middle"), TEXT("ring"), TEXT("pinky") })
+		{
+			for (const TCHAR* Cote : { TEXT("_l"), TEXT("_r") })
+			{
+				if (Os == FString::Printf(TEXT("%s_01%s"), Doigt, Cote)) return FString::Printf(TEXT("%s_02%s"), Doigt, Cote);
+				if (Os == FString::Printf(TEXT("%s_02%s"), Doigt, Cote)) return FString::Printf(TEXT("%s_03%s"), Doigt, Cote);
+			}
+		}
+		return FString();
+	}
+
+	static void PoseDeReference(const FReferenceSkeleton& Ref, TArray<FTransform>& CS)
+	{
+		const TArray<FTransform>& Local = Ref.GetRefBonePose();
+		CS.SetNum(Local.Num());
+		for (int32 i = 0; i < Local.Num(); ++i)
+		{
+			const int32 Parent = Ref.GetParentIndex(i);
+			CS[i] = Parent != INDEX_NONE ? Local[i] * CS[Parent] : Local[i];
+		}
+	}
+
+	/** Corps du perso choisi (et son materiau) quand ce n'est pas une tenue de vetements ni Spider-Male. */
+	static FString CorpsDuPerso(const ChellesHabillage::FTenue& Tenue, FString& Materiau)
+	{
+		Materiau.Reset();
+		if (const FPersoWraithInfo* P = InfoPerso(Tenue.Sexe))
+		{
+			return FString::Printf(TEXT("/Game/Personnages/%s/Joueur/SK_%s.SK_%s"), P->Dossier, P->Prefixe, P->Prefixe);
+		}
+		if (const FHerosSkin* H = InfoHeros(Tenue.Sexe))
+		{
+			Materiau = H->Materiau;
+			return H->Corps;
+		}
+		if (Tenue.EstPantera())
+		{
+			return CheminPantera;
+		}
+		return FString();
+	}
+}
+
+void AHabillageChelles::PersoACheval(APawn* Pion, USkeletalMeshComponent* Selle, const ChellesHabillage::FTenue& Tenue)
+{
+	FString Materiau;
+	const FString Chemin = HabillageInterne::CorpsDuPerso(Tenue, Materiau);
+	if (FCavalierPerso* Deja = Cavaliers.Find(Pion))
+	{
+		if (Deja->Chemin == Chemin && Deja->Selle.Get() == Selle && Deja->Corps.IsValid())
+		{
+			return;
+		}
+	}
+	RetirerPersoACheval(Pion);
+	if (Chemin.IsEmpty() || !Selle || !Selle->SkeletalMesh)
+	{
+		return;
+	}
+	USkeletalMesh* Mesh = LoadObject<USkeletalMesh>(nullptr, *Chemin, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	if (!Mesh)
+	{
+		return;
+	}
+	FCavalierPerso C;
+	C.Chemin = Chemin;
+	C.Selle = Selle;
+	C.bOmbreSelle = Selle->CastShadow;
+	const FReferenceSkeleton& RefP = Mesh->GetRefSkeleton();
+	const FReferenceSkeleton& RefS = Selle->SkeletalMesh->GetRefSkeleton();
+	HabillageInterne::PoseDeReference(RefP, C.RefPerso);
+	HabillageInterne::PoseDeReference(RefS, C.RefSelle);
+
+	TMap<FString, int32> OsSelle, OsPerso;
+	for (int32 i = 0; i < RefS.GetNum(); ++i)
+	{
+		OsSelle.Add(HabillageInterne::OsCommun(RefS.GetBoneName(i)), i);
+	}
+	for (int32 i = 0; i < RefP.GetNum(); ++i)
+	{
+		OsPerso.Add(HabillageInterne::OsCommun(RefP.GetBoneName(i)), i);
+	}
+	int32 Trouves = 0;
+	C.Source.Init(INDEX_NONE, RefP.GetNum());
+	C.Ecart.Init(FQuat::Identity, RefP.GetNum());
+	for (int32 i = 0; i < RefP.GetNum(); ++i)
+	{
+		const FString Nom = HabillageInterne::OsCommun(RefP.GetBoneName(i));
+		const int32* S = OsSelle.Find(Nom);
+		if (!S || (*S == 0 && Nom != TEXT("pelvis")))
+		{
+			continue; // la racine ne suit pas : c'est le bassin qui place le corps
+		}
+		C.Source[i] = *S;
+		++Trouves;
+		if (Nom == TEXT("pelvis"))
+		{
+			C.Bassin = i;
+		}
+		const FString Enfant = HabillageInterne::OsDirection(Nom);
+		const int32* EP = Enfant.IsEmpty() ? nullptr : OsPerso.Find(Enfant);
+		const int32* ES = Enfant.IsEmpty() ? nullptr : OsSelle.Find(Enfant);
+		if (EP && ES)
+		{
+			const FVector DirP = (C.RefPerso[*EP].GetLocation() - C.RefPerso[i].GetLocation()).GetSafeNormal();
+			const FVector DirS = (C.RefSelle[*ES].GetLocation() - C.RefSelle[*S].GetLocation()).GetSafeNormal();
+			if (!DirP.IsNearlyZero() && !DirS.IsNearlyZero())
+			{
+				C.Ecart[i] = FQuat::FindBetweenNormals(DirP, DirS);
+			}
+		}
+	}
+	if (Trouves < 10 || C.Bassin == INDEX_NONE)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Habillage] Cavalier : %s n'a pas assez d'os communs avec le cavalier (%d), il reste en Spider-Male."), *Chemin, Trouves);
+		return;
+	}
+
+	UPoseableMeshComponent* Corps = NewObject<UPoseableMeshComponent>(Pion, NAME_None, RF_Transient);
+	Corps->SetupAttachment(Selle);
+	Corps->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Corps->SetGenerateOverlapEvents(false);
+	Corps->bReceivesDecals = false;
+	Corps->SetSkeletalMesh(Mesh);
+	if (!Materiau.IsEmpty())
+	{
+		if (UMaterialInterface* Mat = LoadObject<UMaterialInterface>(nullptr, *Materiau))
+		{
+			for (int32 i = 0; i < Corps->GetNumMaterials(); ++i)
+			{
+				Corps->SetMaterial(i, Mat);
+			}
+		}
+	}
+	Corps->SetHiddenInGame(Selle->bHiddenInGame);
+	Corps->RegisterComponent();
+	C.Corps = Corps;
+	HabillageInterne::RenduCache(Selle, true, false); // le Spider-Male du cavalier ne se dessine plus
+	Cavaliers.Add(Pion, MoveTemp(C));
+	PoserCavaliers();
+	UE_LOG(LogTemp, Log, TEXT("[Habillage] Cavalier de %s : %s (%d os suivis)."), *Pion->GetName(), *Chemin, Trouves);
+}
+
+void AHabillageChelles::RetirerPersoACheval(APawn* Pion)
+{
+	FCavalierPerso* C = Cavaliers.Find(Pion);
+	if (!C)
+	{
+		return;
+	}
+	if (UPoseableMeshComponent* Corps = C->Corps.Get())
+	{
+		Corps->DestroyComponent();
+	}
+	if (USkeletalMeshComponent* Selle = C->Selle.Get())
+	{
+		HabillageInterne::RenduCache(Selle, false, C->bOmbreSelle);
+	}
+	Cavaliers.Remove(Pion);
+}
+
+void AHabillageChelles::PoserCavaliers()
+{
+	for (TPair<TWeakObjectPtr<APawn>, FCavalierPerso>& Paire : Cavaliers)
+	{
+		FCavalierPerso& C = Paire.Value;
+		USkeletalMeshComponent* Selle = C.Selle.Get();
+		UPoseableMeshComponent* Corps = C.Corps.Get();
+		if (!Selle || !Corps || !Corps->SkeletalMesh || !Selle->SkeletalMesh)
+		{
+			continue;
+		}
+		if (Selle->bRenderInMainPass)
+		{
+			HabillageInterne::RenduCache(Selle, true, false); // quelqu'un a remis le Spider-Male : on le recache
+		}
+		if (Corps->bHiddenInGame != Selle->bHiddenInGame)
+		{
+			Corps->SetHiddenInGame(Selle->bHiddenInGame); // cache tant qu'on n'est pas en selle
+		}
+		if (Corps->bOwnerNoSee != Selle->bOwnerNoSee)
+		{
+			Corps->SetOwnerNoSee(Selle->bOwnerNoSee);
+		}
+		if (Selle->bHiddenInGame)
+		{
+			continue;
+		}
+		const TArray<FTransform>& PoseSelle = Selle->GetComponentSpaceTransforms();
+		const FReferenceSkeleton& RefP = Corps->SkeletalMesh->GetRefSkeleton();
+		const int32 N = RefP.GetNum();
+		if (PoseSelle.Num() != C.RefSelle.Num() || Corps->BoneSpaceTransforms.Num() != N || C.Source.Num() != N)
+		{
+			continue;
+		}
+		const TArray<FTransform>& Local = RefP.GetRefBonePose();
+		TArray<FTransform> CS;
+		CS.SetNum(N);
+		for (int32 i = 0; i < N; ++i)
+		{
+			const int32 Parent = RefP.GetParentIndex(i);
+			FTransform T = Parent != INDEX_NONE ? Local[i] * CS[Parent] : Local[i];
+			const int32 S = C.Source[i];
+			if (S != INDEX_NONE && PoseSelle.IsValidIndex(S))
+			{
+				const FQuat Delta = PoseSelle[S].GetRotation() * C.RefSelle[S].GetRotation().Inverse();
+				T.SetRotation((Delta * C.Ecart[i] * C.RefPerso[i].GetRotation()).GetNormalized());
+				if (i == C.Bassin)
+				{
+					T.SetLocation(PoseSelle[S].GetLocation()); // assis sur la selle, a la place du cavalier
+				}
+			}
+			CS[i] = T;
+			Corps->BoneSpaceTransforms[i] = Parent != INDEX_NONE ? T.GetRelativeTransform(CS[Parent]) : T;
+		}
+		Corps->RefreshBoneTransforms();
+	}
 }
 
 void AHabillageChelles::Habiller(APawn* Pion, const FString& Texte, USkeletalMeshComponent* Chef)
@@ -1871,6 +2170,7 @@ void AHabillageChelles::Tick(float Delta)
 		}
 
 		TArray<APawn*> Vus;
+		TArray<APawn*> VusACheval;
 		for (TActorIterator<APawn> It(Monde); It; ++It)
 		{
 			APawn* Pion = *It;
@@ -1892,6 +2192,19 @@ void AHabillageChelles::Tick(float Delta)
 				{
 					Texte = &Tenues.CreateConstIterator().Value(); // en solo, le cavalier visible, c'est nous
 				}
+				if (Texte)
+				{
+					// 26/11 : LENA, SOFIA, PANTERA, heros Paragon... : son corps sur le cheval, plus le Spider-Male de la roue
+					const ChellesHabillage::FTenue TenueCavalier = ChellesHabillage::FTenue::DepuisTexte(*Texte);
+					if (TenueCavalier.EstSpiderMan() && TenueCavalier.Sexe != ChellesHabillage::SpiderMan)
+					{
+						PersoACheval(Pion, Selle, TenueCavalier);
+						if (Cavaliers.Contains(Pion))
+						{
+							VusACheval.Add(Pion);
+						}
+					}
+				}
 			}
 			if (Chef && Texte && !ChellesHabillage::FTenue::DepuisTexte(*Texte).EstSpiderMan())
 			{
@@ -1912,8 +2225,22 @@ void AHabillageChelles::Tick(float Delta)
 				Deshabiller(P.Get()); // Spider-Man choisi, ou personnage pris par un autre mode
 			}
 		}
+		TArray<TWeakObjectPtr<APawn>> AnciensCavaliers;
+		Cavaliers.GetKeys(AnciensCavaliers);
+		for (const TWeakObjectPtr<APawn>& P : AnciensCavaliers)
+		{
+			if (!P.IsValid())
+			{
+				Cavaliers.Remove(P);
+			}
+			else if (!VusACheval.Contains(P.Get()))
+			{
+				RetirerPersoACheval(P.Get());
+			}
+		}
 	}
 	Suivre();
+	PoserCavaliers();
 }
 
 // ---------------------------------------------------------------- PANTERA
@@ -2194,6 +2521,7 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 			Attente->CancelHandle(); // un autre perso a ete choisi entre-temps
 			Attente.Reset();
 		}
+		ModeAttendu.Reset();
 		if (AFaire.Num() > 0)
 		{
 			TenueAttendue = Tenue;
@@ -2214,6 +2542,11 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 		}
 	}
 	Morceaux.Reset();
+	if (Corps)
+	{
+		Corps->SetRelativeScale3D(FVector::OneVector); // un vehicule montre avant (MontrerMode) a pu le reduire
+		Corps->SetRelativeLocation(FVector::ZeroVector);
+	}
 
 	TArray<ChellesHabillage::FPiece> Pieces;
 	UClass* Anim = nullptr;
@@ -2354,6 +2687,174 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 	Morceaux = Crees;
 }
 
+namespace HabillageInterne
+{
+	/** Ce que montre l'apercu pour une carte HEROS / VEHICULE du lobby (memes chemins que ChellesRoue). */
+	struct FApercuMode
+	{
+		const TCHAR* Mode;
+		const TCHAR* Classe;   // blueprint du mode (son corps et son Animation Blueprint), nullptr = aucun
+		const TCHAR* Costume;  // corps pose par ChellesRoue a la place de celui du pack, nullptr = celui du blueprint
+	};
+	static const FApercuMode ApercusModes[] =
+	{
+		{ TEXT("Spider-Femelle"), nullptr, TEXT("/Game/Personnages/SK_SpiderFemelle/SK_SpiderFemelle_Vol.SK_SpiderFemelle_Vol") },
+		{ TEXT("FLASH ECLAIR"), TEXT("/Game/SuperPowers/Powers/Speedster/BP_Speedster.BP_Speedster_C"), TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Pouvoirs.SK_SpiderMan_Pouvoirs") },
+		{ TEXT("FLAMME FIRE"), TEXT("/Game/SuperPowers/Powers/Flame/BP_Flame.BP_Flame_C"), TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Pouvoirs.SK_SpiderMan_Pouvoirs") },
+		{ TEXT("SuperPowers"), TEXT("/Game/SuperPowers/Powers/Super/BP_Super.BP_Super_C"), TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Pouvoirs.SK_SpiderMan_Pouvoirs") },
+		{ TEXT("DYNAMIC COMBAT"), TEXT("/Game/DynamicCombatSystem/Blueprints/BP_CombatCharacter.BP_CombatCharacter_C"), TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Combat.SK_SpiderMan_Combat") },
+		{ TEXT("Motoneige"), TEXT("/Game/DV_Snowmobile/Blueprints/BP_Snowmobile.BP_Snowmobile_C"), nullptr },
+		{ TEXT("VOITURE"), TEXT("/Game/VehicleVarietyPack/Blueprints/SportsCar/BP_SportsCar.BP_SportsCar_C"), nullptr },
+		{ TEXT("HORSE"), TEXT("/Game/HorseStarterKit/Blueprint/BP_Rideable_DarkBrown_Horse.BP_Rideable_DarkBrown_Horse_C"), nullptr },
+	};
+
+	static const FApercuMode* TrouverApercuMode(const FString& Mode)
+	{
+		for (const FApercuMode& M : ApercusModes)
+		{
+			if (Mode.Equals(M.Mode, ESearchCase::IgnoreCase))
+			{
+				return &M;
+			}
+		}
+		return nullptr;
+	}
+
+	/** Le corps (composant squelette) qu'un blueprint donne a son acteur : Character, vehicule ou composant ajoute. */
+	static const USkeletalMeshComponent* GabaritSquelette(UClass* Classe)
+	{
+		const AActor* CDO = Classe ? Cast<AActor>(Classe->GetDefaultObject()) : nullptr;
+		if (!CDO)
+		{
+			return nullptr;
+		}
+		const USkeletalMeshComponent* Meilleur = nullptr;
+		TInlineComponentArray<USkeletalMeshComponent*> Natifs;
+		CDO->GetComponents(Natifs);
+		for (const USkeletalMeshComponent* S : Natifs)
+		{
+			if (S && S->SkeletalMesh && (!Meilleur || S == CDO->GetRootComponent()))
+			{
+				Meilleur = S;
+			}
+		}
+		for (UBlueprintGeneratedClass* B = Cast<UBlueprintGeneratedClass>(Classe); B && !Meilleur; B = Cast<UBlueprintGeneratedClass>(B->GetSuperClass()))
+		{
+			if (B->SimpleConstructionScript)
+			{
+				for (USCS_Node* N : B->SimpleConstructionScript->GetAllNodes())
+				{
+					const USkeletalMeshComponent* S = N ? Cast<USkeletalMeshComponent>(N->ComponentTemplate) : nullptr;
+					if (S && S->SkeletalMesh)
+					{
+						Meilleur = S;
+						break;
+					}
+				}
+			}
+		}
+		return Meilleur;
+	}
+}
+
+void AApercuHabillage::MontrerMode(const FString& Mode)
+{
+	const HabillageInterne::FApercuMode* M = HabillageInterne::TrouverApercuMode(Mode);
+	if (!M || !Corps)
+	{
+		return;
+	}
+	if (!bApresAttente)
+	{
+		// Comme pour les persos : chargement en arriere-plan, l'apercu d'avant reste affiche en attendant
+		TArray<FSoftObjectPath> AFaire;
+		for (const TCHAR* Chemin : { M->Classe, M->Costume })
+		{
+			const FSoftObjectPath P(Chemin ? Chemin : TEXT(""));
+			if (Chemin && P.IsValid() && !P.ResolveObject())
+			{
+				AFaire.Add(P);
+			}
+		}
+		if (Attente.IsValid())
+		{
+			Attente->CancelHandle();
+			Attente.Reset();
+		}
+		ModeAttendu.Reset();
+		if (AFaire.Num() > 0)
+		{
+			ModeAttendu = Mode;
+			Attente = Chargeur.RequestAsyncLoad(AFaire, FStreamableDelegate(), FStreamableManager::AsyncLoadHighPriority, false);
+			if (Attente.IsValid())
+			{
+				return;
+			}
+		}
+	}
+	ModeAttendu.Reset();
+	ON_SCOPE_EXIT { GarderDejaVu(); };
+
+	UClass* Classe = M->Classe ? LoadClass<AActor>(nullptr, M->Classe) : nullptr;
+	const USkeletalMeshComponent* Gabarit = HabillageInterne::GabaritSquelette(Classe);
+	USkeletalMesh* Mesh = M->Costume ? LoadObject<USkeletalMesh>(nullptr, M->Costume) : nullptr;
+	if (!Mesh && Gabarit)
+	{
+		Mesh = Gabarit->SkeletalMesh;
+	}
+	if (!Mesh)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Habillage] Apercu %s : aucun corps trouve."), *Mode);
+		return;
+	}
+	for (USkeletalMeshComponent* C : Morceaux)
+	{
+		if (C)
+		{
+			C->DestroyComponent();
+		}
+	}
+	Morceaux.Reset();
+	HabillageInterne::YeuxPantera(Corps, false);
+	Corps->SetSkeletalMesh(Mesh);
+	Corps->EmptyOverrideMaterials();
+	if (Gabarit && !M->Costume)
+	{
+		// vehicule : ses couleurs a lui (materiaux changes dans le blueprint)
+		for (int32 i = 0; i < Gabarit->OverrideMaterials.Num(); ++i)
+		{
+			if (Gabarit->OverrideMaterials[i])
+			{
+				Corps->SetMaterial(i, Gabarit->OverrideMaterials[i]);
+			}
+		}
+	}
+	HabillageInterne::RenduCache(Corps, false, true);
+
+	// Taille : un perso reste a sa taille, une voiture ou un cheval est reduit pour tenir dans le cadre
+	const FBoxSphereBounds Bornes = Mesh->GetBounds();
+	const float Plus = FMath::Max3(Bornes.BoxExtent.X, Bornes.BoxExtent.Y, Bornes.BoxExtent.Z);
+	const float Echelle = Plus > 110.f ? 110.f / Plus : 1.f;
+	Corps->SetRelativeScale3D(FVector(Echelle));
+	Corps->SetRelativeLocation(FVector(-Bornes.Origin.X * Echelle, -Bornes.Origin.Y * Echelle, 0.f));
+
+	// Mouvement : l'Animation Blueprint du pack si le squelette va avec, sinon l'attente de SuperheroFlight
+	UClass* ClasseAnim = Gabarit ? Gabarit->AnimClass.Get() : nullptr;
+	const UAnimInstance* AnimCDO = ClasseAnim ? Cast<UAnimInstance>(ClasseAnim->GetDefaultObject()) : nullptr;
+	if (ClasseAnim && AnimCDO && AnimCDO->CurrentSkeleton == Mesh->Skeleton)
+	{
+		Corps->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+		Corps->SetAnimInstanceClass(ClasseAnim);
+		return;
+	}
+	Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+	UAnimationAsset* AnimAttente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera);
+	if (AnimAttente && AnimAttente->GetSkeleton() == Mesh->Skeleton)
+	{
+		Corps->PlayAnimation(AnimAttente, true);
+	}
+}
+
 void AApercuHabillage::GarderDejaVu()
 {
 	if (!Corps)
@@ -2384,7 +2885,14 @@ void AApercuHabillage::Tick(float Delta)
 		// Chargement fini (ou echoue : Montrer se debrouille alors comme avant)
 		Attente.Reset();
 		bApresAttente = true;
-		Montrer(TenueAttendue, SpiderAttendu.Get(), AnimAttendue.Get());
+		if (!ModeAttendu.IsEmpty())
+		{
+			MontrerMode(ModeAttendu);
+		}
+		else
+		{
+			Montrer(TenueAttendue, SpiderAttendu.Get(), AnimAttendue.Get());
+		}
 		bApresAttente = false;
 	}
 	if (Pause > 0.f)
