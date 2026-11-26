@@ -28,9 +28,10 @@ DegatsCorpsPourcent=33.4
 
 # Vitesse de marche des zombies (le joueur court a environ 600)
 VitesseZombie=420
-# Les hordes apparaissent entre X et Y metres des joueurs
-DistanceApparitionMinMetres=30
-DistanceApparitionMaxMetres=70
+# Chaque zombie sort de terre a un endroit au hasard autour d'un joueur, entre X et Y metres
+# (avant le 12/11 : hordes entre 30 et 70 m)
+DistanceApparitionMinMetres=8
+DistanceApparitionMaxMetres=40
 
 # Volume de la sirene (1 = normal, 2 = tres fort, 0 = muet)
 VolumeSirene=1
@@ -38,3 +39,22 @@ VolumeSirene=1
 # Zombie utilise (IA de FPS_Game) et sa peau (pack DecayedZombieB). PeauZombie= vide = garder l'apparence du Blueprint.
 ClasseZombie=/Game/FPS_Game/Blueprints/Bonus/AI/Zombie/BP_AI_CharZombie.BP_AI_CharZombie_C
 PeauZombie=/Game/DecayedZombieB/Mesh/SK_DecayedZombie_B_wPants.SK_DecayedZombie_B_wPants
+
+# ---- Zombies de feu (12/11) ----
+# Oui = ils sortent de terre (montee depuis sous le sol + terre projetee), Non = ils apparaissent debout
+SortieDeTerre=Oui
+# Duree de la montee hors de terre (pendant ce temps ils ne bougent pas et ne frappent pas)
+DureeSortieSecondes=2.2
+# Nombre de feux sur chaque zombie (0 = pas de flammes, 6 = maximum : torse, tete, avant-bras, mollets)
+FlammesParZombie=3
+# Oui = lueur orange du feu autour des zombies proches (moins de 25 m)
+LueurDuFeu=Oui
+# Oui = yeux rouges lumineux
+YeuxRouges=Oui
+# Au-dela de X metres du joueur, flammes, lueur et terre ne sont plus affichees (jeu plus fluide)
+DistanceEffetsMetres=45
+# Place des yeux par rapport a l'os de la tete, en cm (a ajuster si les yeux sont mal places)
+YeuxHauteur=8
+YeuxAvant=11
+YeuxEcart=3.3
+TailleYeux=1
