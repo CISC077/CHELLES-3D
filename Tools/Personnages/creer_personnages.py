@@ -187,6 +187,9 @@ def preparer_auto(p):
             return []
         return [os.path.join(d, f) for f in os.listdir(d)
                 if os.path.isfile(os.path.join(d, f)) and f.lower().endswith(".fbx")]
+    if os.path.isdir(p["fbx"]) and not directs(p["fbx"]):
+        # 26/11 (REBECCA) : dossier Animations vide -> les fbx du dossier n'ont pas d'os, on attend Mixamo
+        return "%s : dossier Animations vide (exportez-la de Mixamo AVEC SKIN, en FBX, dans %s)" % (p["nom"], p["fbx"])
     fbx = directs(p["fbx"]) or directs(racine)
     # "Walking (1).fbx", "Flair(1).fbx" = copies : apres l'original
     import re
