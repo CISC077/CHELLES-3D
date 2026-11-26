@@ -53,7 +53,7 @@ if "%ECHECS%"=="0" (
     echo %ECHECS% plugin^(s^) en echec : envoyez une photo de cette fenetre a Claude.
     echo Le jeu marche quand meme avec l'ancienne version du plugin.
 )
-if exist "%PROJET%\Tools\Skins\RAPPORT_SKINS.txt" start "" notepad "%PROJET%\Tools\Skins\RAPPORT_SKINS.txt"
+if exist "%PROJET%\Tools\Skins\RAPPORT_SKINS.txt" start "" "%PROJET%\Tools\Skins\RAPPORT_SKINS.txt"
 pause
 exit /b %ECHECS%
 
