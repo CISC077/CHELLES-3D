@@ -35,17 +35,37 @@ def dire(t):
     lignes_sortie.append("# " + t)
 
 
+CONTENT = os.path.join(PROJET, "Content")
 ar = unreal.AssetRegistryHelpers.get_asset_registry()
+# 26/11 : en mode sans fenetre le registre des fichiers est vide tant qu'on ne le remplit pas
+# (1er essai : "absent du projet" partout) -> scan complet de Content (quelques minutes)
+dire("lecture de tout le projet (quelques minutes)...")
+for essai in ("scan_paths_synchronous", "search_all_assets"):
+    try:
+        if essai == "scan_paths_synchronous":
+            ar.scan_paths_synchronous(["/Game/"], True)
+        else:
+            ar.search_all_assets(True)
+        break
+    except Exception as e:
+        unreal.log_warning("[Paragon] %s impossible : %s" % (essai, e))
 try:
-    ar.search_all_assets(True)
+    ar.wait_for_completion()
 except Exception:
     pass
+# Sans registre rempli, impossible de savoir qui utilise quoi : alors on ne retire RIEN
+registre_ok = len(ar.get_assets_by_path("/Game/Personnages", recursive=True)) > 0
+dire("registre du projet : %s" % ("OK" if registre_ok else "VIDE, rien ne sera retire"))
 
 paquets = {}
 for dossier in A_RETIRER:
     noms = set()
     for a in ar.get_assets_by_path("/Game/" + dossier, recursive=True):
         noms.add(str(a.package_name))
+    if not noms and os.path.isdir(os.path.join(CONTENT, dossier)):
+        # le registre n'a rien vu : on prend la liste de l'editeur
+        for chemin in unreal.EditorAssetLibrary.list_assets("/Game/" + dossier, recursive=True, include_folder=False):
+            noms.add(str(chemin).split(".")[0])
     paquets[dossier] = noms
 tous_retires = set().union(*paquets.values())
 
@@ -63,7 +83,10 @@ for dossier, noms in paquets.items():
             if r in tous_retires or not r.startswith("/Game/"):
                 continue
             dehors.add(r)
-    if not noms:
+    if not registre_ok or (not noms and os.path.isdir(os.path.join(CONTENT, dossier))):
+        bloques[dossier] = ["analyse impossible"]
+        dire("%s : GARDE, impossible de verifier qui l'utilise (envoyez Tools\\out\\paragon_unreal.log a Claude)" % dossier)
+    elif not noms:
         dire("%s : absent du projet (rien a faire)" % dossier)
     elif dehors:
         bloques[dossier] = sorted(dehors)
@@ -76,7 +99,7 @@ for dossier, noms in paquets.items():
 for dossier_perso in ("LENA", "SOFIA", "LUCIA", "BRENDA", "Shems", "Rebecca"):
     for nom in ("base", "base_basic_pbr", "base_basic_shaded"):
         paquet = "/Game/Personnages/%s/%s" % (dossier_perso, nom)
-        if not ar.get_assets_by_package_name(paquet):
+        if not registre_ok or not os.path.isfile(os.path.join(CONTENT, "Personnages", dossier_perso, nom + ".uasset")):
             continue
         try:
             refs = [str(r) for r in (ar.get_referencers(paquet, opts) or []) if str(r).startswith("/Game/")]
