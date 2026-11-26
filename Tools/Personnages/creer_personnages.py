@@ -120,6 +120,17 @@ PERSONNAGES = [
         "textures": os.path.join(BUREAU, "SHEMS_3D", "Textures"),
         "anims": [],
     },
+    {
+        # 26/11/2026 : REBECCA. Textures deja importees par Rachid dans Content\Personnages\Rebecca.
+        # Il faut des fbx Mixamo AVEC SKIN dans Bureau\REBECCA_3D\Animations (sinon elle est sautee).
+        "nom": "Rebecca", "dossier": "Rebecca", "taille_cm": 168.0, "auto": True,
+        "racine": os.path.join(BUREAU, "REBECCA_3D"),
+        "fbx": os.path.join(BUREAU, "REBECCA_3D", "Animations"),
+        "corps": "",
+        "materiau": "",
+        "textures": os.path.join(BUREAU, "REBECCA_3D", "Textures"),
+        "anims": [],
+    },
 ]
 
 # ---------------------------------------------------------------- reconnaissance automatique (25/11, BRENDA)

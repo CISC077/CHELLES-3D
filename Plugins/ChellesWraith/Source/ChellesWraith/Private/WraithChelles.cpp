@@ -412,7 +412,7 @@ void AWraithChelles::LireReglages()
 		TArray<FString> LignesVIP;
 		if (!FFileHelper::LoadFileToStringArray(LignesVIP, *FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesMenu"), TEXT("VIP.txt"))))
 		{
-			LignesVIP = { TEXT("VIP=MR.SHEMS"), TEXT("VIP=LENA"), TEXT("VIP=SOFIA"), TEXT("VIP=LUCIA"), TEXT("VIP=BRENDA") };
+			LignesVIP = { TEXT("VIP=MR.SHEMS"), TEXT("VIP=LENA"), TEXT("VIP=SOFIA"), TEXT("VIP=LUCIA"), TEXT("VIP=BRENDA"), TEXT("VIP=REBECCA") };
 		}
 		for (const FString& L : LignesVIP)
 		{

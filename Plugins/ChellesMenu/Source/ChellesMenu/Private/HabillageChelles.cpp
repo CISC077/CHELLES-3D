@@ -58,6 +58,7 @@ namespace HabillageInterne
 		{ ChellesHabillage::Lucia, TEXT("LUCIA"), TEXT("LUCIA"), TEXT("Lucia") },
 		{ ChellesHabillage::Brenda, TEXT("BRENDA"), TEXT("BRENDA"), TEXT("Brenda") },
 		{ ChellesHabillage::Shems, TEXT("MR.SHEMS"), TEXT("Shems"), TEXT("Shems") },
+		{ ChellesHabillage::Rebecca, TEXT("REBECCA"), TEXT("Rebecca"), TEXT("Rebecca") },
 	};
 	static const FPersoWraithInfo* InfoPerso(int32 Sexe)
 	{
@@ -1086,7 +1087,7 @@ namespace ChellesHabillage
 				if (!FFileHelper::LoadFileToStringArray(Lignes, *Fichier))
 				{
 					// Fichier absent (jeu exporte sans lui) : la liste du 25/11
-					Lignes = { TEXT("CODE=2468"), TEXT("VIP=MR.SHEMS"), TEXT("VIP=LENA"), TEXT("VIP=SOFIA"), TEXT("VIP=LUCIA"), TEXT("VIP=BRENDA") };
+					Lignes = { TEXT("CODE=2468"), TEXT("VIP=MR.SHEMS"), TEXT("VIP=LENA"), TEXT("VIP=SOFIA"), TEXT("VIP=LUCIA"), TEXT("VIP=BRENDA"), TEXT("VIP=REBECCA") };
 				}
 				for (const FString& Brute : Lignes)
 				{

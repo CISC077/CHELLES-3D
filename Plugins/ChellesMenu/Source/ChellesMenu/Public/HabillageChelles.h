@@ -42,7 +42,8 @@ namespace ChellesHabillage
 		Lucia = 6,
 		Brenda = 7,    // 25/11/2026
 		/** Mr.SHEMS (25/11/2026) : personnage VIP, debloque par un code (EstPersoVIP / DebloquerPerso). */
-		Shems = 8
+		Shems = 8,
+		Rebecca = 9    // 26/11/2026
 	};
 
 	/** Nom du personnage pose par ChellesWraith pour ce choix (LENA, SOFIA...), nullptr pour les autres choix. */
