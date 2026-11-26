@@ -1,0 +1,37 @@
+# CHELLES 3D - Reglages des COURSES DE RUE (plugin ChellesCourses)
+# Modifiez avec le Bloc-notes, enregistrez, puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+
+# Oui = courses disponibles, Non = plugin eteint
+Actif=Oui
+# Touche des courses : sur un depart = lancer la course, ailleurs = ecran COURSES,
+# pendant une course = abandonner. Home = la touche "Debut" (fleche en diagonale) du clavier.
+Touche=Home
+
+# Les parcours fabriques tout seuls a partir des rues de la circulation (une ligne par course) :
+#   Course=NOM|longueur en metres
+# Ils sont calcules une seule fois puis enregistres dans Courses_Parcours_Rachid.txt.
+# Pour les refaire : effacez Courses_Parcours_Rachid.txt, ou console (touche au-dessus de Tab) Chelles.CoursesRefaire
+Course=SPRINT DU QUARTIER|1000
+Course=TOUR DE CHELLES|2000
+Course=GRANDE COURSE|3500
+
+# Distance entre deux portes (en metres) et taille d'une porte (rayon en metres)
+EcartPortesMetres=120
+RayonPorteMetres=12
+# Taille de la zone de depart (rayon en metres)
+RayonDepartMetres=10
+# Distance minimale entre deux departs de course (en metres)
+EcartDepartsMetres=200
+# Compte a rebours avant le depart (secondes)
+CompteARebours=3
+# Course arretee au bout de X minutes
+TempsMaxMinutes=15
+
+# XP des pouvoirs gagnee a l'arrivee, et en plus si c'est votre nouveau record
+XPArrivee=50
+XPRecord=50
+
+# Classement de tous les joueurs sur le serveur CHELLES 3D (VPS)
+ClassementEnLigne=Oui
+AdresseClassement=http://51.178.54.208:8080
