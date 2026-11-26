@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Mode Photo",
+	"Description": "Mode photo (touche F12) : fige le jeu en solo, camera libre, filtres, cadre TikTok 9:16 et captures PNG dans Documents\\CHELLES 3D - Photos.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesPhoto",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
