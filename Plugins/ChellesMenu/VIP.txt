@@ -1,0 +1,18 @@
+# CHELLES 3D - Personnages VIP (25/11/2026)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+#
+# CODE = le code a taper dans le lobby. UN SEUL code pour TOUS les VIP.
+#        Il debloque tous les VIP jusqu'a la fermeture du jeu : a retaper a chaque lancement.
+# VIP  = un personnage reserve (son nom comme sur sa carte du lobby).
+#        Pour en ajouter un : une nouvelle ligne VIP=NOM.
+#        Marche aussi pour les heros (ex : VIP=AURORA).
+
+CODE=2468
+
+VIP=MR.SHEMS
+VIP=LENA
+VIP=SOFIA
+VIP=LUCIA
+VIP=BRENDA
+VIP=REBECCA

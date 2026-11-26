@@ -22,6 +22,7 @@ enum class EEcranMenu : uint8
 	Multi,
 	Serveurs,
 	AdresseIP,
+	CodeVIP,   // 25/11/2026 : code du personnage VIP (Mr.SHEMS)
 	Search,
 	Options,
 	Touches,
@@ -33,6 +34,7 @@ enum class EOngletOptions : uint8
 {
 	Controles,
 	Graphismes,
+	Avances,   // 25/11/2026 : reglages graphiques un par un (GraphismesChelles)
 	Audio,
 	Jeu
 };
@@ -42,6 +44,8 @@ enum class EOngletOptions : uint8
 namespace ChellesOptions
 {
 	void AppliquerAuDemarrage(UWorld* Monde);
+	/** Remet les variables du prereglage QUALITE (BAS/MOYEN/HAUT) sans toucher a la qualite Unreal. */
+	void ReappliquerQualite();
 	void AppliquerAuJoueur(APlayerController* Joueur);
 	bool ChatActif();
 	bool AideActive();
@@ -97,11 +101,14 @@ public:
 		: _TaillePolice(56)
 		, _Actif(true)
 		, _Onglet(false)
+		, _LargeurNom(0.f)
 		{}
 		SLATE_ATTRIBUTE(FText, Texte)
 		SLATE_ARGUMENT(int32, TaillePolice)
 		SLATE_ARGUMENT(bool, Actif)
 		SLATE_ARGUMENT(bool, Onglet)
+		/** Largeur de la colonne du nom pour "NOM   < VALEUR >" (0 = 14 x taille de police). */
+		SLATE_ARGUMENT(float, LargeurNom)
 		SLATE_EVENT(FSimpleDelegate, OnClic)
 		SLATE_EVENT(FSimpleDelegate, OnClicDroit)
 	SLATE_END_ARGS()
@@ -159,9 +166,32 @@ private:
 	bool bTenueLue = false;
 	TWeakObjectPtr<AApercuHabillage> ApercuActeur;
 	TSharedPtr<FSlateBrush> PinceauApercu;
+	// HABILLAGE facon lobby (2026-11-24) : rubans horizontaux de cartes
+	int32 SexeLobby() const;
+	void ChoisirSexeLobby(int32 Sexe);
+	/** Fleches : choix suivant / precedent dans le ruban actif. */
+	void ChangerLobby(int32 Sens);
+	/** JOUER / VALIDER : enregistre la tenue, puis ecran MODE (ou reprend la partie en pause). */
+	void JouerDepuisLobby();
+	/** 0 = ruban des personnages, 1 = ruban de la tenue. */
+	int32 RubanLobby = 0;
+	/** 0 = MODELE, 1.. = emplacement de vetement (HAUT, BAS...). */
+	int32 EmplacementLobby = 0;
+	/** 24/11/2026 : mode de depart choisi dans le lobby ("Soldat" = le soldat habille, sinon Spider-Femelle, Motoneige...). */
+	FString ModeLobby;
+	bool bModeLobbyLu = false;
+	/** Nom du personnage choisi (sert au pouvoir + fonction de Personnages.txt). */
+	FString NomPersoLobby() const;
+	/** Ecrit le choix dans le casier : [ChellesLobby] ModeDepart et [ChellesPerso] Nom. */
+	void EcrireChoixLobby();
+	/** Zone plein ecran (le lobby), au-dessus du decor. */
+	TSharedPtr<SBox> ZonePleinEcran;
 	TSharedRef<SWidget> EcranMulti();
 	TSharedRef<SWidget> EcranServeurs();
 	TSharedRef<SWidget> EcranAdresseIP();
+	TSharedRef<SWidget> EcranCodeVIP();
+	/** 25/11/2026 : verifie le code tape ; bon = personnage VIP choisi et retour au lobby. */
+	void ValiderCodeVIP();
 	TSharedRef<SWidget> EcranSearch();
 	TSharedRef<SWidget> EcranOptions();
 	TSharedRef<SWidget> EcranTouches();
@@ -170,6 +200,7 @@ private:
 	TSharedRef<SWidget> Curseur(TFunction<float()> Lire, TFunction<void(float)> Ecrire);
 	TSharedRef<SWidget> OngletControles();
 	TSharedRef<SWidget> OngletGraphismes();
+	TSharedRef<SWidget> OngletAvances();
 	TSharedRef<SWidget> OngletAudio();
 	TSharedRef<SWidget> OngletJeu();
 	TSharedRef<SWidget> BoutonOnglet(const FText& Texte, EOngletOptions Cible);
@@ -186,12 +217,18 @@ private:
 	void Deplacer(int32 Sens);
 	TSharedRef<SBoutonMenu> Enregistrer(TSharedRef<SBoutonMenu> Nouveau);
 	AMenuChelles* LeMenu() const;
+	/** Menu ouvert en jeu par Echap (bouton REPRENDRE). */
+	bool EnPause() const;
 
 	TWeakObjectPtr<AMenuChelles> Menu;
 	EEcranMenu Ecran = EEcranMenu::Principal;
 	TSharedPtr<SBox> Zone;
 	TSharedPtr<SEditableTextBox> ChampIP;
 	FString TexteIP;
+	TSharedPtr<SEditableTextBox> ChampCodeVIP;
+	FString TexteCodeVIP;
+	FString MessageCodeVIP;
+	int32 PersoVIPDemande = INDEX_NONE;
 	FText MessageLien;
 	float Age = 0.f;
 	TArray<TWeakPtr<SBoutonMenu>> Boutons;

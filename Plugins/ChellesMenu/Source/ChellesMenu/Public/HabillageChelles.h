@@ -3,15 +3,18 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Engine/StreamableManager.h"
 #include "HabillageChelles.generated.h"
 
 class USkeletalMesh;
 class USkeletalMeshComponent;
+class UPoseableMeshComponent;
 class UMaterialInterface;
 class UDataTable;
 class USceneCaptureComponent2D;
 class UTextureRenderTarget2D;
 class UPointLightComponent;
+class UStaticMeshComponent;
 class APawn;
 class APlayerState;
 
@@ -29,8 +32,38 @@ namespace ChellesHabillage
 	{
 		SpiderMan = 0,
 		Feminin = 1,
-		Masculin = 2
+		Masculin = 2,
+		/** PANTERA (2026-11-11) : comme Spider-Male on ne touche pas au soldat ; au lancement la roue TAB passe en PANTERA. */
+		Pantera = 3,
+		/** Personnages crees par MERIDJA (2026-11-24) : on ne touche pas au soldat, le plugin ChellesWraith
+		 *  pose le personnage sur lui (GameUserSettings [ChellesWraith] Demande=LENA / SOFIA / LUCIA).
+		 *  Pour en ajouter un : une valeur ici + une ligne dans PersosWraith (HabillageChelles.cpp). */
+		Lena = 4,
+		Sofia = 5,
+		Lucia = 6,
+		Brenda = 7,    // 25/11/2026
+		/** Mr.SHEMS (25/11/2026) : personnage VIP, debloque par un code (EstPersoVIP / DebloquerPerso). */
+		Shems = 8,
+		Rebecca = 9,   // 26/11/2026
+		Rachid = 10    // 26/11/2026, VIP (Bureau\Rachid_3D)
 	};
+
+	/** Nom du personnage pose par ChellesWraith pour ce choix (LENA, SOFIA...), nullptr pour les autres choix. */
+	CHELLESMENU_API const TCHAR* NomPersoWraith(int32 Sexe);
+	/** Tous les choix "personnage" (dans l'ordre des boutons de HABILLAGE) : LENA, SOFIA, LUCIA, puis (2026-11-24)
+	 *  TOUS les heros de la touche K du SOLDAT, lus dans Plugins\ChellesWraith\Wraith.txt (lignes Skin=) :
+	 *  Wraith, Dekker, Sci-Fi, Aurora, Boris... Un Skin= ajoute dans Wraith.txt apparait tout seul dans le menu. */
+	CHELLESMENU_API TArray<int32> PersosWraith();
+	/** Vrai pour les personnages crees par MERIDJA (LENA, SOFIA, LUCIA) : ils dansent (touche T). */
+	CHELLESMENU_API bool EstPersoCree(int32 Sexe);
+	/** Couleur de la carte du heros (5e valeur de sa ligne Skin=), noir si aucune. */
+	CHELLESMENU_API FLinearColor CouleurPersoWraith(int32 Sexe);
+	/** Personnage VIP (liste dans Plugins\ChellesMenu\VIP.txt) : il faut taper le code VIP dans le lobby avant de le jouer. */
+	CHELLESMENU_API bool EstPersoVIP(int32 Sexe);
+	/** Vrai si ce n'est pas un VIP, ou si le code VIP a ete tape depuis le lancement du jeu (jamais enregistre). */
+	CHELLESMENU_API bool PersoDebloque(int32 Sexe);
+	/** Verifie le code (CODE= de VIP.txt) ; s'il est bon TOUS les VIP sont debloques jusqu'a la fermeture du jeu. */
+	CHELLESMENU_API bool DebloquerPerso(int32 Sexe, const FString& Code);
 
 	/** Le choix du joueur, enregistre dans GameUserSettings.ini (section ChellesHabillage, cle Tenue). */
 	struct CHELLESMENU_API FTenue
@@ -42,6 +75,8 @@ namespace ChellesHabillage
 		FString VersTexte() const;
 		static FTenue DepuisTexte(const FString& Texte);
 		bool EstSpiderMan() const { return Sexe != Feminin && Sexe != Masculin; }
+		bool EstPantera() const { return Sexe == Pantera; }
+		bool EstPersoWraith() const { return NomPersoWraith(Sexe) != nullptr; }
 	};
 
 	/** Un emplacement de vetement (HAUT, BAS...) et ses choix possibles. */
@@ -97,6 +132,10 @@ namespace ChellesHabillage
 	CHELLESMENU_API void EnregistrerTenue(const FTenue& Tenue);
 	/** Les packs sont-ils dans le projet ? */
 	CHELLESMENU_API bool PacksPresents();
+	/** Lance le chargement du catalogue en arriere-plan (appele a l'ouverture du menu). */
+	/** 25/11 : a appeler a chaque image jusqu'a ce qu'il rende vrai : charge en arriere-plan les tables ET tout ce
+	 *  qu'elles designent (tetes, sous-tables), puis prepare le catalogue. Ouvrir HABILLAGE ne gele plus. */
+	CHELLESMENU_API bool PrechargerCatalogue();
 }
 
 /**
@@ -158,9 +197,36 @@ private:
 	void Deshabiller(APawn* Pion);
 	void Suivre();
 	bool EstSoldat(APawn* Pion) const;
+	/** PANTERA choisi dans HABILLAGE : demande a la roue TAB (plugin ChellesRoue, par reflexion) de passer en PANTERA. */
+	void DemanderPantera(float Delta);
+	bool bPanteraFait = false;
+	int32 EssaisPantera = 0;
+	float ProchainPantera = 0.f;
 
 	TMap<TWeakObjectPtr<APawn>, FHabille> Habilles;
+
+	/** 26/11/2026 : perso special (LENA, SOFIA, PANTERA, heros Paragon...) sur le cavalier du cheval.
+	 *  Avant, le cavalier restait en Spider-Male pour tous ces persos. Son corps recopie maintenant la pose
+	 *  du cavalier os par os (noms Mixamo traduits en noms UE4, ecart pose en T / pose en A corrige). */
+	struct FCavalierPerso
+	{
+		FString Chemin;
+		TWeakObjectPtr<USkeletalMeshComponent> Selle;
+		TWeakObjectPtr<UPoseableMeshComponent> Corps;
+		TArray<int32> Source;          // os du cavalier pour chaque os du perso (INDEX_NONE = aucun)
+		TArray<FQuat> Ecart;           // rotation qui amene l'os du perso dans la direction de l'os du cavalier (pose de reference)
+		TArray<FTransform> RefPerso;   // pose de reference du perso, espace du composant
+		TArray<FTransform> RefSelle;   // pose de reference du cavalier, espace du composant
+		int32 Bassin = INDEX_NONE;
+		bool bOmbreSelle = true;
+	};
+	TMap<TWeakObjectPtr<APawn>, FCavalierPerso> Cavaliers;
+	void PersoACheval(APawn* Pion, USkeletalMeshComponent* Selle, const ChellesHabillage::FTenue& Tenue);
+	void RetirerPersoACheval(APawn* Pion);
+	void PoserCavaliers();
+
 	float ProchainControle = 0.f;
+	bool bCatalogueLance = false;   // catalogue des tenues charge en arriere-plan (25/11)
 	float ProchainEnvoi = 0.f;
 	FString DernierEnvoi;
 };
@@ -175,6 +241,9 @@ public:
 	AApercuHabillage();
 
 	void Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalMesh* MeshSpiderMan, UClass* AnimSpiderMan);
+	/** 26/11/2026 : carte HEROS / VEHICULE du lobby (Spider-Femelle, Flash Eclair, Motoneige, Voiture, Cheval...) :
+	 *  montre son propre corps ou vehicule (avant : l'apercu restait sur le dernier perso choisi). */
+	void MontrerMode(const FString& Mode);
 	void Tourner(float Degres) { Angle += Degres; Pause = 3.f; }
 	UTextureRenderTarget2D* Image() const { return Cible; }
 
@@ -202,8 +271,31 @@ private:
 	UPROPERTY(Transient)
 	UTextureRenderTarget2D* Cible = nullptr;
 
+	/** Decor du lobby (2026-11-24) : mur et sol bleus derriere le personnage, au lieu d'un fond noir. */
+	UPROPERTY(Transient)
+	UStaticMeshComponent* Fond = nullptr;
+
+	UPROPERTY(Transient)
+	UStaticMeshComponent* Sol = nullptr;
+
 	UPROPERTY(Transient)
 	TArray<USkeletalMeshComponent*> Morceaux;
+
+	/** 25/11/2026 : les derniers corps / animations montres restent en memoire pendant que le menu est ouvert :
+	 *  revenir sur un perso deja vu ne recharge plus son corps (LUCIA, SOFIA = plus de 120 Mo) -> plus d'a-coup. */
+	UPROPERTY(Transient)
+	TArray<UObject*> DejaVus;
+	void GarderDejaVu();
+
+	/** 25/11/2026 : corps lourds (heros Paragon, LENA...) charges en arriere-plan ; l'apercu d'avant reste affiche
+	 *  pendant le chargement, puis Tick montre le perso demande (plus de gel du menu HABILLAGE). */
+	FStreamableManager Chargeur;
+	TSharedPtr<FStreamableHandle> Attente;
+	ChellesHabillage::FTenue TenueAttendue;
+	TWeakObjectPtr<USkeletalMesh> SpiderAttendu;
+	TWeakObjectPtr<UClass> AnimAttendue;
+	bool bApresAttente = false;
+	FString ModeAttendu;      // MontrerMode en attente de chargement (vide = Montrer)
 
 	float Angle = 0.f;
 	float Pause = 0.f;

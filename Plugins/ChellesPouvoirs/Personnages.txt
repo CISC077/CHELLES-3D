@@ -1,0 +1,43 @@
+﻿# CHELLES 3D - Un pouvoir et une fonction par personnage (plugin ChellesPouvoirs, 24/11/2026)
+# Modifiez avec le Bloc-notes puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+#
+# On choisit son personnage dans le LOBBY (menu JOUER, colonne PERSONNAGES) avant de jouer.
+# TOUT LE MONDE VOLE : sauter puis ESPACE en l'air (en plus du pouvoir ci-dessous).
+#
+# Forme d'une ligne :   NOM DU PERSONNAGE = POUVOIR | FONCTION
+#
+# POUVOIRS (touche P pour l'utiliser) :
+#   BOULE DE FEU   EFFET VERRE   CAMELEON   GEL   AUCUN (= seulement le vol)
+#
+# FONCTIONS (avantage permanent, rien a appuyer) :
+#   VITESSE        tu cours 50 % plus vite
+#   SUPER SAUT     tu sautes beaucoup plus haut
+#   VOL RAPIDE     tu voles 2 fois plus vite
+#   PLANEUR        tu tombes doucement et tu sautes plus loin
+#   REGENERATION   ta vie remonte toute seule (3 points par seconde)
+#   DOUBLE XP      tu gagnes 2 fois plus d'XP
+#   AUCUNE
+#
+# DEFAUT = tous les personnages qui ne sont pas dans la liste (heros de la touche K...).
+
+SOLDAT          = BOULE DE FEU | REGENERATION
+SPIDER-MALE     = GEL          | SUPER SAUT
+SPIDER-FEMELLE  = EFFET VERRE  | VITESSE
+PANTERA         = CAMELEON     | PLANEUR
+FEMININ         = GEL          | VITESSE
+MASCULIN        = BOULE DE FEU | SUPER SAUT
+LENA            = EFFET VERRE  | VOL RAPIDE
+SOFIA           = CAMELEON     | VITESSE
+LUCIA           = GEL          | PLANEUR
+BRENDA          = BOULE DE FEU | DOUBLE XP
+MR.SHEMS        = EFFET VERRE  | REGENERATION
+REBECCA         = CAMELEON     | REGENERATION
+FLASH ECLAIR    = GEL          | REGENERATION
+FLAMME FIRE     = BOULE DE FEU | PLANEUR
+SUPERPOWERS     = EFFET VERRE  | SUPER SAUT
+DYNAMIC COMBAT  = CAMELEON     | DOUBLE XP
+MOTONEIGE       = AUCUN        | VITESSE
+VOITURE         = AUCUN        | VITESSE
+CHEVAL          = AUCUN        | VITESSE
+DEFAUT          = BOULE DE FEU | VOL RAPIDE
