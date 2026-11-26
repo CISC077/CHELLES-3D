@@ -1,0 +1,12 @@
+{
+  "name": "chelles3d-defis",
+  "version": "1.0.0",
+  "description": "CHELLES 3D : défis de la semaine (annonce Discord + API pour le jeu)",
+  "main": "defis.js",
+  "private": true,
+  "scripts": { "start": "node defis.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "mariadb": "3.5.5"
+  }
+}

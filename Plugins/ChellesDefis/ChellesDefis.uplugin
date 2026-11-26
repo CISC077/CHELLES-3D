@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Defis",
+	"Description": "Defi de la semaine : lu sur le serveur CHELLES 3D du VPS (aussi annonce sur le Discord), affiche au debut de la partie, XP donnee quand le defi est reussi.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesDefis",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

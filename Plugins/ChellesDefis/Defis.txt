@@ -1,0 +1,15 @@
+# CHELLES 3D - Reglages du DEFI DE LA SEMAINE dans le jeu
+# Modifiez avec le Bloc-notes, enregistrez, puis relancez le jeu (pas besoin de recompiler).
+# Les lignes qui commencent par # sont des commentaires.
+# Le defi lui-meme se choisit sur le VPS : D:\SITE CHELLES3D\VPS\serveur-defis\defis.json
+
+# Oui = le defi s'affiche au debut de la partie, Non = plugin eteint
+Actif=Oui
+# Adresse du serveur des defis (VPS)
+Adresse=http://51.178.54.208:8082
+# Duree d'affichage du bandeau (secondes)
+DureeAffichageSecondes=14
+# Attente apres l'arrivee du joueur dans le quartier (menus fermes) avant d'afficher le bandeau
+DelaiAvantSecondes=4
+# Toutes les X minutes, le jeu redemande au serveur si le defi est reussi (pour donner l'XP)
+RafraichirMinutes=5
