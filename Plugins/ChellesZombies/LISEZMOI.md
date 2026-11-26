@@ -33,6 +33,35 @@ les poursuivent.
 
 Solo et multijoueur : c'est le serveur qui décide (horaire, zombies, dégâts).
 
+## Boss de fin de vague (26/11)
+
+À la fin de chaque vague, **LE COLOSSE DE CHELLES** sort de terre : un
+zombie géant (2,6 fois plus grand), en flammes, avec une barre de vie en
+haut de l'écran.
+
+- Il arrive quand tous les zombies de la vague sont morts. Pendant une
+  invasion automatique, il arrive au plus tard 90 secondes avant la fin, et
+  l'invasion dure alors encore au moins 2 min 30 pour le combattre.
+- Il faut environ **40 balles dans le corps** (+15 par joueur en plus en
+  multijoueur). Une balle dans la tête compte pour 3 balles : il ne meurt pas
+  d'un seul tir.
+- Il est plus lent (330), mais il frappe plus fort (**40 %** de la vie) et
+  de plus loin.
+- Quand il tombe : **+200 XP pour chaque joueur**, et **+100 XP en plus**
+  pour celui qui l'achève (XP du plugin ChellesPouvoirs). Message
+  « LE COLOSSE DE CHELLES VAINCU ! +300 XP ».
+- Aussi dans les vagues du mode survie (Dernier Refuge) : `BossModeSurvie=Non`
+  dans `Zombies.txt` pour l'enlever de ce mode.
+- Si personne ne le tue avant la fin du temps, il s'effondre sans donner d'XP.
+- Fluidité : il n'y a qu'un seul boss à la fois, et il compte dans le
+  maximum de zombies.
+
+Tester : console (touche **²**) → `Chelles.ZombieBoss` (lance l'invasion si
+besoin et fait venir le boss tout de suite).
+
+Tous les réglages sont dans `Zombies.txt`, partie « Boss de fin de vague ».
+Journal : lignes `[Zombies] BOSS`.
+
 ## Installation (une seule fois)
 
 1. Fermez Unreal.
@@ -45,6 +74,7 @@ En jeu, ouvrez la console (touche **²**) et tapez :
 
 - `Chelles.Zombies` : lance une invasion maintenant
 - `Chelles.ZombiesFin` : l'arrête
+- `Chelles.ZombieBoss` : fait venir le boss géant tout de suite
 
 ## Réglages
 

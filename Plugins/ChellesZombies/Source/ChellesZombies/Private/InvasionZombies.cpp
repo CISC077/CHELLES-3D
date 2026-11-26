@@ -33,6 +33,7 @@
 #include "GameFramework/DamageType.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerStart.h"
+#include "GameFramework/PlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
@@ -63,6 +64,8 @@ static const float TailleFlammes[] = { 0.55f, 0.32f, 0.3f, 0.3f, 0.3f, 0.3f };
 static const FName NomPeau(TEXT("PeauZombieChelles"));
 static const FName MarqueZombie(TEXT("ChellesZombie"));
 static const FName MarqueHabille(TEXT("ChellesZombieHabille"));
+/** Boss de fin de vague (les autres plugins peuvent le reconnaitre a ce tag). */
+static const FName MarqueBoss(TEXT("ChellesZombieBoss"));
 /** Appat de la grenade a zombies (plugin ChellesArmes) : les zombies proches le poursuivent sans lui faire de degats. */
 static const FName MarqueAppat(TEXT("ChellesAppat"));
 
@@ -201,6 +204,10 @@ void AInvasionZombies::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AInvasionZombies, ZombiesRestants);
 	DOREPLIFETIME(AInvasionZombies, SecondesRestantes);
 	DOREPLIFETIME(AInvasionZombies, Zombies);
+	DOREPLIFETIME(AInvasionZombies, Boss);
+	DOREPLIFETIME(AInvasionZombies, BossVieRatio);
+	DOREPLIFETIME(AInvasionZombies, BossTailleRep);
+	DOREPLIFETIME(AInvasionZombies, BossNomRep);
 }
 
 bool AInvasionZombies::EstServeur() const
@@ -343,6 +350,21 @@ void AInvasionZombies::ChargerReglages()
 		else if (Cle == TEXT("YeuxAvant")) Reglages.YeuxAvant = FMath::Clamp(Nombre, -30.f, 40.f);
 		else if (Cle == TEXT("YeuxEcart")) Reglages.YeuxEcart = FMath::Clamp(Nombre, 0.f, 15.f);
 		else if (Cle == TEXT("TailleYeux")) Reglages.TailleYeux = FMath::Clamp(Nombre, 0.1f, 5.f);
+		// Boss de fin de vague
+		else if (Cle == TEXT("Boss")) Reglages.bBoss = EstOui(Valeur);
+		else if (Cle == TEXT("BossModeSurvie")) Reglages.bBossSurvie = EstOui(Valeur);
+		else if (Cle == TEXT("BossNom") && !Valeur.IsEmpty()) Reglages.BossNom = Valeur;
+		else if (Cle == TEXT("BossMessage") && !Valeur.IsEmpty()) Reglages.BossMessage = Valeur;
+		else if (Cle == TEXT("BossTaille")) Reglages.BossTaille = FMath::Clamp(Nombre, 1.f, 5.f);
+		else if (Cle == TEXT("BossBallesCorps")) Reglages.BossBallesCorps = FMath::Clamp((int32)Nombre, 1, 1000);
+		else if (Cle == TEXT("BossBallesEnPlusParJoueur")) Reglages.BossBallesEnPlusParJoueur = FMath::Clamp((int32)Nombre, 0, 500);
+		else if (Cle == TEXT("BossTeteVaut")) Reglages.BossTeteVaut = FMath::Clamp(Nombre, 1.f, 100.f);
+		else if (Cle == TEXT("BossVitesse")) Reglages.BossVitesse = FMath::Clamp(Nombre, 50.f, 2000.f);
+		else if (Cle == TEXT("BossDegatsPourcent")) Reglages.BossDegatsPourcent = FMath::Clamp(Nombre, 0.f, 100.f);
+		else if (Cle == TEXT("BossXP")) Reglages.BossXP = FMath::Clamp((int32)Nombre, 0, 100000);
+		else if (Cle == TEXT("BossXPTueur")) Reglages.BossXPTueur = FMath::Clamp((int32)Nombre, 0, 100000);
+		else if (Cle == TEXT("BossAvantFinSecondes")) Reglages.BossAvantFinSecondes = FMath::Clamp(Nombre, 0.f, 3600.f);
+		else if (Cle == TEXT("BossDureeMinimumSecondes")) Reglages.BossDureeMinSecondes = FMath::Clamp(Nombre, 30.f, 3600.f);
 	}
 	Reglages.DistanceMaxMetres = FMath::Max(Reglages.DistanceMaxMetres, Reglages.DistanceMinMetres + 5.f);
 	UE_LOG(LogTemp, Log, TEXT("[Zombies] Reglages lus dans %s"), *Chemin);
@@ -474,18 +496,50 @@ void AInvasionZombies::TickServeur(float Maintenant)
 		return;
 	}
 
-	ZombiesRestants = Vivants + AFaireApparaitre;
+	// Boss de fin de vague : il sort de terre quand tous les zombies sont tombes
+	// (invasion automatique : au plus tard BossAvantFinSecondes avant la fin)
+	const bool bBossPrevu = !bBossFait && (bBossDemande || (Reglages.bBoss && (!bModeVague || Reglages.bBossSurvie)));
+	if (bBossPrevu && Maintenant >= ProchainEssaiBoss)
+	{
+		const bool bPlusQueLui = AFaireApparaitre <= 0 && Vivants == 0 && Maintenant > DebutInvasion + 10.f;
+		const bool bFinProche = !bModeVague && Maintenant >= FinInvasion - Reglages.BossAvantFinSecondes;
+		if (bBossDemande || bPlusQueLui || bFinProche)
+		{
+			if (FaireApparaitreBoss())
+			{
+				bBossFait = true;
+				bBossDemande = false;
+				++Vivants;
+				FinInvasion = FMath::Max(FinInvasion, Maintenant + Reglages.BossDureeMinSecondes);
+			}
+			else if (++EssaisBoss >= 10)
+			{
+				bBossFait = true; // pas de place libre apres 10 essais : on n'insiste pas
+				bBossDemande = false;
+				UE_LOG(LogTemp, Warning, TEXT("[Zombies] Boss : aucune place libre trouvee, pas de boss pour cette vague."));
+			}
+			else
+			{
+				ProchainEssaiBoss = Maintenant + 1.f;
+			}
+		}
+	}
+	const bool bBossAttendu = !bBossFait && (bBossDemande || (Reglages.bBoss && (!bModeVague || Reglages.bBossSurvie)));
+
+	ZombiesRestants = Vivants + AFaireApparaitre + (bBossAttendu ? 1 : 0);
 	if (Maintenant >= ProchaineSynchro)
 	{
 		ProchaineSynchro = Maintenant + 0.5f;
 		SecondesRestantes = FMath::Max(0.f, FinInvasion - Maintenant);
+		const FEtatZombie* EtatBoss = IsValid(Boss) ? Etats.Find(Boss) : nullptr;
+		BossVieRatio = (EtatBoss && !EtatBoss->bMort) ? FMath::Clamp(EtatBoss->Vie / FMath::Max(1.f, EtatBoss->VieMax), 0.f, 1.f) : 0.f;
 	}
 
 	if (Maintenant >= FinInvasion)
 	{
 		TerminerInvasion(false);
 	}
-	else if (AFaireApparaitre <= 0 && Vivants == 0 && Maintenant > DebutInvasion + 10.f)
+	else if (AFaireApparaitre <= 0 && Vivants == 0 && !bBossAttendu && Maintenant > DebutInvasion + 10.f)
 	{
 		TerminerInvasion(true);
 	}
@@ -521,6 +575,12 @@ void AInvasionZombies::TickLocal(float DeltaSeconds)
 	}
 	TickEffets(DeltaSeconds);
 
+	// Le boss est geant sur chaque PC (la taille d'un acteur n'est pas envoyee par le reseau)
+	if (IsValid(Boss) && BossTailleRep > 1.01f && !FMath::IsNearlyEqual(Boss->GetActorScale3D().X, BossTailleRep, 0.01f))
+	{
+		Boss->SetActorScale3D(FVector(BossTailleRep));
+	}
+
 	if (Ecran.IsValid())
 	{
 		FEtatAlerteZombies& E = Ecran->Etat;
@@ -535,6 +595,8 @@ void AInvasionZombies::TickLocal(float DeltaSeconds)
 		E.SecondesRestantes = SecondesRestantes;
 		E.MessageFin = MessageFin;
 		E.AgeFin = AgeFin;
+		E.BossVie = (bInvasionEnCours && IsValid(Boss) && BossVieRatio > 0.f) ? BossVieRatio : -1.f;
+		E.BossNom = BossNomRep;
 	}
 }
 
@@ -570,6 +632,11 @@ void AInvasionZombies::LancerInvasion()
 	AFaireApparaitre = FMath::Min(Reglages.NombreMax, Reglages.NombreZombies + Reglages.EnPlusParJoueur * FMath::Max(0, Joueurs.Num() - 1));
 	ProchaineApparition = Maintenant;
 	SecondesRestantes = FinInvasion - Maintenant;
+	bBossFait = false;
+	EssaisBoss = 0;
+	ProchainEssaiBoss = 0.f;
+	Boss = nullptr;
+	BossVieRatio = 0.f;
 	Foyers.Reset();
 	ChoisirFoyers();
 
@@ -602,6 +669,11 @@ void AInvasionZombies::LancerVagueCommandee()
 	AFaireApparaitre = FMath::Clamp(VagueNombre, 1, 300);
 	ProchaineApparition = Maintenant;
 	SecondesRestantes = 0.f;
+	bBossFait = false;
+	EssaisBoss = 0;
+	ProchainEssaiBoss = 0.f;
+	Boss = nullptr;
+	BossVieRatio = 0.f;
 	Foyers.Reset();
 	ChoisirFoyers();
 
@@ -628,6 +700,9 @@ void AInvasionZombies::TerminerInvasion(bool bRepoussee)
 	const bool bEtaitVague = bModeVague;
 	bModeVague = false;
 	bInvasionEnCours = false;
+	bBossDemande = false;
+	Boss = nullptr;
+	BossVieRatio = 0.f;
 	AFaireApparaitre = 0;
 	ZombiesRestants = 0;
 	SecondesRestantes = 0.f;
@@ -649,6 +724,11 @@ void AInvasionZombies::TerminerInvasion(bool bRepoussee)
 	UE_LOG(LogTemp, Log, TEXT("[Zombies] Fin de l'invasion (%s). Prochaine dans %.0f min."),
 		bRepoussee ? TEXT("repoussee") : TEXT("temps ecoule"), (ProchaineInvasion - Maintenant) / 60.f);
 
+	// Le boss vient de tomber : son message "VAINCU ! +XP" reste a l'ecran
+	if (Maintenant - BossTueA < 6.f)
+	{
+		return;
+	}
 	// En vague commandee, c'est le plugin du mode de jeu qui affiche son propre message
 	MulticastFin(bEtaitVague ? FString() : (bRepoussee ? FString(TEXT("INVASION REPOUSSÉE !")) : FString(TEXT("FIN DE LA PURGE"))));
 }
@@ -812,12 +892,12 @@ void AInvasionZombies::ChoisirFoyers()
 	UE_LOG(LogTemp, Log, TEXT("[Zombies] %d foyer(s) d'apparition."), Foyers.Num());
 }
 
-bool AInvasionZombies::TrouverPointApparition(const FVector& Autour, float DistMin, float DistMax, FVector& Resultat) const
+bool AInvasionZombies::TrouverPointApparition(const FVector& Autour, float DistMin, float DistMax, FVector& Resultat, float Echelle) const
 {
 	UWorld* W = GetWorld();
 	const ACharacter* Modele = ClasseZombie ? Cast<ACharacter>(ClasseZombie->GetDefaultObject()) : nullptr;
-	const float DemiHauteur = (Modele && Modele->GetCapsuleComponent()) ? Modele->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 90.f;
-	const float Rayon = (Modele && Modele->GetCapsuleComponent()) ? Modele->GetCapsuleComponent()->GetScaledCapsuleRadius() : 40.f;
+	const float DemiHauteur = Echelle * ((Modele && Modele->GetCapsuleComponent()) ? Modele->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 90.f);
+	const float Rayon = Echelle * ((Modele && Modele->GetCapsuleComponent()) ? Modele->GetCapsuleComponent()->GetScaledCapsuleRadius() : 40.f);
 
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(ChellesZombiesSol), false);
 	for (TActorIterator<APawn> It(W); It; ++It)
@@ -1049,9 +1129,10 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 		if (EstVivant(Victime) && !Victime->Tags.Contains(MarqueAppat))
 		{
 			const FVector Ecart = Victime->GetActorLocation() - Zombie->GetActorLocation();
-			if (Ecart.Size2D() < 240.f && FMath::Abs(Ecart.Z) < 200.f)
+			const float Grand = Etat.Echelle - 1.f; // le boss frappe de plus loin
+			if (Ecart.Size2D() < 240.f + 100.f * Grand && FMath::Abs(Ecart.Z) < 200.f * Etat.Echelle)
 			{
-				const float Degats = VieMax(Victime) * Reglages.DegatsZombiePourcent / 100.f;
+				const float Degats = VieMax(Victime) * (Etat.bBoss ? Reglages.BossDegatsPourcent : Reglages.DegatsZombiePourcent) / 100.f;
 				// Un mode de jeu (survie) peut gerer le coup lui-meme : joueur "a terre" au lieu de mourir
 				bCoupGereAilleurs = false;
 				OnCoupSurJoueur.Broadcast(Victime, Degats);
@@ -1098,7 +1179,7 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 	if (Distance > 15000.f)
 	{
 		FVector Sol;
-		if (TrouverPointApparition(Cible->GetActorLocation(), Reglages.DistanceMinMetres * 100.f, Reglages.DistanceMaxMetres * 100.f, Sol))
+		if (TrouverPointApparition(Cible->GetActorLocation(), Reglages.DistanceMinMetres * 100.f, Reglages.DistanceMaxMetres * 100.f, Sol, Etat.Echelle))
 		{
 			const float DemiHauteur = Zombie->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 			Zombie->SetActorLocation(Sol + FVector(0.f, 0.f, DemiHauteur + 5.f), false, nullptr, ETeleportType::TeleportPhysics);
@@ -1108,7 +1189,7 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 	}
 
 	// 3) A portee : il attaque
-	if (Distance < 160.f && FMath::Abs(Hauteur) < 180.f)
+	if (Distance < 160.f + 80.f * (Etat.Echelle - 1.f) && FMath::Abs(Hauteur) < 180.f * Etat.Echelle)
 	{
 		Zombie->SetActorRotation(FRotator(0.f, Direction.Rotation().Yaw, 0.f));
 		if (Maintenant >= Etat.ProchaineAttaque)
@@ -1156,7 +1237,7 @@ void AInvasionZombies::PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, floa
 				Etat.Bloque = 0;
 				FVector Sol;
 				const float Proche = Reglages.DistanceMinMetres * 100.f;
-				if (TrouverPointApparition(Cible->GetActorLocation(), Proche, FMath::Max(1500.f, Proche + 500.f), Sol))
+				if (TrouverPointApparition(Cible->GetActorLocation(), Proche, FMath::Max(1500.f, Proche + 500.f), Sol, Etat.Echelle))
 				{
 					const float DemiHauteur = Zombie->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 					Zombie->SetActorLocation(Sol + FVector(0.f, 0.f, DemiHauteur + 5.f), false, nullptr, ETeleportType::TeleportPhysics);
@@ -1247,6 +1328,20 @@ void AInvasionZombies::ZombieToucheQuelconque(AActor* Touche, float Degats, cons
 	}
 
 	const bool bPrecis = Etat->ImageCoupPrecis == GFrameCounter;
+	if (Etat->bBoss)
+	{
+		// Le boss ne meurt pas d'une balle dans la tete : elle compte pour plusieurs balles dans le corps
+		Etat->Vie -= Reglages.DegatsCorpsPourcent * ((bPrecis && Etat->bCoupTete) ? Reglages.BossTeteVaut : 1.f);
+		if (Etat->Vie <= 0.5f)
+		{
+			Tuer(Z, bPrecis && Etat->bCoupTete, bPrecis ? Etat->DirectionCoup : FVector::ZeroVector, Tireur);
+		}
+		else
+		{
+			OnZombieTouche.Broadcast(Z, Tireur);
+		}
+		return;
+	}
 	if (bPrecis && Etat->bCoupTete)
 	{
 		UE_LOG(LogTemp, Verbose, TEXT("[Zombies] Tir dans la tete : %s"), *Z->GetName());
@@ -1268,6 +1363,7 @@ void AInvasionZombies::ZombieToucheQuelconque(AActor* Touche, float Degats, cons
 void AInvasionZombies::Tuer(ACharacter* Zombie, bool bTete, const FVector& Direction, AController* Tueur)
 {
 	FEtatZombie* Etat = Etats.Find(Zombie);
+	bool bEtaitLeBoss = false;
 	if (Etat)
 	{
 		if (Etat->bMort)
@@ -1276,6 +1372,7 @@ void AInvasionZombies::Tuer(ACharacter* Zombie, bool bTete, const FVector& Direc
 		}
 		Etat->bMort = true;
 		Etat->Vie = 0.f;
+		bEtaitLeBoss = Etat->bBoss;
 	}
 
 	// On previent aussi le Blueprint (pour ses animations), sans toucher a son fichier
@@ -1292,6 +1389,19 @@ void AInvasionZombies::Tuer(ACharacter* Zombie, bool bTete, const FVector& Direc
 	Zombie->SetLifeSpan(12.f);
 
 	MulticastMort(Zombie, bTete, Direction);
+
+	// Boss abattu au combat : XP pour tous les joueurs, bonus pour celui qui l'acheve
+	if (bEtaitLeBoss)
+	{
+		BossVieRatio = 0.f;
+		if (Tueur)
+		{
+			BossTueA = GetWorld()->GetTimeSeconds();
+			UE_LOG(LogTemp, Log, TEXT("[Zombies] BOSS VAINCU par %s : +%d XP pour chaque joueur, +%d en plus pour lui."),
+				Tueur->PlayerState ? *Tueur->PlayerState->GetPlayerName() : *Tueur->GetName(), Reglages.BossXP, Reglages.BossXPTueur);
+			MulticastBossVaincu(Tueur->PlayerState, Reglages.BossXP, Reglages.BossXPTueur, Zombie->GetActorLocation());
+		}
+	}
 
 	// Seulement les vraies morts au combat (pas l'effondrement de fin d'invasion)
 	if (Tueur)
@@ -1345,6 +1455,175 @@ void AInvasionZombies::MulticastMort_Implementation(ACharacter* Zombie, bool bTe
 			UGameplayStatics::PlaySoundAtLocation(this, Son, Tete);
 		}
 	}
+}
+
+// ===================================================================================
+//  Boss de fin de vague (26/11) : le zombie geant
+// ===================================================================================
+
+void AInvasionZombies::DemanderBoss()
+{
+	if (!EstServeur())
+	{
+		return;
+	}
+	if (!bInvasionEnCours)
+	{
+		LancerInvasion();
+	}
+	const FEtatZombie* EtatBoss = IsValid(Boss) ? Etats.Find(Boss) : nullptr;
+	if (EtatBoss && !EtatBoss->bMort)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Zombies] Le boss est deja la."));
+		return;
+	}
+	if (bInvasionEnCours)
+	{
+		bBossFait = false;
+		bBossDemande = true;
+		EssaisBoss = 0;
+		ProchainEssaiBoss = 0.f;
+	}
+}
+
+bool AInvasionZombies::FaireApparaitreBoss()
+{
+	if (!ClasseZombie)
+	{
+		return false;
+	}
+	TArray<APawn*> Joueurs;
+	JoueursVivants(Joueurs);
+	const float Taille = Reglages.BossTaille;
+
+	// Ou : autour de la zone de la vague (mode survie), sinon a 15-35 m d'un joueur
+	FVector Sol;
+	bool bTrouve = false;
+	if (bModeVague)
+	{
+		bTrouve = TrouverPointApparition(VagueCentre, VagueRayonMin, FMath::Max(VagueRayonMax, VagueRayonMin + 300.f), Sol, Taille);
+	}
+	for (int32 Essai = 0; Essai < 3 && !bTrouve && Joueurs.Num() > 0; ++Essai)
+	{
+		APawn* Autour = Joueurs[FMath::RandRange(0, Joueurs.Num() - 1)];
+		bTrouve = TrouverPointApparition(Autour->GetActorLocation(), 1500.f, 3500.f, Sol, Taille);
+	}
+	if (!bTrouve)
+	{
+		return false;
+	}
+
+	ACharacter* Z = FaireApparaitreZombie(Sol);
+	FEtatZombie* Etat = Z ? Etats.Find(Z) : nullptr;
+	if (!Etat)
+	{
+		return false;
+	}
+
+	// Geant : on l'agrandit puis on le repose bien sur le sol
+	const float DemiHauteur = Z->GetCapsuleComponent() ? Z->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() : 90.f;
+	Z->SetActorScale3D(FVector(Taille));
+	Z->SetActorLocation(Sol + FVector(0.f, 0.f, DemiHauteur * Taille + 5.f), false, nullptr, ETeleportType::TeleportPhysics);
+	Z->Tags.AddUnique(MarqueBoss);
+
+	const int32 Balles = Reglages.BossBallesCorps + Reglages.BossBallesEnPlusParJoueur * FMath::Max(0, Joueurs.Num() - 1);
+	Etat->bBoss = true;
+	Etat->Echelle = Taille;
+	Etat->VieMax = FMath::Max(1.f, Balles * Reglages.DegatsCorpsPourcent);
+	Etat->Vie = Etat->VieMax;
+	Etat->Vitesse = Reglages.BossVitesse;
+	Etat->DernierePosition = Z->GetActorLocation();
+	if (UCharacterMovementComponent* Mouvement = Z->GetCharacterMovement())
+	{
+		Mouvement->MaxWalkSpeed = Etat->Vitesse;
+	}
+
+	Boss = Z;
+	BossTailleRep = Taille;
+	BossNomRep = Reglages.BossNom;
+	BossVieRatio = 1.f;
+
+	UE_LOG(LogTemp, Log, TEXT("[Zombies] BOSS : %s (taille x%.1f, %d balles dans le corps, %d joueur(s))."),
+		*Reglages.BossNom, Taille, Balles, Joueurs.Num());
+	MulticastAlerte(Reglages.BossMessage, 6.f, Reglages.VolumeSirene * 0.8f);
+	return true;
+}
+
+void AInvasionZombies::MulticastBossVaincu_Implementation(APlayerState* Tueur, int32 XP, int32 XPTueur, FVector Lieu)
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+	APlayerController* Moi = GetWorld()->GetFirstPlayerController();
+	const bool bCestMoi = Tueur && Moi && Moi->PlayerState == Tueur;
+	const int32 Total = XP + (bCestMoi ? XPTueur : 0);
+	DonnerXP(Total, TEXT("Boss zombie"));
+
+	MessageFin = FString::Printf(TEXT("%s VAINCU !  +%d XP"), *(BossNomRep.IsEmpty() ? Reglages.BossNom : BossNomRep), Total);
+	AgeFin = 0.f;
+	if (AgeAlerte >= 0.f)
+	{
+		AgeAlerte = -1.f;
+	}
+	if (SonSirene && !bSireneArretee)
+	{
+		bSireneArretee = true;
+		SonSirene->FadeOut(1.f, 0.f);
+	}
+	// Un grand nuage et un grondement quand il s'ecroule
+	if (Fumee)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), Fumee, Lieu, FRotator::ZeroRotator, FVector(3.f));
+	}
+	if (SonSortie)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, SonSortie, Lieu, 1.2f, 0.6f);
+	}
+}
+
+void AInvasionZombies::DonnerXP(int32 Quantite, const FString& Raison)
+{
+	// L'XP est tenue et sauvegardee par le plugin ChellesPouvoirs sur la machine du joueur : on l'appelle par son nom
+	UWorld* W = GetWorld();
+	if (!W || Quantite <= 0)
+	{
+		return;
+	}
+	for (TActorIterator<AActor> It(W); It; ++It)
+	{
+		if (It->GetClass()->GetName() != TEXT("PouvoirsChelles"))
+		{
+			continue;
+		}
+		UFunction* F = It->FindFunction(TEXT("GagnerXPBonus"));
+		if (!F || F->ParmsSize <= 0)
+		{
+			break;
+		}
+		uint8* Params = (uint8*)FMemory_Alloca(F->ParmsSize);
+		FMemory::Memzero(Params, F->ParmsSize);
+		for (TFieldIterator<FProperty> P(F); P && P->HasAnyPropertyFlags(CPF_Parm); ++P)
+		{
+			P->InitializeValue_InContainer(Params);
+		}
+		if (FIntProperty* PQ = CastField<FIntProperty>(F->FindPropertyByName(TEXT("Quantite"))))
+		{
+			PQ->SetPropertyValue_InContainer(Params, Quantite);
+		}
+		if (FStrProperty* PR = CastField<FStrProperty>(F->FindPropertyByName(TEXT("Raison"))))
+		{
+			PR->SetPropertyValue_InContainer(Params, Raison);
+		}
+		It->ProcessEvent(F, Params);
+		for (TFieldIterator<FProperty> P(F); P && P->HasAnyPropertyFlags(CPF_Parm); ++P)
+		{
+			P->DestroyValue_InContainer(Params);
+		}
+		UE_LOG(LogTemp, Log, TEXT("[Zombies] +%d XP (%s)."), Quantite, *Raison);
+		return;
+	}
+	UE_LOG(LogTemp, Log, TEXT("[Zombies] +%d XP (%s) : plugin ChellesPouvoirs absent, XP non comptee."), Quantite, *Raison);
 }
 
 // ===================================================================================

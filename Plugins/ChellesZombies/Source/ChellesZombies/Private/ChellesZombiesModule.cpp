@@ -43,6 +43,23 @@ namespace
 		}
 	}
 
+	/** Console : Chelles.ZombieBoss fait venir le boss de fin de vague tout de suite (pour tester). */
+	void CommandeBoss(UWorld* Monde)
+	{
+		AInvasionZombies* Invasion = TrouverInvasion(Monde);
+		if (!Invasion || !Invasion->EstServeur())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Zombies] Seul le serveur (ou le jeu solo) peut faire venir le boss."));
+			return;
+		}
+		Invasion->DemanderBoss();
+	}
+
+	FAutoConsoleCommandWithWorld GCommandeZombieBoss(
+		TEXT("Chelles.ZombieBoss"),
+		TEXT("Fait venir le boss zombie geant tout de suite (lance l'invasion si besoin)."),
+		FConsoleCommandWithWorldDelegate::CreateStatic(&CommandeBoss));
+
 	FAutoConsoleCommandWithWorld GCommandeZombies(
 		TEXT("Chelles.Zombies"),
 		TEXT("Lance tout de suite une invasion de zombies (pour tester)."),

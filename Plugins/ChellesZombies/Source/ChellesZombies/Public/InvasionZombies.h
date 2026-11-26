@@ -7,6 +7,7 @@
 
 class ACharacter;
 class AController;
+class APlayerState;
 class APawn;
 class UAudioComponent;
 class UDamageType;
@@ -57,6 +58,29 @@ struct FReglagesZombies
 	float YeuxAvant = 11.f;
 	float YeuxEcart = 3.3f;
 	float TailleYeux = 1.f;
+
+	// Boss de fin de vague (26/11) : un zombie geant, beaucoup de vie, de l'XP pour tout le monde
+	bool bBoss = true;
+	/** Aussi a la fin de chaque vague du mode survie (Dernier Refuge). */
+	bool bBossSurvie = true;
+	FString BossNom = TEXT("LE COLOSSE DE CHELLES");
+	FString BossMessage = TEXT("LE COLOSSE ARRIVE !");
+	/** Taille du boss (1 = zombie normal). */
+	float BossTaille = 2.6f;
+	/** Balles dans le corps pour le tuer (seul), + X par joueur en plus. */
+	int32 BossBallesCorps = 40;
+	int32 BossBallesEnPlusParJoueur = 15;
+	/** Une balle dans la tete compte pour X balles dans le corps (le boss ne meurt pas d'un seul tir). */
+	float BossTeteVaut = 3.f;
+	float BossVitesse = 330.f;
+	float BossDegatsPourcent = 40.f;
+	/** XP gagnee par chaque joueur present quand le boss tombe, + bonus pour celui qui l'acheve. */
+	int32 BossXP = 200;
+	int32 BossXPTueur = 100;
+	/** Invasion automatique : le boss arrive quand tous les zombies sont morts, ou X secondes avant la fin. */
+	float BossAvantFinSecondes = 90.f;
+	/** Une fois le boss arrive, l'invasion dure encore au moins X secondes. */
+	float BossDureeMinSecondes = 150.f;
 };
 
 /** Effets vus a l'ecran pour un zombie (sur chaque PC qui affiche le jeu). */
@@ -133,6 +157,11 @@ struct FEtatZombie
 
 	/** Il sort de terre jusqu'a ce moment : il ne bouge pas et n'attaque pas encore. */
 	float SortieJusqua = 0.f;
+
+	/** Boss de fin de vague : geant (Echelle), barre de vie (VieMax). */
+	bool bBoss = false;
+	float Echelle = 1.f;
+	float VieMax = 100.f;
 };
 
 UCLASS(NotPlaceable, Transient)
@@ -165,6 +194,9 @@ public:
 	/** Arrete la vague (ou l'invasion) en cours : les zombies restants s'effondrent (serveur). */
 	UFUNCTION()
 	void TerminerVagueCommandee();
+
+	/** Console : Chelles.ZombieBoss (fait venir le boss tout de suite, lance l'invasion si besoin). */
+	void DemanderBoss();
 
 	/** Vrai = l'invasion automatique toutes les 2 h ne se declenche pas (un mode de jeu a la main). */
 	UPROPERTY(Transient)
@@ -212,6 +244,24 @@ protected:
 	UPROPERTY(Replicated)
 	TArray<ACharacter*> Zombies;
 
+	// ---- Boss de fin de vague ----
+	UPROPERTY(Replicated)
+	ACharacter* Boss = nullptr;
+
+	/** Vie du boss de 0 a 1 (barre en haut de l'ecran). */
+	UPROPERTY(Replicated)
+	float BossVieRatio = 0.f;
+
+	UPROPERTY(Replicated)
+	float BossTailleRep = 1.f;
+
+	UPROPERTY(Replicated)
+	FString BossNomRep;
+
+	/** Le boss est tombe : chaque PC donne l'XP a son joueur (l'XP est tenue par ChellesPouvoirs sur chaque machine). */
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastBossVaincu(APlayerState* Tueur, int32 XP, int32 XPTueur, FVector Lieu);
+
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastAlerte(const FString& Texte, float Duree, float Volume);
 
@@ -242,7 +292,11 @@ private:
 	void TickLocal(float DeltaSeconds);
 
 	void ChoisirFoyers();
-	bool TrouverPointApparition(const FVector& Autour, float DistMin, float DistMax, FVector& Resultat) const;
+	bool TrouverPointApparition(const FVector& Autour, float DistMin, float DistMax, FVector& Resultat, float Echelle = 1.f) const;
+	/** Serveur : fait sortir le boss de terre. Faux si aucune place libre (on reessaie). */
+	bool FaireApparaitreBoss();
+	/** Sur ce PC : ajoute de l'XP au joueur local par le plugin ChellesPouvoirs (appele par son nom). */
+	void DonnerXP(int32 Quantite, const FString& Raison);
 	ACharacter* FaireApparaitreZombie(const FVector& Sol);
 	void PreparerZombie(ACharacter* Zombie);
 	void PiloterZombie(ACharacter* Zombie, FEtatZombie& Etat, float Maintenant);
@@ -266,6 +320,13 @@ private:
 
 	/** Vague commandee en cours (au lieu d'une invasion automatique). */
 	bool bModeVague = false;
+
+	// Boss (serveur)
+	bool bBossFait = false;
+	bool bBossDemande = false;
+	int32 EssaisBoss = 0;
+	float ProchainEssaiBoss = 0.f;
+	float BossTueA = -100.f;
 
 	// Serveur
 	float ProchaineInvasion = 0.f;
