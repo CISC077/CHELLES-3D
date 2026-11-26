@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Fetes",
+	"Description": "Evenements du calendrier de CHELLES 3D selon la date du PC : Halloween (citrouilles, fantomes, tetes de citrouille), 14 juillet (feux d'artifice bleu blanc rouge), fete de la musique (scene, musique et PNJ qui dansent). Rien n'est modifie dans la map.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ChellesFetes",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
