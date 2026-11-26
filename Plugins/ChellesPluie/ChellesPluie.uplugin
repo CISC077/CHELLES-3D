@@ -1,0 +1,26 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Chelles Pluie",
+	"Description": "Pluie de CHELLES 3D : averses (gouttes + bruit de pluie), flaques qui brillent sur les routes MI_AsphaltRoad, sol mouille. Rien n'est modifie dans la map ni dans les materiaux des routes.",
+	"Category": "Chelles 3D",
+	"CreatedBy": "CHELLES 3D",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Plugins": [
+		{
+			"Name": "ProceduralMeshComponent",
+			"Enabled": true
+		}
+	],
+	"Modules": [
+		{
+			"Name": "ChellesPluie",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
