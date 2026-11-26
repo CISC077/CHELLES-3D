@@ -21,6 +21,10 @@ struct FEtatAlerteZombies
 	/** Message de fin (PURGE TERMINEE...) et son age. */
 	FString MessageFin;
 	float AgeFin = 100.f;
+
+	/** Barre de vie du boss de fin de vague (0 a 1, negatif = pas de boss). */
+	float BossVie = -1.f;
+	FString BossNom;
 };
 
 class SAlerteZombies : public SLeafWidget
@@ -43,4 +47,5 @@ private:
 	void PeindreAlerte(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G) const;
 	void PeindreCompteur(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G) const;
 	void PeindreFin(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G) const;
+	void PeindreBoss(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G) const;
 };

@@ -50,6 +50,10 @@ int32 SAlerteZombies::OnPaint(const FPaintArgs& Args, const FGeometry& G, const 
 	if (Etat.bInvasion)
 	{
 		PeindreCompteur(Sortie, Couche + 10, G);
+		if (Etat.BossVie > 0.f)
+		{
+			PeindreBoss(Sortie, Couche + 10, G);
+		}
 	}
 	if (Etat.AgeFin < 6.f && !Etat.MessageFin.IsEmpty())
 	{
@@ -171,4 +175,29 @@ void SAlerteZombies::PeindreFin(FSlateWindowElementList& Sortie, int32 Couche, c
 		ESlateDrawEffect::None, FLinearColor(0.f, 0.f, 0.f, Alpha));
 	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(Coin, Taille), Etat.MessageFin, Police,
 		ESlateDrawEffect::None, FLinearColor(1.f, 0.85f, 0.75f, Alpha));
+}
+
+void SAlerteZombies::PeindreBoss(FSlateWindowElementList& Sortie, int32 Couche, const FGeometry& G) const
+{
+	// Sous le compteur : le nom du boss et sa barre de vie
+	const FVector2D Ecran = G.GetLocalSize();
+	const FSlateFontInfo Police = FCoreStyle::GetDefaultFontStyle("Bold", (int32)FMath::Clamp(Ecran.Y * 0.024f, 12.f, 28.f));
+	const TSharedRef<FSlateFontMeasure> Mesure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+	const FString Nom = Etat.BossNom.IsEmpty() ? FString(TEXT("BOSS")) : Etat.BossNom;
+	const FVector2D TailleNom = Mesure->Measure(Nom, Police);
+
+	const float Largeur = FMath::Clamp(Ecran.X * 0.4f, 240.f, 900.f);
+	const float Hauteur = FMath::Clamp(Ecran.Y * 0.018f, 10.f, 22.f);
+	const float Haut = Ecran.Y * 0.11f;
+	const FVector2D CoinNom(Ecran.X * 0.5f - TailleNom.X * 0.5f, Haut);
+	const FVector2D CoinBarre(Ecran.X * 0.5f - Largeur * 0.5f, Haut + TailleNom.Y + 4.f);
+
+	FSlateDrawElement::MakeText(Sortie, Couche + 2, G.ToPaintGeometry(CoinNom + FVector2D(2.f, 2.f), TailleNom), Nom, Police, ESlateDrawEffect::None, FLinearColor::Black);
+	FSlateDrawElement::MakeText(Sortie, Couche + 3, G.ToPaintGeometry(CoinNom, TailleNom), Nom, Police, ESlateDrawEffect::None, FLinearColor(1.f, 0.55f, 0.1f, 1.f));
+
+	const float Vie = FMath::Clamp(Etat.BossVie, 0.f, 1.f);
+	Boite(Sortie, Couche, G, CoinBarre - FVector2D(3.f, 3.f), FVector2D(Largeur + 6.f, Hauteur + 6.f), FLinearColor(0.f, 0.f, 0.f, 0.75f));
+	Boite(Sortie, Couche + 1, G, CoinBarre, FVector2D(Largeur, Hauteur), SangFonce);
+	Boite(Sortie, Couche + 2, G, CoinBarre, FVector2D(Largeur * Vie, Hauteur), FMath::Lerp(SangClair, FLinearColor(1.f, 0.45f, 0.05f, 1.f), Vie));
+	Boite(Sortie, Couche + 3, G, CoinBarre, FVector2D(Largeur * Vie, Hauteur * 0.3f), FLinearColor(1.f, 1.f, 1.f, 0.18f));
 }
