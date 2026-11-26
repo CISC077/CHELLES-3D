@@ -1,0 +1,48 @@
+CHELLES 3D - DEFIS DE LA SEMAINE (Discord + jeu)
+=================================================
+
+Ce que ca fait
+--------------
+- Chaque lundi a 18 h, le VPS poste sur le Discord, dans le salon #défis-de-la-semaine :
+  le bilan de la semaine passee (qui a reussi, le podium) + le nouveau defi.
+- Chaque vendredi a 18 h : un rappel avec les 3 meilleurs du moment.
+- Dans le jeu (plugin ChellesDefis), le defi s'affiche en haut de l'ecran au debut de la partie.
+- Les defis du DERNIER REFUGE (vague, score, zombies, tirs dans la tete, parties, equipe)
+  sont verifies tout seuls avec le classement. Defi reussi = XP pour les pouvoirs dans le jeu.
+- Les defis "libre" (photo, cascade, tenue) : les joueurs postent une capture sur le Discord.
+
+Installer ou mettre a jour (une seule fois, puis a chaque changement de defis.json)
+-------------------------------------------------------------------------------------
+Double-cliquez sur :
+  D:\SITE CHELLES3D\VPS\ENVOYER_LES_DEFIS_SUR_LE_VPS.bat
+Il fait tout : salon + webhook Discord (avec le bot, token dans D:\SITE CHELLES3D\DISCORD\token.txt),
+envoi sur le VPS, installation du service chelles3d-defis (port 8082), test.
+A la fin, faites une capture de la fenetre et envoyez-la a Claude.
+
+ATTENTION : juste apres l'installation, le defi de la semaine en cours est annonce
+tout de suite sur le Discord (ensuite, ce sera chaque lundi a 18 h).
+
+Changer les defis
+-----------------
+Ouvrez avec le Bloc-notes :
+  D:\SITE CHELLES3D\VPS\serveur-defis\defis.json
+Ajoutez, modifiez ou retirez des defis (gardez bien les guillemets et les virgules),
+puis relancez ENVOYER_LES_DEFIS_SUR_LE_VPS.bat.
+Le defi d'une semaine deja commencee ne change pas : la modification compte a partir du lundi suivant.
+
+Annoncer le defi tout de suite (par exemple si le message de lundi a ete efface)
+-------------------------------------------------------------------------------
+  D:\SITE CHELLES3D\VPS\ANNONCER_LE_DEFI_MAINTENANT.bat
+
+Plan B si le bot ne peut pas creer le webhook
+---------------------------------------------
+1. Sur Discord : clic droit sur le salon #défis-de-la-semaine (ou un autre) > Modifier le salon
+   > Integrations > Webhooks > Nouveau webhook > Copier l'URL du webhook.
+2. Creez le fichier D:\SITE CHELLES3D\VPS\serveur-defis\webhook.txt, collez l'adresse dedans, enregistrez.
+3. Relancez ENVOYER_LES_DEFIS_SUR_LE_VPS.bat (le fichier est efface du PC apres l'envoi).
+Ne collez JAMAIS cette adresse dans un chat : avec elle, n'importe qui peut ecrire dans le salon.
+
+En cas de souci (sur le VPS, dans une fenetre ssh ubuntu@51.178.54.208)
+------------------------------------------------------------------------
+  sudo journalctl -u chelles3d-defis -n 40
+  sudo -u chelles bash -c "cd /opt/chelles3d/defis && node defis.js --tester"
