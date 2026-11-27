@@ -4,8 +4,12 @@
 #include "Animation/AnimInstance.h"
 #include "Animation/Skeleton.h"
 #include "Components/PointLightComponent.h"
+#include "Components/PoseableMeshComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Animation/AnimationAsset.h"
 #include "Engine/DataTable.h"
 #include "Engine/Engine.h"
 #include "Engine/SkeletalMesh.h"
@@ -19,7 +23,17 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Misc/ScopeExit.h"
 #include "Misc/ConfigCacheIni.h"
+#include "HAL/IConsoleManager.h"
+#include "Misc/Crc.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/SCS_Node.h"
+#include "Engine/SimpleConstructionScript.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/PackageName.h"
 #include "Net/UnrealNetwork.h"
 #include "UObject/UnrealType.h"
 
@@ -27,6 +41,180 @@
 namespace HabillageInterne
 {
 	static const TCHAR* SectionIni = TEXT("ChellesHabillage");
+	// PANTERA (2026-11-11) : corps cree par Tools\Pantera\creer_pantera.py
+	static const TCHAR* CheminPantera = TEXT("/Game/Personnages/SK_Pantera/SK_Pantera_Vol.SK_Pantera_Vol");
+	static const TCHAR* YeuxBlancs = TEXT("/Game/Personnages/SK_Pantera/M_Pantera_Yeux.M_Pantera_Yeux");
+	static const TCHAR* CheminSpiderMale = TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Vol.SK_SpiderMan_Vol");
+	static const TCHAR* AttentePantera = TEXT("/Game/SuperheroFlight/Characters/Mannequin/Animations/ThirdPerson_Idle.ThirdPerson_Idle");
+	// Personnages de MERIDJA (2026-11-24) : corps et animations crees par Tools\Personnages\creer_personnages.py
+	//  /Game/Personnages/<DOSSIER>/Joueur/SK_<Prefixe>  et  .../Joueur/Anims/A_<Prefixe>_<Danse|Marche>_Anim
+	struct FPersoWraithInfo
+	{
+		int32 Sexe;
+		const TCHAR* Nom;      // nom du skin dans Wraith.txt (Skin=LENA)
+		const TCHAR* Dossier;  // dossier sous /Game/Personnages
+		const TCHAR* Prefixe;  // SK_<Prefixe>, A_<Prefixe>_...
+	};
+	static const FPersoWraithInfo PersosWraithInfos[] =
+	{
+		{ ChellesHabillage::Lena,  TEXT("LENA"),  TEXT("LENA"),  TEXT("Lena") },
+		{ ChellesHabillage::Sofia, TEXT("SOFIA"), TEXT("SOFIA"), TEXT("Sofia") },
+		{ ChellesHabillage::Lucia, TEXT("LUCIA"), TEXT("LUCIA"), TEXT("Lucia") },
+		{ ChellesHabillage::Brenda, TEXT("BRENDA"), TEXT("BRENDA"), TEXT("Brenda") },
+		{ ChellesHabillage::Shems, TEXT("MR.SHEMS"), TEXT("Shems"), TEXT("Shems") },
+		{ ChellesHabillage::Rebecca, TEXT("REBECCA"), TEXT("Rebecca"), TEXT("Rebecca") },
+		{ ChellesHabillage::Rachid, TEXT("RACHID"), TEXT("Rachid"), TEXT("Rachid") },   // 26/11/2026, VIP
+		{ ChellesHabillage::Prevor, TEXT("PREVOR"), TEXT("PREVOR"), TEXT("Prevor") },   // 27/11/2026, VIP
+	};
+	static const FPersoWraithInfo* InfoPerso(int32 Sexe)
+	{
+		for (const FPersoWraithInfo& P : PersosWraithInfos)
+		{
+			if (P.Sexe == Sexe)
+			{
+				return &P;
+			}
+		}
+		return nullptr;
+	}
+	// Heros de la touche K du SOLDAT (2026-11-24) : lus dans Plugins\ChellesWraith\Wraith.txt
+	//  Skin=NOM|corps|couleur|...|couleur carte|Heros|materiau   et   Heros=Heros|AnimBlueprint (ou Soldat)|...
+	// Le choix est enregistre par un numero tire du nom (1000 et plus) : il ne change pas si on ajoute des lignes.
+	struct FHerosSkin
+	{
+		int32 Sexe = 0;
+		FString Nom;
+		FString Corps;
+		FString Materiau;
+		FString Anim;       // classe d'Animation Blueprint, "Soldat", ou vide
+		FString Danse;      // 1re danse du heros (ligne Danses=) : jouee en boucle dans l'apercu (25/11)
+		FLinearColor Couleur = FLinearColor::Black;
+	};
+	static const TArray<FHerosSkin>& HerosSkins()
+	{
+		static TArray<FHerosSkin> Liste;
+		static bool bLu = false;
+		if (bLu)
+		{
+			return Liste;
+		}
+		bLu = true;
+		TArray<FString> Lignes;
+		const FString Fichier = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesWraith"), TEXT("Wraith.txt"));
+		if (!FFileHelper::LoadFileToStringArray(Lignes, *Fichier))
+		{
+			return Liste;
+		}
+		TMap<FString, FString> AnimDuHeros;
+		TMap<FString, FString> DanseDuHeros;
+		for (FString L : Lignes)
+		{
+			L.TrimStartAndEndInline();
+			if (L.StartsWith(TEXT("Danses=")))
+			{
+				FString Nom, ListeDanses, Premiere, Reste;
+				if (L.Mid(7).Split(TEXT("|"), &Nom, &ListeDanses))
+				{
+					ListeDanses.TrimStartAndEndInline();
+					if (!ListeDanses.Split(TEXT(";"), &Premiere, &Reste))
+					{
+						Premiere = ListeDanses;
+					}
+					Premiere.TrimStartAndEndInline();
+					if (!Premiere.IsEmpty() && !DanseDuHeros.Contains(Nom.TrimStartAndEnd()))
+					{
+						DanseDuHeros.Add(Nom.TrimStartAndEnd(), Premiere);
+					}
+				}
+			}
+			else if (L.StartsWith(TEXT("Heros=")))
+			{
+				TArray<FString> M;
+				L.Mid(6).ParseIntoArray(M, TEXT("|"), false);
+				if (M.Num() > 1)
+				{
+					AnimDuHeros.Add(M[0].TrimStartAndEnd(), M[1].TrimStartAndEnd());
+				}
+			}
+		}
+		for (FString L : Lignes)
+		{
+			L.TrimStartAndEndInline();
+			if (!L.StartsWith(TEXT("Skin=")))
+			{
+				continue;
+			}
+			TArray<FString> M;
+			L.Mid(5).ParseIntoArray(M, TEXT("|"), false);
+			if (M.Num() < 2)
+			{
+				continue;
+			}
+			FHerosSkin H;
+			H.Nom = M[0].TrimStartAndEnd();
+			H.Corps = M[1].TrimStartAndEnd();
+			if (H.Nom.IsEmpty() || !H.Corps.StartsWith(TEXT("/Game/")))
+			{
+				continue; // SOLDAT D'ORIGINE
+			}
+			bool bDejaLa = false;
+			for (const FPersoWraithInfo& P : PersosWraithInfos)
+			{
+				bDejaLa |= H.Nom.Equals(P.Nom, ESearchCase::IgnoreCase);
+			}
+			if (bDejaLa)
+			{
+				continue; // LENA, SOFIA, LUCIA ont deja leur carte
+			}
+			if (M.IsValidIndex(4))
+			{
+				TArray<FString> C;
+				M[4].ParseIntoArray(C, TEXT(","));
+				if (C.Num() >= 3)
+				{
+					H.Couleur = FLinearColor(FCString::Atof(*C[0]), FCString::Atof(*C[1]), FCString::Atof(*C[2]));
+				}
+			}
+			if (M.IsValidIndex(5))
+			{
+				if (const FString* A = AnimDuHeros.Find(M[5].TrimStartAndEnd()))
+				{
+					H.Anim = *A;
+				}
+				if (const FString* D = DanseDuHeros.Find(M[5].TrimStartAndEnd()))
+				{
+					H.Danse = *D;
+				}
+			}
+			if (M.IsValidIndex(6))
+			{
+				H.Materiau = M[6].TrimStartAndEnd();
+			}
+			H.Sexe = 1000 + int32(FCrc::StrCrc32(*H.Nom.ToUpper()) % 1000000u);
+			while (Liste.ContainsByPredicate([&H](const FHerosSkin& X) { return X.Sexe == H.Sexe; }))
+			{
+				++H.Sexe;
+			}
+			Liste.Add(H);
+		}
+		return Liste;
+	}
+	static const FHerosSkin* InfoHeros(int32 Sexe)
+	{
+		if (Sexe < 1000)
+		{
+			return nullptr;
+		}
+		for (const FHerosSkin& H : HerosSkins())
+		{
+			if (H.Sexe == Sexe)
+			{
+				return &H;
+			}
+		}
+		return nullptr;
+	}
+	static void YeuxPantera(USkeletalMeshComponent* Corps, bool bAvecYeux);
 	static const TCHAR* TableTetes = TEXT("/Game/Action_Male_and_Female/Data/Heads/DT_Heads.DT_Heads");
 	static const TCHAR* TablesMannequin[] =
 	{
@@ -653,6 +841,143 @@ namespace ChellesHabillage
 		return Liste;
 	}
 
+	// Chemins "doux" (soft) d'une table : tetes, vetements, sous-tables. Sans eux, le catalogue les chargeait
+	// d'un coup (TryLoad) a l'ouverture du menu : 5 a 17 s de gel (tests auto du 25/11).
+	static void CheminsDoux(UDataTable* Table, TArray<FSoftObjectPath>& Sortie)
+	{
+		if (!Table || !Table->GetRowStruct())
+		{
+			return;
+		}
+		const UScriptStruct* Struct = Table->GetRowStruct();
+		for (const TPair<FName, uint8*>& Paire : Table->GetRowMap())
+		{
+			for (TFieldIterator<FProperty> It(Struct); It; ++It)
+			{
+				const FProperty* P = *It;
+				const void* Valeur = P->ContainerPtrToValuePtr<void>(Paire.Value);
+				if (CastField<FSoftObjectProperty>(P))
+				{
+					const FSoftObjectPath Chemin = static_cast<const FSoftObjectPtr*>(Valeur)->ToSoftObjectPath();
+					if (!Chemin.IsNull() && !Chemin.ResolveObject())
+					{
+						Sortie.AddUnique(Chemin);
+					}
+				}
+				else if (const FMapProperty* PM = CastField<FMapProperty>(P))
+				{
+					if (!CastField<FSoftObjectProperty>(PM->ValueProp))
+					{
+						continue;
+					}
+					FScriptMapHelper Aide(PM, Valeur);
+					for (int32 i = 0; i < Aide.GetMaxIndex(); ++i)
+					{
+						if (Aide.IsValidIndex(i))
+						{
+							const FSoftObjectPath Chemin = reinterpret_cast<const FSoftObjectPtr*>(Aide.GetValuePtr(i))->ToSoftObjectPath();
+							if (!Chemin.IsNull() && !Chemin.ResolveObject())
+							{
+								Sortie.AddUnique(Chemin);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	bool PrechargerCatalogue()
+	{
+		// Etapes, une par image : 0 = tables, 1 = ce que designent les tables (un tour),
+		// 2 = catalogue prepare (rapide : tout est deja en memoire).
+		static int32 Etape = -1;
+		static int32 Tours = 0;
+		static FStreamableManager Chargeur;
+		static TSharedPtr<FStreamableHandle> Poignee;
+		if (Etape == 2)
+		{
+			return true;
+		}
+		if (Poignee.IsValid() && Poignee->IsLoadingInProgress())
+		{
+			return false;
+		}
+		if (Etape == 1 || Etape == 0)
+		{
+			TArray<UDataTable*> Tables;
+			if (UDataTable* T = Cast<UDataTable>(FSoftObjectPath(TableTetes).ResolveObject()))
+			{
+				Tables.Add(T);
+			}
+			for (const TCHAR* Chemin : TablesMannequin)
+			{
+				if (UDataTable* T = Cast<UDataTable>(FSoftObjectPath(Chemin).ResolveObject()))
+				{
+					Tables.Add(T);
+				}
+			}
+			// 27/11 : attente en SECONDES (avant : 900 images, soit ~36 s a 25 img/s mais trop court quand la carte
+			// charge encore 500 fichiers). Au bout du delai, plus de chargement force : voir plus bas.
+			static double DebutAttente = 0.0;
+			if (DebutAttente <= 0.0)
+			{
+				DebutAttente = FPlatformTime::Seconds();
+			}
+			const bool bDelaiDepasse = FPlatformTime::Seconds() - DebutAttente > 120.0;
+			if (Etape == 0 && Tables.Num() < 1 + int32(UE_ARRAY_COUNT(TablesMannequin)) && !bDelaiDepasse)
+			{
+				return false; // les tables arrivent encore (on attend au plus 2 min ; pack absent : on continue)
+			}
+			// Seulement ce que le catalogue lit a l'ouverture (tetes, corps mannequin, sous-tables Upper/Lower...) :
+			// les vetements des sous-tables restent charges a la demande (sinon des centaines de Mo en memoire).
+			TArray<FSoftObjectPath> AFaire;
+			for (UDataTable* T : Tables)
+			{
+				CheminsDoux(T, AFaire);
+			}
+			Etape = 1;
+			if (AFaire.Num() > 0 && Tours < 1)
+			{
+				++Tours;
+				UE_LOG(LogTemp, Log, TEXT("[Habillage] Prechargement du catalogue en arriere-plan : %d fichiers (tour %d)."), AFaire.Num(), Tours);
+				Poignee = Chargeur.RequestAsyncLoad(AFaire, FStreamableDelegate(), FStreamableManager::DefaultAsyncLoadPriority, false);
+				return false;
+			}
+			Poignee.Reset();
+			// 27/11 : Modeles() relit les tables avec LoadObject. Si le jeu charge encore d'autres fichiers en
+			// arriere-plan, ce LoadObject les attendait TOUS (journal du test du 26/11 : "DT_Heads is flushing
+			// async loading", 525 fichiers, 30 s de gel en pleine partie). On attend donc que le chargement de
+			// fond soit fini ; apres 2 min on n'insiste plus (le catalogue se fera a l'ouverture du menu).
+			if (IsAsyncLoading() && !bDelaiDepasse)
+			{
+				return false;
+			}
+			Etape = 2;
+			if (!IsAsyncLoading())
+			{
+				Modeles(); // tout est en memoire : prepare tout de suite, sans gel
+			}
+			return true;
+		}
+		Etape = 0;
+		TArray<const TCHAR*> Chemins;
+		Chemins.Add(TableTetes);
+		for (const TCHAR* Chemin : TablesMannequin)
+		{
+			Chemins.Add(Chemin);
+		}
+		for (const TCHAR* Chemin : Chemins)
+		{
+			const FSoftObjectPath Objet(Chemin);
+			if (Objet.ResolveObject() == nullptr && FPackageName::DoesPackageExist(Objet.GetLongPackageName()))
+			{
+				LoadPackageAsync(Objet.GetLongPackageName());
+			}
+		}
+		return false;
+	}
+
 	bool PacksPresents()
 	{
 		return Modeles().Num() > 0;
@@ -701,11 +1026,204 @@ namespace ChellesHabillage
 		return E.Lignes.Num() > 0 && !E.Lignes[0].IsNone() ? E.Lignes[0].ToString() : FString();
 	}
 
+	const TCHAR* NomPersoWraith(int32 Sexe)
+	{
+		if (const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Sexe))
+		{
+			return P->Nom;
+		}
+		const HabillageInterne::FHerosSkin* H = HabillageInterne::InfoHeros(Sexe);
+		return H ? *H->Nom : nullptr;
+	}
+
+	TArray<int32> PersosWraith()
+	{
+		TArray<int32> Liste;
+		for (const HabillageInterne::FPersoWraithInfo& P : HabillageInterne::PersosWraithInfos)
+		{
+			// 25/11 : carte montree seulement si le perso est cree (BRENDA : apres Tools\Personnages\CREER_PERSONNAGES.bat)
+			if (FPackageName::DoesPackageExist(FString::Printf(TEXT("/Game/Personnages/%s/Joueur/SK_%s"), P.Dossier, P.Prefixe)))
+			{
+				Liste.Add(P.Sexe);
+			}
+		}
+		for (const HabillageInterne::FHerosSkin& H : HabillageInterne::HerosSkins())
+		{
+			Liste.Add(H.Sexe);
+		}
+		return Liste;
+	}
+
+	bool EstPersoCree(int32 Sexe)
+	{
+		return HabillageInterne::InfoPerso(Sexe) != nullptr;
+	}
+
+	// ---- Personnages VIP (25/11/2026) : Plugins\ChellesMenu\VIP.txt (Bloc-notes, sans recompiler)
+	//   CODE=2468           un seul code pour TOUS les VIP
+	//   VIP=MR.SHEMS        un nom de personnage (comme sur sa carte du lobby) par ligne
+	//   VIP=RACHID|8466     27/11 : + un code PERSONNEL qui ne debloque que ce personnage (le CODE commun marche aussi)
+	// Le code debloque tous les VIP jusqu'a la FERMETURE du jeu (demande MERIDJA 25/11 : a retaper a chaque lancement).
+	// Rien n'est enregistre : variable Chelles.VIPDebloque en memoire, en lecture seule pour la console ²
+	// (lue aussi par ChellesWraith : la touche K saute les VIP tant que ce n'est pas fait).
+	namespace
+	{
+		TAutoConsoleVariable<int32> CVarVIPDebloque(
+			TEXT("Chelles.VIPDebloque"), 0,
+			TEXT("1 = code VIP tape depuis le lancement du jeu (jamais enregistre)."),
+			ECVF_ReadOnly);
+
+		// 27/11/2026 : VIP debloques un par un avec leur code personnel (";RACHID;"), en memoire seulement
+		TAutoConsoleVariable<FString> CVarVIPPersos(
+			TEXT("Chelles.VIPPersos"), TEXT(""),
+			TEXT("VIP debloques par leur code personnel depuis le lancement du jeu (jamais enregistre)."),
+			ECVF_ReadOnly);
+
+		FString NomVIP(const FString& Brut)
+		{
+			FString R;
+			for (TCHAR C : Brut.ToUpper())
+			{
+				switch (C)
+				{
+				case 0x00C9: case 0x00C8: case 0x00CA: case 0x00CB: case 0x00E9: case 0x00E8: case 0x00EA: case 0x00EB: C = TEXT('E'); break;
+				case 0x00C0: case 0x00C2: case 0x00C4: case 0x00E0: case 0x00E2: case 0x00E4: C = TEXT('A'); break;
+				case 0x00CE: case 0x00CF: case 0x00EE: case 0x00EF: C = TEXT('I'); break;
+				case 0x00D4: case 0x00D6: case 0x00F4: case 0x00F6: C = TEXT('O'); break;
+				default: break;
+				}
+				if (FChar::IsAlnum(C))
+				{
+					R.AppendChar(C);
+				}
+			}
+			return R;
+		}
+
+		struct FListeVIP
+		{
+			FString Code;
+			TSet<FString> Noms;
+			TMap<FString, FString> CodesPerso; // 27/11 : VIP=RACHID|8466
+		};
+
+		const FListeVIP& ListeVIP()
+		{
+			static FListeVIP L;
+			static bool bLu = false;
+			if (!bLu)
+			{
+				bLu = true;
+				TArray<FString> Lignes;
+				const FString Fichier = FPaths::Combine(FPaths::ProjectPluginsDir(), TEXT("ChellesMenu"), TEXT("VIP.txt"));
+				if (!FFileHelper::LoadFileToStringArray(Lignes, *Fichier))
+				{
+					// Fichier absent (jeu exporte sans lui) : la liste du 25/11
+					Lignes = { TEXT("CODE=2468"), TEXT("VIP=MR.SHEMS"), TEXT("VIP=LENA"), TEXT("VIP=SOFIA"), TEXT("VIP=LUCIA"), TEXT("VIP=BRENDA"), TEXT("VIP=REBECCA"), TEXT("VIP=RACHID|8466"), TEXT("VIP=PREVOR") };
+				}
+				for (const FString& Brute : Lignes)
+				{
+					const FString Ligne = Brute.TrimStartAndEnd();
+					FString Cle, Valeur;
+					if (Ligne.StartsWith(TEXT("#")) || Ligne.StartsWith(TEXT(";")) || !Ligne.Split(TEXT("="), &Cle, &Valeur))
+					{
+						continue;
+					}
+					Cle = Cle.TrimStartAndEnd();
+					Valeur = Valeur.TrimStartAndEnd();
+					if (Cle.Equals(TEXT("CODE"), ESearchCase::IgnoreCase))
+					{
+						L.Code = Valeur;
+					}
+					else if (Cle.Equals(TEXT("VIP"), ESearchCase::IgnoreCase))
+					{
+						// VIP=RACHID|8466 : nom | code personnel (facultatif)
+						FString Nom = Valeur, CodePerso;
+						Valeur.Split(TEXT("|"), &Nom, &CodePerso);
+						Nom = NomVIP(Nom);
+						CodePerso = CodePerso.TrimStartAndEnd();
+						if (!Nom.IsEmpty())
+						{
+							L.Noms.Add(Nom);
+							if (!CodePerso.IsEmpty())
+							{
+								L.CodesPerso.Add(Nom, CodePerso);
+							}
+						}
+					}
+				}
+			}
+			return L;
+		}
+	}
+
+	bool EstPersoVIP(int32 Sexe)
+	{
+		const TCHAR* Nom = NomPersoWraith(Sexe);
+		return Nom && ListeVIP().Noms.Contains(NomVIP(Nom));
+	}
+
+	bool PersoDebloque(int32 Sexe)
+	{
+		if (!EstPersoVIP(Sexe))
+		{
+			return true;
+		}
+		if (CVarVIPDebloque.GetValueOnGameThread() != 0)
+		{
+			return true;
+		}
+		const FString Persos = CVarVIPPersos.GetValueOnGameThread();
+		return Persos.Contains(TEXT(";") + NomVIP(NomPersoWraith(Sexe)) + TEXT(";"));
+	}
+
+	bool DebloquerPerso(int32 Sexe, const FString& Code)
+	{
+		if (!EstPersoVIP(Sexe))
+		{
+			return true;
+		}
+		const FString Tape = Code.TrimStartAndEnd();
+		// 27/11 : code personnel (VIP=RACHID|8466) -> ce personnage seulement
+		const FString Nom = NomVIP(NomPersoWraith(Sexe));
+		const FString* Perso = ListeVIP().CodesPerso.Find(Nom);
+		if (Perso && !Tape.IsEmpty() && Tape.Equals(*Perso))
+		{
+			FString Persos = CVarVIPPersos.GetValueOnGameThread();
+			if (Persos.IsEmpty())
+			{
+				Persos = TEXT(";");
+			}
+			if (!Persos.Contains(TEXT(";") + Nom + TEXT(";")))
+			{
+				Persos += Nom + TEXT(";");
+			}
+			CVarVIPPersos->Set(*Persos, ECVF_SetByCode);
+			return true;
+		}
+		const FString& Bon = ListeVIP().Code;
+		if (Bon.IsEmpty() || !Tape.Equals(Bon))
+		{
+			return false;
+		}
+		CVarVIPDebloque->Set(1, ECVF_SetByCode);
+		return true;
+	}
+
+	FLinearColor CouleurPersoWraith(int32 Sexe)
+	{
+		const HabillageInterne::FHerosSkin* H = HabillageInterne::InfoHeros(Sexe);
+		return H ? H->Couleur : FLinearColor::Black;
+	}
+
 	void Completer(FTenue& Tenue)
 	{
 		if (Tenue.EstSpiderMan())
 		{
-			Tenue.Sexe = SpiderMan;
+			if ((Tenue.Sexe != Pantera && !NomPersoWraith(Tenue.Sexe)) || !PersoDebloque(Tenue.Sexe))
+			{
+				Tenue.Sexe = SpiderMan;
+			}
 			return;
 		}
 		const FModele* M = TrouverModele(Tenue.Modele);
@@ -1116,6 +1634,13 @@ void AHabillageChelles::EndPlay(const EEndPlayReason::Type Raison)
 		}
 	}
 	Habilles.Reset();
+	TArray<TWeakObjectPtr<APawn>> PionsACheval;
+	Cavaliers.GetKeys(PionsACheval);
+	for (const TWeakObjectPtr<APawn>& P : PionsACheval)
+	{
+		RetirerPersoACheval(P.Get());
+	}
+	Cavaliers.Reset();
 	Super::EndPlay(Raison);
 }
 
@@ -1259,6 +1784,293 @@ USkeletalMeshComponent* AHabillageChelles::Cavalier(APawn* Pion)
 	return nullptr;
 }
 
+// ---------------------------------------------------------------- Perso special sur le cheval (26/11/2026)
+
+namespace HabillageInterne
+{
+	/** Nom d'os commun : les os Mixamo (Hips, LeftArm...) prennent le nom UE4 (pelvis, upperarm_l...). */
+	static FString OsCommun(const FName& Nom)
+	{
+		FString N = Nom.ToString().ToLower();
+		N.RemoveFromStart(TEXT("mixamorig:"));
+		N.RemoveFromStart(TEXT("mixamorig_"));
+		N.RemoveFromStart(TEXT("mixamorig"));
+		static const TCHAR* const Table[][2] =
+		{
+			{ TEXT("hips"), TEXT("pelvis") }, { TEXT("spine"), TEXT("spine_01") }, { TEXT("spine1"), TEXT("spine_02") },
+			{ TEXT("spine2"), TEXT("spine_03") }, { TEXT("neck"), TEXT("neck_01") }, { TEXT("head"), TEXT("head") },
+			{ TEXT("leftshoulder"), TEXT("clavicle_l") }, { TEXT("leftarm"), TEXT("upperarm_l") }, { TEXT("leftforearm"), TEXT("lowerarm_l") },
+			{ TEXT("lefthand"), TEXT("hand_l") }, { TEXT("leftupleg"), TEXT("thigh_l") }, { TEXT("leftleg"), TEXT("calf_l") },
+			{ TEXT("leftfoot"), TEXT("foot_l") }, { TEXT("lefttoebase"), TEXT("ball_l") },
+			{ TEXT("rightshoulder"), TEXT("clavicle_r") }, { TEXT("rightarm"), TEXT("upperarm_r") }, { TEXT("rightforearm"), TEXT("lowerarm_r") },
+			{ TEXT("righthand"), TEXT("hand_r") }, { TEXT("rightupleg"), TEXT("thigh_r") }, { TEXT("rightleg"), TEXT("calf_r") },
+			{ TEXT("rightfoot"), TEXT("foot_r") }, { TEXT("righttoebase"), TEXT("ball_r") },
+		};
+		for (const auto& L : Table)
+		{
+			if (N == L[0])
+			{
+				return L[1];
+			}
+		}
+		// Doigts Mixamo : LeftHandIndex1 -> index_01_l (le 4e = bout du doigt, sans equivalent)
+		for (const TCHAR* Cote : { TEXT("left"), TEXT("right") })
+		{
+			const FString Debut = FString(Cote) + TEXT("hand");
+			if (N.StartsWith(Debut) && N.Len() > Debut.Len() + 1)
+			{
+				const FString Reste = N.Mid(Debut.Len());
+				const TCHAR Chiffre = Reste[Reste.Len() - 1];
+				if (Chiffre >= TEXT('1') && Chiffre <= TEXT('3'))
+				{
+					return FString::Printf(TEXT("%s_0%c_%c"), *Reste.LeftChop(1), Chiffre, Cote[0] == TEXT('l') ? TEXT('l') : TEXT('r'));
+				}
+			}
+		}
+		return N;
+	}
+
+	/** Os "enfant" qui donne la direction d'un os (bras, jambes, colonne, doigts). */
+	static FString OsDirection(const FString& Os)
+	{
+		static const TCHAR* const Table[][2] =
+		{
+			{ TEXT("clavicle"), TEXT("upperarm") }, { TEXT("upperarm"), TEXT("lowerarm") }, { TEXT("lowerarm"), TEXT("hand") },
+			{ TEXT("hand"), TEXT("middle_01") }, { TEXT("thigh"), TEXT("calf") }, { TEXT("calf"), TEXT("foot") }, { TEXT("foot"), TEXT("ball") },
+		};
+		for (const auto& L : Table)
+		{
+			for (const TCHAR* Cote : { TEXT("_l"), TEXT("_r") })
+			{
+				if (Os == FString(L[0]) + Cote)
+				{
+					return FString(L[1]) + Cote;
+				}
+			}
+		}
+		if (Os == TEXT("spine_01")) return TEXT("spine_02");
+		if (Os == TEXT("spine_02")) return TEXT("spine_03");
+		if (Os == TEXT("spine_03")) return TEXT("neck_01");
+		if (Os == TEXT("neck_01")) return TEXT("head");
+		for (const TCHAR* Doigt : { TEXT("thumb"), TEXT("index"), TEXT("middle"), TEXT("ring"), TEXT("pinky") })
+		{
+			for (const TCHAR* Cote : { TEXT("_l"), TEXT("_r") })
+			{
+				if (Os == FString::Printf(TEXT("%s_01%s"), Doigt, Cote)) return FString::Printf(TEXT("%s_02%s"), Doigt, Cote);
+				if (Os == FString::Printf(TEXT("%s_02%s"), Doigt, Cote)) return FString::Printf(TEXT("%s_03%s"), Doigt, Cote);
+			}
+		}
+		return FString();
+	}
+
+	static void PoseDeReference(const FReferenceSkeleton& Ref, TArray<FTransform>& CS)
+	{
+		const TArray<FTransform>& Local = Ref.GetRefBonePose();
+		CS.SetNum(Local.Num());
+		for (int32 i = 0; i < Local.Num(); ++i)
+		{
+			const int32 Parent = Ref.GetParentIndex(i);
+			CS[i] = Parent != INDEX_NONE ? Local[i] * CS[Parent] : Local[i];
+		}
+	}
+
+	/** Corps du perso choisi (et son materiau) quand ce n'est pas une tenue de vetements ni Spider-Male. */
+	static FString CorpsDuPerso(const ChellesHabillage::FTenue& Tenue, FString& Materiau)
+	{
+		Materiau.Reset();
+		if (const FPersoWraithInfo* P = InfoPerso(Tenue.Sexe))
+		{
+			return FString::Printf(TEXT("/Game/Personnages/%s/Joueur/SK_%s.SK_%s"), P->Dossier, P->Prefixe, P->Prefixe);
+		}
+		if (const FHerosSkin* H = InfoHeros(Tenue.Sexe))
+		{
+			Materiau = H->Materiau;
+			return H->Corps;
+		}
+		if (Tenue.EstPantera())
+		{
+			return CheminPantera;
+		}
+		return FString();
+	}
+}
+
+void AHabillageChelles::PersoACheval(APawn* Pion, USkeletalMeshComponent* Selle, const ChellesHabillage::FTenue& Tenue)
+{
+	FString Materiau;
+	const FString Chemin = HabillageInterne::CorpsDuPerso(Tenue, Materiau);
+	if (FCavalierPerso* Deja = Cavaliers.Find(Pion))
+	{
+		if (Deja->Chemin == Chemin && Deja->Selle.Get() == Selle && Deja->Corps.IsValid())
+		{
+			return;
+		}
+	}
+	RetirerPersoACheval(Pion);
+	if (Chemin.IsEmpty() || !Selle || !Selle->SkeletalMesh)
+	{
+		return;
+	}
+	USkeletalMesh* Mesh = LoadObject<USkeletalMesh>(nullptr, *Chemin, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	if (!Mesh)
+	{
+		return;
+	}
+	FCavalierPerso C;
+	C.Chemin = Chemin;
+	C.Selle = Selle;
+	C.bOmbreSelle = Selle->CastShadow;
+	const FReferenceSkeleton& RefP = Mesh->GetRefSkeleton();
+	const FReferenceSkeleton& RefS = Selle->SkeletalMesh->GetRefSkeleton();
+	HabillageInterne::PoseDeReference(RefP, C.RefPerso);
+	HabillageInterne::PoseDeReference(RefS, C.RefSelle);
+
+	TMap<FString, int32> OsSelle, OsPerso;
+	for (int32 i = 0; i < RefS.GetNum(); ++i)
+	{
+		OsSelle.Add(HabillageInterne::OsCommun(RefS.GetBoneName(i)), i);
+	}
+	for (int32 i = 0; i < RefP.GetNum(); ++i)
+	{
+		OsPerso.Add(HabillageInterne::OsCommun(RefP.GetBoneName(i)), i);
+	}
+	int32 Trouves = 0;
+	C.Source.Init(INDEX_NONE, RefP.GetNum());
+	C.Ecart.Init(FQuat::Identity, RefP.GetNum());
+	for (int32 i = 0; i < RefP.GetNum(); ++i)
+	{
+		const FString Nom = HabillageInterne::OsCommun(RefP.GetBoneName(i));
+		const int32* S = OsSelle.Find(Nom);
+		if (!S || (*S == 0 && Nom != TEXT("pelvis")))
+		{
+			continue; // la racine ne suit pas : c'est le bassin qui place le corps
+		}
+		C.Source[i] = *S;
+		++Trouves;
+		if (Nom == TEXT("pelvis"))
+		{
+			C.Bassin = i;
+		}
+		const FString Enfant = HabillageInterne::OsDirection(Nom);
+		const int32* EP = Enfant.IsEmpty() ? nullptr : OsPerso.Find(Enfant);
+		const int32* ES = Enfant.IsEmpty() ? nullptr : OsSelle.Find(Enfant);
+		if (EP && ES)
+		{
+			const FVector DirP = (C.RefPerso[*EP].GetLocation() - C.RefPerso[i].GetLocation()).GetSafeNormal();
+			const FVector DirS = (C.RefSelle[*ES].GetLocation() - C.RefSelle[*S].GetLocation()).GetSafeNormal();
+			if (!DirP.IsNearlyZero() && !DirS.IsNearlyZero())
+			{
+				C.Ecart[i] = FQuat::FindBetweenNormals(DirP, DirS);
+			}
+		}
+	}
+	if (Trouves < 10 || C.Bassin == INDEX_NONE)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Habillage] Cavalier : %s n'a pas assez d'os communs avec le cavalier (%d), il reste en Spider-Male."), *Chemin, Trouves);
+		return;
+	}
+
+	UPoseableMeshComponent* Corps = NewObject<UPoseableMeshComponent>(Pion, NAME_None, RF_Transient);
+	Corps->SetupAttachment(Selle);
+	Corps->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Corps->SetGenerateOverlapEvents(false);
+	Corps->bReceivesDecals = false;
+	Corps->SetSkeletalMesh(Mesh);
+	if (!Materiau.IsEmpty())
+	{
+		if (UMaterialInterface* Mat = LoadObject<UMaterialInterface>(nullptr, *Materiau))
+		{
+			for (int32 i = 0; i < Corps->GetNumMaterials(); ++i)
+			{
+				Corps->SetMaterial(i, Mat);
+			}
+		}
+	}
+	Corps->SetHiddenInGame(Selle->bHiddenInGame);
+	Corps->RegisterComponent();
+	C.Corps = Corps;
+	HabillageInterne::RenduCache(Selle, true, false); // le Spider-Male du cavalier ne se dessine plus
+	Cavaliers.Add(Pion, MoveTemp(C));
+	PoserCavaliers();
+	UE_LOG(LogTemp, Log, TEXT("[Habillage] Cavalier de %s : %s (%d os suivis)."), *Pion->GetName(), *Chemin, Trouves);
+}
+
+void AHabillageChelles::RetirerPersoACheval(APawn* Pion)
+{
+	FCavalierPerso* C = Cavaliers.Find(Pion);
+	if (!C)
+	{
+		return;
+	}
+	if (UPoseableMeshComponent* Corps = C->Corps.Get())
+	{
+		Corps->DestroyComponent();
+	}
+	if (USkeletalMeshComponent* Selle = C->Selle.Get())
+	{
+		HabillageInterne::RenduCache(Selle, false, C->bOmbreSelle);
+	}
+	Cavaliers.Remove(Pion);
+}
+
+void AHabillageChelles::PoserCavaliers()
+{
+	for (TPair<TWeakObjectPtr<APawn>, FCavalierPerso>& Paire : Cavaliers)
+	{
+		FCavalierPerso& C = Paire.Value;
+		USkeletalMeshComponent* Selle = C.Selle.Get();
+		UPoseableMeshComponent* Corps = C.Corps.Get();
+		if (!Selle || !Corps || !Corps->SkeletalMesh || !Selle->SkeletalMesh)
+		{
+			continue;
+		}
+		if (Selle->bRenderInMainPass)
+		{
+			HabillageInterne::RenduCache(Selle, true, false); // quelqu'un a remis le Spider-Male : on le recache
+		}
+		if (Corps->bHiddenInGame != Selle->bHiddenInGame)
+		{
+			Corps->SetHiddenInGame(Selle->bHiddenInGame); // cache tant qu'on n'est pas en selle
+		}
+		if (Corps->bOwnerNoSee != Selle->bOwnerNoSee)
+		{
+			Corps->SetOwnerNoSee(Selle->bOwnerNoSee);
+		}
+		if (Selle->bHiddenInGame)
+		{
+			continue;
+		}
+		const TArray<FTransform>& PoseSelle = Selle->GetComponentSpaceTransforms();
+		const FReferenceSkeleton& RefP = Corps->SkeletalMesh->GetRefSkeleton();
+		const int32 N = RefP.GetNum();
+		if (PoseSelle.Num() != C.RefSelle.Num() || Corps->BoneSpaceTransforms.Num() != N || C.Source.Num() != N)
+		{
+			continue;
+		}
+		const TArray<FTransform>& Local = RefP.GetRefBonePose();
+		TArray<FTransform> CS;
+		CS.SetNum(N);
+		for (int32 i = 0; i < N; ++i)
+		{
+			const int32 Parent = RefP.GetParentIndex(i);
+			FTransform T = Parent != INDEX_NONE ? Local[i] * CS[Parent] : Local[i];
+			const int32 S = C.Source[i];
+			if (S != INDEX_NONE && PoseSelle.IsValidIndex(S))
+			{
+				const FQuat Delta = PoseSelle[S].GetRotation() * C.RefSelle[S].GetRotation().Inverse();
+				T.SetRotation((Delta * C.Ecart[i] * C.RefPerso[i].GetRotation()).GetNormalized());
+				if (i == C.Bassin)
+				{
+					T.SetLocation(PoseSelle[S].GetLocation()); // assis sur la selle, a la place du cavalier
+				}
+			}
+			CS[i] = T;
+			Corps->BoneSpaceTransforms[i] = Parent != INDEX_NONE ? T.GetRelativeTransform(CS[Parent]) : T;
+		}
+		Corps->RefreshBoneTransforms();
+	}
+}
+
 void AHabillageChelles::Habiller(APawn* Pion, const FString& Texte, USkeletalMeshComponent* Chef)
 {
 	if (FHabille* Deja = Habilles.Find(Pion))
@@ -1374,8 +2186,15 @@ void AHabillageChelles::Tick(float Delta)
 	{
 		return;
 	}
+	// 25/11 : le catalogue des tenues (tables + tous les vetements, ~17 s) se charge en arriere-plan des le debut
+	// de la partie. Avant, personne ne le lancait : l'ouverture du menu HABILLAGE gelait le jeu 17 s (test auto 25/11).
+	if (!bCatalogueLance && Monde->GetTimeSeconds() > 3.f && !Monde->IsNetMode(NM_DedicatedServer))
+	{
+		bCatalogueLance = ChellesHabillage::PrechargerCatalogue(); // une etape par image, jusqu'au bout
+	}
 	ProchainEnvoi -= Delta;
 	ProchainControle -= Delta;
+	DemanderPantera(Delta);
 	if (ProchainControle <= 0.f)
 	{
 		ProchainControle = 0.25f;
@@ -1413,9 +2232,14 @@ void AHabillageChelles::Tick(float Delta)
 		}
 
 		TArray<APawn*> Vus;
+		TArray<APawn*> VusACheval;
 		for (TActorIterator<APawn> It(Monde); It; ++It)
 		{
 			APawn* Pion = *It;
+			if (Pion->ActorHasTag(FName(TEXT("ChellesSansHabillage"))))
+			{
+				continue; // soldat en costume Spider-Male (roue TAB, ChellesRoue) : pas de tenue par-dessus
+			}
 			const FString* Texte = Pion->GetPlayerState() ? Tenues.Find(Pion->GetPlayerState()) : nullptr;
 			USkeletalMeshComponent* Chef = nullptr;
 			if (EstSoldat(Pion))
@@ -1429,6 +2253,19 @@ void AHabillageChelles::Tick(float Delta)
 				if (!Texte && Mode == NM_Standalone && !Selle->bHiddenInGame && Tenues.Num() > 0)
 				{
 					Texte = &Tenues.CreateConstIterator().Value(); // en solo, le cavalier visible, c'est nous
+				}
+				if (Texte)
+				{
+					// 26/11 : LENA, SOFIA, PANTERA, heros Paragon... : son corps sur le cheval, plus le Spider-Male de la roue
+					const ChellesHabillage::FTenue TenueCavalier = ChellesHabillage::FTenue::DepuisTexte(*Texte);
+					if (TenueCavalier.EstSpiderMan() && TenueCavalier.Sexe != ChellesHabillage::SpiderMan)
+					{
+						PersoACheval(Pion, Selle, TenueCavalier);
+						if (Cavaliers.Contains(Pion))
+						{
+							VusACheval.Add(Pion);
+						}
+					}
 				}
 			}
 			if (Chef && Texte && !ChellesHabillage::FTenue::DepuisTexte(*Texte).EstSpiderMan())
@@ -1450,8 +2287,162 @@ void AHabillageChelles::Tick(float Delta)
 				Deshabiller(P.Get()); // Spider-Man choisi, ou personnage pris par un autre mode
 			}
 		}
+		TArray<TWeakObjectPtr<APawn>> AnciensCavaliers;
+		Cavaliers.GetKeys(AnciensCavaliers);
+		for (const TWeakObjectPtr<APawn>& P : AnciensCavaliers)
+		{
+			if (!P.IsValid())
+			{
+				Cavaliers.Remove(P);
+			}
+			else if (!VusACheval.Contains(P.Get()))
+			{
+				RetirerPersoACheval(P.Get());
+			}
+		}
 	}
 	Suivre();
+	PoserCavaliers();
+}
+
+// ---------------------------------------------------------------- PANTERA
+
+namespace HabillageInterne
+{
+	/** Yeux blancs du masque, comme dans la roue TAB (ChellesRoue, meme reglage [ChellesRoue] YeuxPantera). */
+	static void YeuxPantera(USkeletalMeshComponent* Corps, bool bAvecYeux)
+	{
+		static const FName Tag(TEXT("ChellesYeuxMasque"));
+		if (!Corps || !Corps->GetOwner())
+		{
+			return;
+		}
+		TArray<USceneComponent*> Anciens;
+		for (USceneComponent* Enfant : Corps->GetAttachChildren())
+		{
+			if (IsValid(Enfant) && Enfant->ComponentHasTag(Tag))
+			{
+				Anciens.Add(Enfant);
+			}
+		}
+		for (USceneComponent* Oeil : Anciens)
+		{
+			Oeil->DestroyComponent();
+		}
+		if (!bAvecYeux || !Corps->SkeletalMesh)
+		{
+			return;
+		}
+		const FReferenceSkeleton& Squelette = Corps->SkeletalMesh->GetRefSkeleton();
+		const int32 Tete = Squelette.FindBoneIndex(TEXT("head"));
+		UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+		if (Tete == INDEX_NONE || !Sphere)
+		{
+			return;
+		}
+		FTransform TeteRepos = FTransform::Identity;
+		for (int32 Os = Tete; Os != INDEX_NONE; Os = Squelette.GetParentIndex(Os))
+		{
+			TeteRepos = TeteRepos * Squelette.GetRefBonePose()[Os];
+		}
+		// Avant, Haut, Ecart, Taille, Inclinaison, Ouverture (cm / degres, repere du corps au repos)
+		float V[6] = { 8.1f, 171.f, 3.6f, 1.f, 15.f, 35.f };
+		FString Texte;
+		if (GConfig && GConfig->GetString(TEXT("ChellesRoue"), TEXT("YeuxPantera"), Texte, GGameUserSettingsIni))
+		{
+			TArray<FString> Morceaux;
+			Texte.ParseIntoArray(Morceaux, TEXT(","), true);
+			for (int32 i = 0; i < Morceaux.Num() && i < 6; ++i)
+			{
+				V[i] = FCString::Atof(*Morceaux[i].TrimStartAndEnd());
+			}
+			V[3] = FMath::Clamp(V[3], 0.2f, 5.f);
+		}
+		UMaterialInterface* Blanc = LoadObject<UMaterialInterface>(nullptr, YeuxBlancs);
+		for (const float Cote : { -1.f, 1.f })
+		{
+			const FTransform OeilRepos(FRotator(Cote * V[4], -Cote * V[5], 0.f), FVector(Cote * V[2], V[0], V[1]), FVector(0.032f, 0.014f, 0.014f) * V[3]);
+			UStaticMeshComponent* Oeil = NewObject<UStaticMeshComponent>(Corps->GetOwner(), NAME_None, RF_Transient);
+			Oeil->ComponentTags.Add(Tag);
+			Oeil->SetStaticMesh(Sphere);
+			if (Blanc)
+			{
+				Oeil->SetMaterial(0, Blanc);
+			}
+			Oeil->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Oeil->SetCastShadow(false);
+			Oeil->SetupAttachment(Corps, TEXT("head"));
+			Oeil->SetRelativeTransform(OeilRepos.GetRelativeTransform(TeteRepos));
+			Oeil->RegisterComponent();
+		}
+	}
+}
+
+void AHabillageChelles::DemanderPantera(float Delta)
+{
+	ProchainPantera -= Delta;
+	if (ProchainPantera > 0.f || GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+	ProchainPantera = 1.f;
+	const bool bVeutPantera = ChellesHabillage::TenueLocale().EstPantera();
+	if (!bVeutPantera && !bPanteraFait)
+	{
+		EssaisPantera = 0;
+		return;
+	}
+	UWorld* Monde = GetWorld();
+	APlayerController* PC = Monde ? Monde->GetFirstPlayerController() : nullptr;
+	if ((bVeutPantera && bPanteraFait) || !PC || !PC->GetPawn() || PC->bShowMouseCursor || EssaisPantera >= 20)
+	{
+		return; // deja fait, ou menu encore ouvert
+	}
+	// La roue TAB (plugin ChellesRoue) : ChoisirModeParNom("PANTERA"), par reflexion (pas de lien entre plugins)
+	AActor* Roue = nullptr;
+	for (TActorIterator<AActor> It(Monde); It; ++It)
+	{
+		if (It->GetClass()->GetName() == TEXT("RoueModes"))
+		{
+			Roue = *It;
+			break;
+		}
+	}
+	UFunction* Fonction = Roue ? Roue->FindFunction(TEXT("ChoisirModeParNom")) : nullptr;
+	if (!Fonction)
+	{
+		return; // roue pas encore posee (ou plugin ChellesRoue pas recompile)
+	}
+	++EssaisPantera;
+	uint8* Parametres = (uint8*)FMemory_Alloca(FMath::Max<int32>(Fonction->ParmsSize, 1));
+	FMemory::Memzero(Parametres, FMath::Max<int32>(Fonction->ParmsSize, 1));
+	for (TFieldIterator<FProperty> It(Fonction); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+	{
+		It->InitializeValue_InContainer(Parametres);
+	}
+	if (FStrProperty* Nom = FindFProperty<FStrProperty>(Fonction, TEXT("NomMode")))
+	{
+		// Un autre choix que PANTERA dans HABILLAGE (SPIDER-MALE...) : on rend le soldat
+		Nom->SetPropertyValue_InContainer(Parametres, bVeutPantera ? FString(TEXT("PANTERA")) : FString(TEXT("Soldat")));
+	}
+	Roue->ProcessEvent(Fonction, Parametres);
+	if (FBoolProperty* Retour = FindFProperty<FBoolProperty>(Fonction, TEXT("ReturnValue")))
+	{
+		const bool bReussi = Retour->GetPropertyValue_InContainer(Parametres);
+		if (bReussi)
+		{
+			bPanteraFait = bVeutPantera; // revenu au soldat : plus rien a faire
+			EssaisPantera = 0;
+		}
+	}
+	for (TFieldIterator<FProperty> It(Fonction); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+	{
+		It->DestroyValue_InContainer(Parametres);
+	}
+	if (bPanteraFait && bVeutPantera)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Habillage] PANTERA choisi dans HABILLAGE : la roue TAB est passee en PANTERA."));
+	}
 }
 
 // ---------------------------------------------------------------- Apercu du menu
@@ -1503,6 +2494,22 @@ AApercuHabillage::AApercuHabillage()
 	Lampe2->SetAttenuationRadius(900.f);
 	Lampe2->SetLightColor(FLinearColor(0.35f, 0.85f, 1.f)); // contre-jour cyan, comme le menu
 	Lampe2->SetCastShadows(false);
+
+	// Decor du lobby : un mur bleu derriere le personnage et un sol (ils ne tournent pas avec lui)
+	Fond = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Fond"));
+	Fond->SetupAttachment(Racine);
+	Fond->SetRelativeLocation(FVector(-230.f, 0.f, 120.f));
+	Fond->SetRelativeScale3D(FVector(0.05f, 8.f, 9.f));
+	Sol = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sol"));
+	Sol->SetupAttachment(Racine);
+	Sol->SetRelativeLocation(FVector(0.f, 0.f, -3.f));
+	Sol->SetRelativeScale3D(FVector(6.f, 8.f, 0.05f));
+	for (UStaticMeshComponent* Decor : { Fond, Sol })
+	{
+		Decor->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Decor->SetCastShadow(false);
+		Decor->SetGenerateOverlapEvents(false);
+	}
 }
 
 void AApercuHabillage::BeginPlay()
@@ -1515,10 +2522,86 @@ void AApercuHabillage::BeginPlay()
 	Camera->TextureTarget = Cible;
 	Camera->ShowOnlyActors.Reset();
 	Camera->ShowOnlyActors.Add(this);
+
+	// Decor bleu du lobby (formes de base du moteur). Si elles manquent, le fond reste sombre comme avant.
+	UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	UMaterialInterface* Matiere = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+	const TPair<UStaticMeshComponent*, FLinearColor> Decors[] = {
+		TPair<UStaticMeshComponent*, FLinearColor>(Fond, FLinearColor(0.03f, 0.16f, 0.55f)),
+		TPair<UStaticMeshComponent*, FLinearColor>(Sol, FLinearColor(0.02f, 0.07f, 0.25f)),
+	};
+	for (const TPair<UStaticMeshComponent*, FLinearColor>& D : Decors)
+	{
+		if (!D.Key || !Cube)
+		{
+			continue;
+		}
+		D.Key->SetStaticMesh(Cube);
+		if (Matiere)
+		{
+			UMaterialInstanceDynamic* Dyn = UMaterialInstanceDynamic::Create(Matiere, this);
+			Dyn->SetVectorParameterValue(TEXT("Color"), D.Value);
+			D.Key->SetMaterial(0, Dyn);
+		}
+	}
 }
 
 void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalMesh* MeshSpiderMan, UClass* AnimSpiderMan)
 {
+	// 25/11 : le menu HABILLAGE ne gele plus : ce qui n'est pas encore en memoire est charge en arriere-plan,
+	// le perso d'avant reste affiche, et Tick montre le nouveau des qu'il est pret.
+	if (!bApresAttente)
+	{
+		TArray<FSoftObjectPath> AFaire;
+		auto Ajouter = [&AFaire](const FString& Chemin)
+		{
+			// 27/11 : on verifie le chemin AVANT de creer le FSoftObjectPath (un nom court comme "Soldat"
+			// declenchait l'erreur "Cannot create SoftObjectPath with short package name" au choix du perso)
+			if (Chemin.IsEmpty() || !Chemin.StartsWith(TEXT("/Game/")))
+			{
+				return;
+			}
+			const FSoftObjectPath P(Chemin);
+			if (P.IsValid() && !P.ResolveObject())
+			{
+				AFaire.Add(P);
+			}
+		};
+		if (const HabillageInterne::FPersoWraithInfo* P = HabillageInterne::InfoPerso(Tenue.Sexe))
+		{
+			Ajouter(FString::Printf(TEXT("/Game/Personnages/%s/Joueur/SK_%s.SK_%s"), P->Dossier, P->Prefixe, P->Prefixe));
+			static const TCHAR* const AnimsAttente[] = { TEXT("Danse"), TEXT("Marche") };
+			for (const TCHAR* Quoi : AnimsAttente)
+			{
+				const FString Nom = FString::Printf(TEXT("A_%s_%s_Anim"), P->Prefixe, Quoi);
+				Ajouter(FString::Printf(TEXT("/Game/Personnages/%s/Joueur/Anims/%s.%s"), P->Dossier, *Nom, *Nom));
+			}
+		}
+		else if (const HabillageInterne::FHerosSkin* H = HabillageInterne::InfoHeros(Tenue.Sexe))
+		{
+			Ajouter(H->Corps);
+			Ajouter(H->Danse);
+			Ajouter(H->Materiau);
+			Ajouter(H->Anim);
+		}
+		if (Attente.IsValid())
+		{
+			Attente->CancelHandle(); // un autre perso a ete choisi entre-temps
+			Attente.Reset();
+		}
+		ModeAttendu.Reset();
+		if (AFaire.Num() > 0)
+		{
+			TenueAttendue = Tenue;
+			SpiderAttendu = MeshSpiderMan;
+			AnimAttendue = AnimSpiderMan;
+			Attente = Chargeur.RequestAsyncLoad(AFaire, FStreamableDelegate(), FStreamableManager::AsyncLoadHighPriority, false);
+			if (Attente.IsValid())
+			{
+				return;
+			}
+		}
+	}
 	for (USkeletalMeshComponent* C : Morceaux)
 	{
 		if (C)
@@ -1527,10 +2610,125 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 		}
 	}
 	Morceaux.Reset();
+	if (Corps)
+	{
+		Corps->SetRelativeScale3D(FVector::OneVector); // un vehicule montre avant (MontrerMode) a pu le reduire
+		Corps->SetRelativeLocation(FVector::ZeroVector);
+	}
 
 	TArray<ChellesHabillage::FPiece> Pieces;
 	UClass* Anim = nullptr;
 	USkeletalMesh* Squelette = nullptr;
+	HabillageInterne::YeuxPantera(Corps, false);
+	// 25/11 : on repart sans materiau du perso d'avant (ex. tenue SCI-FI qui restait sur PANTERA ou SPIDER-MALE)
+	if (!Corps)
+	{
+		return;
+	}
+	Corps->EmptyOverrideMaterials();
+	ON_SCOPE_EXIT { GarderDejaVu(); };
+	const HabillageInterne::FPersoWraithInfo* Perso = HabillageInterne::InfoPerso(Tenue.Sexe);
+	USkeletalMesh* MeshPerso = Perso ? LoadObject<USkeletalMesh>(nullptr,
+		*FString::Printf(TEXT("/Game/Personnages/%s/Joueur/SK_%s.SK_%s"), Perso->Dossier, Perso->Prefixe, Perso->Prefixe)) : nullptr;
+	if (MeshPerso)
+	{
+		// LENA, SOFIA... : son corps, qui danse dans l'apercu
+		Corps->SetSkeletalMesh(MeshPerso);
+		Corps->EmptyOverrideMaterials();
+		HabillageInterne::RenduCache(Corps, false, true);
+		Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+		static const TCHAR* const AnimsApercu[] = { TEXT("Danse"), TEXT("Marche") };
+		for (const TCHAR* Quoi : AnimsApercu)
+		{
+			const FString Nom = FString::Printf(TEXT("A_%s_%s_Anim"), Perso->Prefixe, Quoi);
+			if (UAnimationAsset* Danse = LoadObject<UAnimationAsset>(nullptr, *FString::Printf(TEXT("/Game/Personnages/%s/Joueur/Anims/%s.%s"), Perso->Dossier, *Nom, *Nom)))
+			{
+				Corps->PlayAnimation(Danse, true);
+				break;
+			}
+		}
+		return;
+	}
+	const HabillageInterne::FHerosSkin* Heros = HabillageInterne::InfoHeros(Tenue.Sexe);
+	USkeletalMesh* MeshHeros = Heros ? LoadObject<USkeletalMesh>(nullptr, *Heros->Corps) : nullptr;
+	if (MeshHeros)
+	{
+		// Heros de la touche K (Wraith, Aurora, Boris...) : son corps, avec son Animation Blueprint (il reste en attente)
+		Corps->SetSkeletalMesh(MeshHeros);
+		Corps->EmptyOverrideMaterials();
+		if (!Heros->Materiau.IsEmpty())
+		{
+			if (UMaterialInterface* Mat = LoadObject<UMaterialInterface>(nullptr, *Heros->Materiau))
+			{
+				for (int32 i = 0; i < Corps->GetNumMaterials(); ++i)
+				{
+					Corps->SetMaterial(i, Mat);
+				}
+			}
+		}
+		HabillageInterne::RenduCache(Corps, false, true);
+		// Le heros danse dans l'apercu comme LENA, SOFIA, LUCIA (25/11) ; sans danse : son Animation Blueprint
+		UAnimationAsset* DanseApercu = (!Heros->Danse.IsEmpty() && !Heros->Anim.Equals(TEXT("Soldat"), ESearchCase::IgnoreCase))
+			? LoadObject<UAnimationAsset>(nullptr, *Heros->Danse) : nullptr;
+		if (DanseApercu && DanseApercu->GetSkeleton() == MeshHeros->Skeleton)
+		{
+			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			Corps->PlayAnimation(DanseApercu, true);
+			return;
+		}
+		UClass* ClasseAnim = nullptr;
+		if (Heros->Anim.Equals(TEXT("Soldat"), ESearchCase::IgnoreCase))
+		{
+			ClasseAnim = AnimSpiderMan;
+		}
+		else if (Heros->Anim.StartsWith(TEXT("/Game/")))
+		{
+			ClasseAnim = LoadClass<UAnimInstance>(nullptr, *Heros->Anim);
+		}
+		if (ClasseAnim)
+		{
+			Corps->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+			Corps->SetAnimInstanceClass(ClasseAnim);
+		}
+		else
+		{
+			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			if (UAnimationAsset* AnimAttente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+			{
+				Corps->PlayAnimation(AnimAttente, true);
+			}
+		}
+		return;
+	}
+	USkeletalMesh* MeshPantera = Tenue.EstPantera() ? LoadObject<USkeletalMesh>(nullptr, HabillageInterne::CheminPantera) : nullptr;
+	if (MeshPantera)
+	{
+		// PANTERA : son corps noir, debout (animation d'attente du pack SuperheroFlight), avec ses yeux blancs
+		Corps->SetSkeletalMesh(MeshPantera);
+		HabillageInterne::RenduCache(Corps, false, true);
+		Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+		if (UAnimationAsset* AnimAttente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+		{
+			Corps->PlayAnimation(AnimAttente, true);
+		}
+		HabillageInterne::YeuxPantera(Corps, true);
+		return;
+	}
+	if (Tenue.EstSpiderMan() && (!MeshSpiderMan || MeshSpiderMan->GetName().Contains(TEXT("Pantera"))))
+	{
+		// Le joueur est en PANTERA dans la carte : l'apercu SPIDER-MALE montre quand meme Spider-Male (rouge et bleu)
+		if (USkeletalMesh* Spider = LoadObject<USkeletalMesh>(nullptr, HabillageInterne::CheminSpiderMale))
+		{
+			Corps->SetSkeletalMesh(Spider);
+			HabillageInterne::RenduCache(Corps, false, true);
+			Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			if (UAnimationAsset* AnimAttente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera))
+			{
+				Corps->PlayAnimation(AnimAttente, true);
+			}
+			return;
+		}
+	}
 	if (!Tenue.EstSpiderMan() && ChellesHabillage::Assembler(Tenue, Pieces, Anim, Squelette) && Squelette)
 	{
 		Corps->SetSkeletalMesh(Squelette);
@@ -1557,9 +2755,218 @@ void AApercuHabillage::Montrer(const ChellesHabillage::FTenue& Tenue, USkeletalM
 	Morceaux = Crees;
 }
 
+namespace HabillageInterne
+{
+	/** Ce que montre l'apercu pour une carte HEROS / VEHICULE du lobby (memes chemins que ChellesRoue). */
+	struct FApercuMode
+	{
+		const TCHAR* Mode;
+		const TCHAR* Classe;   // blueprint du mode (son corps et son Animation Blueprint), nullptr = aucun
+		const TCHAR* Costume;  // corps pose par ChellesRoue a la place de celui du pack, nullptr = celui du blueprint
+	};
+	static const FApercuMode ApercusModes[] =
+	{
+		{ TEXT("Spider-Femelle"), nullptr, TEXT("/Game/Personnages/SK_SpiderFemelle/SK_SpiderFemelle_Vol.SK_SpiderFemelle_Vol") },
+		{ TEXT("FLASH ECLAIR"), TEXT("/Game/SuperPowers/Powers/Speedster/BP_Speedster.BP_Speedster_C"), TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Pouvoirs.SK_SpiderMan_Pouvoirs") },
+		{ TEXT("FLAMME FIRE"), TEXT("/Game/SuperPowers/Powers/Flame/BP_Flame.BP_Flame_C"), TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Pouvoirs.SK_SpiderMan_Pouvoirs") },
+		{ TEXT("SuperPowers"), TEXT("/Game/SuperPowers/Powers/Super/BP_Super.BP_Super_C"), TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Pouvoirs.SK_SpiderMan_Pouvoirs") },
+		{ TEXT("DYNAMIC COMBAT"), TEXT("/Game/DynamicCombatSystem/Blueprints/BP_CombatCharacter.BP_CombatCharacter_C"), TEXT("/Game/Personnages/SK_SpiderMan_UE4/SK_SpiderMan_Combat.SK_SpiderMan_Combat") },
+		{ TEXT("Motoneige"), TEXT("/Game/DV_Snowmobile/Blueprints/BP_Snowmobile.BP_Snowmobile_C"), nullptr },
+		{ TEXT("VOITURE"), TEXT("/Game/VehicleVarietyPack/Blueprints/SportsCar/BP_SportsCar.BP_SportsCar_C"), nullptr },
+		{ TEXT("HORSE"), TEXT("/Game/HorseStarterKit/Blueprint/BP_Rideable_DarkBrown_Horse.BP_Rideable_DarkBrown_Horse_C"), nullptr },
+	};
+
+	static const FApercuMode* TrouverApercuMode(const FString& Mode)
+	{
+		for (const FApercuMode& M : ApercusModes)
+		{
+			if (Mode.Equals(M.Mode, ESearchCase::IgnoreCase))
+			{
+				return &M;
+			}
+		}
+		return nullptr;
+	}
+
+	/** Le corps (composant squelette) qu'un blueprint donne a son acteur : Character, vehicule ou composant ajoute. */
+	static const USkeletalMeshComponent* GabaritSquelette(UClass* Classe)
+	{
+		const AActor* CDO = Classe ? Cast<AActor>(Classe->GetDefaultObject()) : nullptr;
+		if (!CDO)
+		{
+			return nullptr;
+		}
+		const USkeletalMeshComponent* Meilleur = nullptr;
+		TInlineComponentArray<USkeletalMeshComponent*> Natifs;
+		CDO->GetComponents(Natifs);
+		for (const USkeletalMeshComponent* S : Natifs)
+		{
+			if (S && S->SkeletalMesh && (!Meilleur || S == CDO->GetRootComponent()))
+			{
+				Meilleur = S;
+			}
+		}
+		for (UBlueprintGeneratedClass* B = Cast<UBlueprintGeneratedClass>(Classe); B && !Meilleur; B = Cast<UBlueprintGeneratedClass>(B->GetSuperClass()))
+		{
+			if (B->SimpleConstructionScript)
+			{
+				for (USCS_Node* N : B->SimpleConstructionScript->GetAllNodes())
+				{
+					const USkeletalMeshComponent* S = N ? Cast<USkeletalMeshComponent>(N->ComponentTemplate) : nullptr;
+					if (S && S->SkeletalMesh)
+					{
+						Meilleur = S;
+						break;
+					}
+				}
+			}
+		}
+		return Meilleur;
+	}
+}
+
+void AApercuHabillage::MontrerMode(const FString& Mode)
+{
+	const HabillageInterne::FApercuMode* M = HabillageInterne::TrouverApercuMode(Mode);
+	if (!M || !Corps)
+	{
+		return;
+	}
+	if (!bApresAttente)
+	{
+		// Comme pour les persos : chargement en arriere-plan, l'apercu d'avant reste affiche en attendant
+		TArray<FSoftObjectPath> AFaire;
+		for (const TCHAR* Chemin : { M->Classe, M->Costume })
+		{
+			if (!Chemin || !FString(Chemin).StartsWith(TEXT("/")))
+			{
+				continue; // 27/11 : meme protection que pour les persos (pas de nom court)
+			}
+			const FSoftObjectPath P(Chemin);
+			if (P.IsValid() && !P.ResolveObject())
+			{
+				AFaire.Add(P);
+			}
+		}
+		if (Attente.IsValid())
+		{
+			Attente->CancelHandle();
+			Attente.Reset();
+		}
+		ModeAttendu.Reset();
+		if (AFaire.Num() > 0)
+		{
+			ModeAttendu = Mode;
+			Attente = Chargeur.RequestAsyncLoad(AFaire, FStreamableDelegate(), FStreamableManager::AsyncLoadHighPriority, false);
+			if (Attente.IsValid())
+			{
+				return;
+			}
+		}
+	}
+	ModeAttendu.Reset();
+	ON_SCOPE_EXIT { GarderDejaVu(); };
+
+	UClass* Classe = M->Classe ? LoadClass<AActor>(nullptr, M->Classe) : nullptr;
+	const USkeletalMeshComponent* Gabarit = HabillageInterne::GabaritSquelette(Classe);
+	USkeletalMesh* Mesh = M->Costume ? LoadObject<USkeletalMesh>(nullptr, M->Costume) : nullptr;
+	if (!Mesh && Gabarit)
+	{
+		Mesh = Gabarit->SkeletalMesh;
+	}
+	if (!Mesh)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Habillage] Apercu %s : aucun corps trouve."), *Mode);
+		return;
+	}
+	for (USkeletalMeshComponent* C : Morceaux)
+	{
+		if (C)
+		{
+			C->DestroyComponent();
+		}
+	}
+	Morceaux.Reset();
+	HabillageInterne::YeuxPantera(Corps, false);
+	Corps->SetSkeletalMesh(Mesh);
+	Corps->EmptyOverrideMaterials();
+	if (Gabarit && !M->Costume)
+	{
+		// vehicule : ses couleurs a lui (materiaux changes dans le blueprint)
+		for (int32 i = 0; i < Gabarit->OverrideMaterials.Num(); ++i)
+		{
+			if (Gabarit->OverrideMaterials[i])
+			{
+				Corps->SetMaterial(i, Gabarit->OverrideMaterials[i]);
+			}
+		}
+	}
+	HabillageInterne::RenduCache(Corps, false, true);
+
+	// Taille : un perso reste a sa taille, une voiture ou un cheval est reduit pour tenir dans le cadre
+	const FBoxSphereBounds Bornes = Mesh->GetBounds();
+	const float Plus = FMath::Max3(Bornes.BoxExtent.X, Bornes.BoxExtent.Y, Bornes.BoxExtent.Z);
+	const float Echelle = Plus > 110.f ? 110.f / Plus : 1.f;
+	Corps->SetRelativeScale3D(FVector(Echelle));
+	Corps->SetRelativeLocation(FVector(-Bornes.Origin.X * Echelle, -Bornes.Origin.Y * Echelle, 0.f));
+
+	// Mouvement : l'Animation Blueprint du pack si le squelette va avec, sinon l'attente de SuperheroFlight
+	UClass* ClasseAnim = Gabarit ? Gabarit->AnimClass.Get() : nullptr;
+	const UAnimInstance* AnimCDO = ClasseAnim ? Cast<UAnimInstance>(ClasseAnim->GetDefaultObject()) : nullptr;
+	if (ClasseAnim && AnimCDO && AnimCDO->CurrentSkeleton == Mesh->Skeleton)
+	{
+		Corps->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+		Corps->SetAnimInstanceClass(ClasseAnim);
+		return;
+	}
+	Corps->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+	UAnimationAsset* AnimAttente = LoadObject<UAnimationAsset>(nullptr, HabillageInterne::AttentePantera);
+	if (AnimAttente && AnimAttente->GetSkeleton() == Mesh->Skeleton)
+	{
+		Corps->PlayAnimation(AnimAttente, true);
+	}
+}
+
+void AApercuHabillage::GarderDejaVu()
+{
+	if (!Corps)
+	{
+		return;
+	}
+	UObject* AGarder[] = { Corps->SkeletalMesh, Corps->GetAnimClass(), Corps->AnimationData.AnimToPlay };
+	for (UObject* O : AGarder)
+	{
+		if (O)
+		{
+			DejaVus.Remove(O);
+			DejaVus.Add(O); // le plus recent a la fin
+		}
+	}
+	const int32 Maximum = 9; // environ les 3 derniers persos (corps + animation)
+	if (DejaVus.Num() > Maximum)
+	{
+		DejaVus.RemoveAt(0, DejaVus.Num() - Maximum);
+	}
+}
+
 void AApercuHabillage::Tick(float Delta)
 {
 	Super::Tick(Delta);
+	if (Attente.IsValid() && !Attente->IsLoadingInProgress())
+	{
+		// Chargement fini (ou echoue : Montrer se debrouille alors comme avant)
+		Attente.Reset();
+		bApresAttente = true;
+		if (!ModeAttendu.IsEmpty())
+		{
+			MontrerMode(ModeAttendu);
+		}
+		else
+		{
+			Montrer(TenueAttendue, SpiderAttendu.Get(), AnimAttendue.Get());
+		}
+		bApresAttente = false;
+	}
 	if (Pause > 0.f)
 	{
 		Pause -= Delta;
