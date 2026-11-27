@@ -64,6 +64,7 @@ namespace HabillageInterne
 		{ ChellesHabillage::Shems, TEXT("MR.SHEMS"), TEXT("Shems"), TEXT("Shems") },
 		{ ChellesHabillage::Rebecca, TEXT("REBECCA"), TEXT("Rebecca"), TEXT("Rebecca") },
 		{ ChellesHabillage::Rachid, TEXT("RACHID"), TEXT("Rachid"), TEXT("Rachid") },   // 26/11/2026, VIP
+		{ ChellesHabillage::Prevor, TEXT("PREVOR"), TEXT("PREVOR"), TEXT("Prevor") },   // 27/11/2026, VIP
 	};
 	static const FPersoWraithInfo* InfoPerso(int32 Sexe)
 	{
@@ -916,10 +917,17 @@ namespace ChellesHabillage
 					Tables.Add(T);
 				}
 			}
-			static int32 Attentes = 0;
-			if (Etape == 0 && Tables.Num() < 1 + int32(UE_ARRAY_COUNT(TablesMannequin)) && ++Attentes < 900)
+			// 27/11 : attente en SECONDES (avant : 900 images, soit ~36 s a 25 img/s mais trop court quand la carte
+			// charge encore 500 fichiers). Au bout du delai, plus de chargement force : voir plus bas.
+			static double DebutAttente = 0.0;
+			if (DebutAttente <= 0.0)
 			{
-				return false; // les tables arrivent encore (on attend au plus ~15 s ; pack absent : on continue)
+				DebutAttente = FPlatformTime::Seconds();
+			}
+			const bool bDelaiDepasse = FPlatformTime::Seconds() - DebutAttente > 120.0;
+			if (Etape == 0 && Tables.Num() < 1 + int32(UE_ARRAY_COUNT(TablesMannequin)) && !bDelaiDepasse)
+			{
+				return false; // les tables arrivent encore (on attend au plus 2 min ; pack absent : on continue)
 			}
 			// Seulement ce que le catalogue lit a l'ouverture (tetes, corps mannequin, sous-tables Upper/Lower...) :
 			// les vetements des sous-tables restent charges a la demande (sinon des centaines de Mo en memoire).
@@ -937,8 +945,19 @@ namespace ChellesHabillage
 				return false;
 			}
 			Poignee.Reset();
+			// 27/11 : Modeles() relit les tables avec LoadObject. Si le jeu charge encore d'autres fichiers en
+			// arriere-plan, ce LoadObject les attendait TOUS (journal du test du 26/11 : "DT_Heads is flushing
+			// async loading", 525 fichiers, 30 s de gel en pleine partie). On attend donc que le chargement de
+			// fond soit fini ; apres 2 min on n'insiste plus (le catalogue se fera a l'ouverture du menu).
+			if (IsAsyncLoading() && !bDelaiDepasse)
+			{
+				return false;
+			}
 			Etape = 2;
-			Modeles(); // tout est en memoire : prepare tout de suite, sans gel
+			if (!IsAsyncLoading())
+			{
+				Modeles(); // tout est en memoire : prepare tout de suite, sans gel
+			}
 			return true;
 		}
 		Etape = 0;
@@ -1100,7 +1119,7 @@ namespace ChellesHabillage
 				if (!FFileHelper::LoadFileToStringArray(Lignes, *Fichier))
 				{
 					// Fichier absent (jeu exporte sans lui) : la liste du 25/11
-					Lignes = { TEXT("CODE=2468"), TEXT("VIP=MR.SHEMS"), TEXT("VIP=LENA"), TEXT("VIP=SOFIA"), TEXT("VIP=LUCIA"), TEXT("VIP=BRENDA"), TEXT("VIP=REBECCA"), TEXT("VIP=RACHID|8466") };
+					Lignes = { TEXT("CODE=2468"), TEXT("VIP=MR.SHEMS"), TEXT("VIP=LENA"), TEXT("VIP=SOFIA"), TEXT("VIP=LUCIA"), TEXT("VIP=BRENDA"), TEXT("VIP=REBECCA"), TEXT("VIP=RACHID|8466"), TEXT("VIP=PREVOR") };
 				}
 				for (const FString& Brute : Lignes)
 				{

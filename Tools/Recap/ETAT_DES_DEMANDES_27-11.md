@@ -4,7 +4,7 @@ Relu : la mémoire du projet (130 fiches), les 90 PR du dépôt, les journaux `S
 
 ## À lancer à ton retour (un seul fichier, Unreal fermé)
 
-`C:\Users\CISCO\Documents\Unreal Projects\CHELLES 3D\TOUT_INSTALLER_27-11.bat` (30 à 60 min)
+`C:\Users\CISCO\Documents\Unreal Projects\CHELLES 3D\TOUT_INSTALLER_27-11.bat` (1 h à 1 h 30)
 
 | Étape | Ce que ça installe | Pourquoi c'était en attente |
 |---|---|---|
@@ -12,7 +12,10 @@ Relu : la mémoire du projet (130 fiches), les 90 PR du dépôt, les journaux `S
 | 2 | RACHID VIP (code 8466), animations de Mr.JONES, recompilation de ChellesMenu, ChellesWraith et ChellesFun | `CREER_PERSONNAGES.bat` jamais relancé depuis le 26/11 13h53 (pas de dossier `Joueur` pour Rachid ni Mr.Jones) |
 | 2 | Correction : erreur « Cannot create SoftObjectPath with short package name 'Soldat' » quand on choisit le sexe/perso dans HABILLAGE (vue ce matin à 11h23) | Nouveau, trouvé dans le journal |
 | 3 | NOUVEAU : CADEAU DU JOUR et pièces x2 le week-end (ChellesCommerces) | Idée pour faire revenir les joueurs |
-| 4 | Routes en MI_AsphaltRoad, croisements à la même hauteur, liste des fleurs | `AMELIORER_ROUTES.bat` du 26/11 jamais lancé (pas de journal) |
+| 4 | FLUIDITÉ : LOD automatiques (versions allégées vues de loin) pour les objets lourds qui n'en ont pas, dont les 30 Bugatti garées (carrosserie de 15 Mo chacune) | Zone 1 et 2 limitées par la carte graphique (76 à 90 ms par image) au moment où les Bugatti apparaissent. Retour en arrière : `Tools\LOD\retirer_lod.py` |
+| 2 | FLUIDITÉ : fin du gel de 30 s en pleine partie (chargement du catalogue HABILLAGE qui attendait 525 fichiers d'un coup) | Vu dans le journal du test du 26/11 (« DT_Heads is flushing async loading ») |
+| 5 | Routes en MI_AsphaltRoad, croisements à la même hauteur, liste des fleurs | `AMELIORER_ROUTES.bat` du 26/11 jamais lancé (pas de journal) |
+| 6 | Test automatique du jeu, pour mesurer le gain de fluidité | Le résultat s'ajoute au résumé |
 
 Le résumé s'écrit dans `TOUT_INSTALLER_27-11.log`. Si une ligne dit ECHEC, envoie-la.
 
@@ -47,7 +50,7 @@ HTML5 (en pause), thème Cyberpunk (abandonné), touches F1-F12 = modes (supprim
 
 ## À surveiller (pas cassé, mais à améliorer)
 
-- **Fluidité** (test du 26/11, en mode éditeur, donc plus lent que le vrai jeu) : 33 img/s en moyenne, mais Zone 1 sud-ouest 13 img/s et Zone 2 sud 19 img/s, voiture 21 img/s avec une saccade de 1,7 s. C'est la prochaine priorité.
+- **Fluidité** (test du 26/11, en mode éditeur, donc plus lent que le vrai jeu) : 33 img/s en moyenne, Zone 1 sud-ouest 13 img/s, Zone 2 sud 19 img/s. Les étapes 2 et 4 s'en occupent, et le test de l'étape 6 dira ce qu'on a gagné. La saccade de 1,7 s en VOITURE vient de l'éditeur, qui préparait les sons de Wukong pendant le test : elle n'existe pas dans le jeu exporté.
 - **21 fichiers introuvables** venant de packs supprimés (CityPark, Venice bricks, Safe_House...) : sans plantage, ils font seulement des avertissements.
 - **Avertissements BP_building** (pack Venice) au chargement : sans gravité.
 - **Dépôt GitHub** : 66 PR (#24 à #90) sont restées en brouillon et `main` s'arrête à la fusion #23. C'est le PC qui fait foi. Une fusion groupée comme la #23 est possible si tu la veux.
