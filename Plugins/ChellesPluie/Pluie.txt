@@ -1,0 +1,64 @@
+# ============================================================
+#  PLUIE DE CHELLES 3D  (plugin ChellesPluie)
+#  Modifiez une valeur avec le Bloc-notes, enregistrez, puis relancez Play
+#  (ou console touche ² : Chelles.Pluie Relire). Pas besoin de recompiler.
+#  Les lignes qui commencent par # sont des commentaires.
+#  PC faible : OPTIONS > AVANCES > PLUIE = LEGERE (gouttes seulement) ou NON.
+# ============================================================
+
+# Oui = la pluie peut tomber, Non = plugin eteint
+Actif=Oui
+
+# ---------------- QUAND IL PLEUT ----------------
+# Auto = averses au hasard (meme heure pour tous les joueurs), Oui = il pleut tout le temps, Non = jamais
+Mode=Auto
+# Chance d'averse (en %) pour chaque tranche de TrancheMinutes minutes
+ChancePluie=30
+TrancheMinutes=20
+# Temps pour que l'averse arrive / s'en aille doucement (secondes)
+FonduSecondes=25
+# Pendant une averse, la neige de ChellesMeteo s'arrete puis revient apres (Oui/Non)
+CouperNeige=Oui
+
+# ---------------- GOUTTES ----------------
+# Vitesse de chute (metres par seconde) et penche du vent (degres)
+VitesseGouttes=9
+Inclinaison=6
+# Nombre de gouttes (PLUIE COMPLETE = 2 fois ce nombre). PC faible : 2000
+NombreGouttes=3500
+# Zone de pluie autour de la camera (metres) : largeur et hauteur
+TailleZone=30
+HauteurZone=20
+# Longueur d'une goutte (metres) et largeur (centimetres)
+LongueurGoutte=0.55
+LargeurGoutte=1.2
+# Couleur (Rouge,Vert,Bleu de 0 a 1), luminosite le jour / la nuit, transparence (0 a 1)
+CouleurGouttes=0.75,0.8,0.9
+LuminositeJour=0.6
+LuminositeNuit=0.12
+OpaciteGouttes=0.35
+
+# ---------------- SON ----------------
+# Volume du bruit de pluie (1 = normal) et volume sous un toit / un pont (0 a 1)
+VolumeSon=0.8
+VolumeAbri=0.4
+
+# ---------------- FLAQUES (PLUIE COMPLETE seulement) ----------------
+# Nombre de flaques sur les routes, taille mini / maxi (metres), distance max du point de depart (metres)
+Flaques=160
+TailleFlaqueMin=0.8
+TailleFlaqueMax=2.6
+RayonFlaques=600
+# Les flaques vont sur les routes dont le materiau contient ce mot (plusieurs : separez par des virgules)
+MateriauxRoute=AsphaltRoad
+# Temps pour que les flaques se remplissent pendant la pluie, et pour qu'elles sechent apres (minutes)
+RemplissageMinutes=2
+SechageMinutes=6
+
+# ---------------- SOL MOUILLE ET CIEL GRIS (PLUIE COMPLETE seulement) ----------------
+# Sol plus sombre et brillant autour du joueur (Oui/Non), rayon (metres)
+SolMouille=Oui
+RayonSolMouille=70
+# Brouillard pendant l'averse (1 = comme d'habitude, 2 = deux fois plus) et couleurs (1 = normales, 0.8 = plus ternes)
+Brouillard=1.8
+Couleurs=0.82
