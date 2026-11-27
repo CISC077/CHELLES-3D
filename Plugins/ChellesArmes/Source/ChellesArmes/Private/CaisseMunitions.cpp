@@ -94,28 +94,40 @@ namespace
 		}
 	}
 
-	/** Reserve de l'arme au maximum. true si quelque chose a change. */
-	bool RemplirUneArme(UObject* Arme)
+	/** Met une valeur au maximum (Max lu dans NomMax, sinon +Secours). true si quelque chose a change. */
+	bool Remplir(UObject* Arme, const TCHAR* Nom, const TCHAR* NomMax, double Secours)
 	{
-		FNumericProperty* Reserve = Nombre(Arme, TEXT("AmmoInReserve"));
-		if (!Reserve)
+		FNumericProperty* P = Nombre(Arme, Nom);
+		if (!P)
 		{
 			return false;
 		}
-		FNumericProperty* Max = Nombre(Arme, TEXT("AmmoInReserve_Max"));
+		FNumericProperty* Max = Nombre(Arme, NomMax);
 		const double Plein = Max ? LireNombre(Arme, Max) : 0.0;
-		const double Avant = LireNombre(Arme, Reserve);
-		const double Apres = Plein > 0.0 ? FMath::Max(Avant, Plein) : Avant + 60.0;
+		const double Avant = LireNombre(Arme, P);
+		const double Apres = Plein > 0.0 ? FMath::Max(Avant, Plein) : Avant + Secours;
 		if (Apres <= Avant)
 		{
 			return false;
 		}
-		EcrireNombre(Arme, Reserve, Apres);
-		if (AActor* A = Cast<AActor>(Arme))
-		{
-			A->ForceNetUpdate();
-		}
+		EcrireNombre(Arme, P, Apres);
 		return true;
+	}
+
+	/** 27/11/2026 : chargeur ET reserve au maximum (avant : seulement la reserve, deja pleine => "0 arme remplie"). */
+	bool RemplirUneArme(UObject* Arme)
+	{
+		if (!Arme || Nombre(Arme, TEXT("AmmoInReserve")) == nullptr)
+		{
+			return false;
+		}
+		const bool bReserve = Remplir(Arme, TEXT("AmmoInReserve"), TEXT("AmmoInReserve_Max"), 60.0);
+		const bool bChargeur = Remplir(Arme, TEXT("AmmoCurrent"), TEXT("AmmoMax"), 0.0);
+		if ((bReserve || bChargeur) && Cast<AActor>(Arme))
+		{
+			Cast<AActor>(Arme)->ForceNetUpdate();
+		}
+		return bReserve || bChargeur;
 	}
 
 	void AjouterArsenal(APawn* Pion, const TCHAR* Propriete, int32 Quantite)

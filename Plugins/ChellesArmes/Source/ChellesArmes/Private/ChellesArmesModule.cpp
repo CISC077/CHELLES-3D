@@ -8,6 +8,7 @@
 #include "ArsenalChelles.h"
 #include "CoffresFPS.h"
 #include "CaisseMunitions.h"
+#include "ProtectionTireur.h"
 
 namespace
 {
@@ -142,6 +143,11 @@ private:
 		if (!TActorIterator<AArsenalChelles>(MondeDuJeu))
 		{
 			MondeDuJeu->SpawnActor<AArsenalChelles>(AArsenalChelles::StaticClass(), FTransform::Identity, Params);
+		}
+		// Protection du tireur (27/11/2026) : ses propres projectiles ne le touchent plus (bug du sniper)
+		if (!TActorIterator<AProtectionTireur>(MondeDuJeu))
+		{
+			MondeDuJeu->SpawnActor<AProtectionTireur>(AProtectionTireur::StaticClass(), FTransform::Identity, Params);
 		}
 		// Caisses de munitions dispersees (25/11/2026) : posees par le serveur / l'hote / le solo
 		if (!TActorIterator<ACaissesMunitionsGestion>(MondeDuJeu) && MondeDuJeu->GetNetMode() != NM_Client)
