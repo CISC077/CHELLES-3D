@@ -330,6 +330,7 @@ def materiau_gouttes(tex):
 def materiau_flaque(tex_flaques, tex_vagues):
     m = nouveau_materiau("M_Pluie_Flaque")
     m.set_editor_property("material_domain", unreal.MaterialDomain.MD_DEFERRED_DECAL)
+    m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)  # obligatoire pour un decal
     m.set_editor_property("decal_blend_mode", unreal.DecalBlendMode.DBM_TRANSLUCENT)
     g = Graphe(m)
     # quelle flaque des 4 (VariationU / VariationV = 0 ou 0.5)
@@ -381,6 +382,7 @@ def materiau_flaque(tex_flaques, tex_vagues):
 def materiau_sol_mouille():
     m = nouveau_materiau("M_Pluie_SolMouille")
     m.set_editor_property("material_domain", unreal.MaterialDomain.MD_DEFERRED_DECAL)
+    m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)  # obligatoire pour un decal
     m.set_editor_property("decal_blend_mode", unreal.DecalBlendMode.DBM_STAIN)
     g = Graphe(m)
     # plus sombre (couleur multipliee) et plus brillant, qui s'efface doucement au loin

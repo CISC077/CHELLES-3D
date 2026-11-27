@@ -5,10 +5,10 @@ rem =====================================================================
 rem  PLUIE + FLAQUES (26/11/2026) - Unreal FERME, double-clic.
 rem   1. compile le plugin Plugins\ChellesPluie (1 a 5 minutes)
 rem   2. recompile Plugins\ChellesMenu (nouvelle ligne OPTIONS > AVANCES > PLUIE / FLAQUES)
-rem   3. Unreal s'ouvre tout seul, cree les materiaux et le bruit de pluie
-rem      dans /Game/Chelles/Pluie, puis se ferme (2 a 10 minutes)
+rem   3. cree les materiaux et le bruit de pluie dans /Game/Chelles/Pluie
+rem      (Unreal travaille en arriere-plan, sans fenetre, 2 a 10 minutes)
 rem  La carte Rachid et MI_AsphaltRoad ne sont PAS modifies.
-rem  Journal : Tools\Pluie\installer_pluie.log
+rem  Journal : Tools\Pluie\installer_pluie.log (detail : installer_pluie_unreal.log)
 rem =====================================================================
 setlocal
 set "PROJET=%~dp0..\.."
@@ -43,17 +43,16 @@ call :compiler ChellesMenu
 if errorlevel 1 goto echec
 
 echo.
-echo ===== 3/3 Unreal s'ouvre, cree la pluie, puis se ferme. Ne touchez a rien...
+echo ===== 3/3 Creation de la pluie en arriere-plan (2 a 10 minutes, fenetre noire seulement)...
 copy /y "%ICI%\creer_pluie.py" "%TEMP%\chelles_creer_pluie.py" >nul
-set "CHELLES_QUITTER=1"
-start "" /wait "%UE%\Engine\Binaries\Win64\UE4Editor.exe" "%PROJET%\FPS_Chelles.uproject" -ExecutePythonScript="%TEMP%\chelles_creer_pluie.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -nosplash -log="installer_pluie_unreal.log"
+"%UE%\Engine\Binaries\Win64\UE4Editor-Cmd.exe" "%PROJET%\FPS_Chelles.uproject" -run=pythonscript -script="%TEMP%\chelles_creer_pluie.py" -EnablePlugins=PythonScriptPlugin,EditorScriptingUtilities -unattended -nosplash -stdout > "%ICI%\installer_pluie_unreal.log" 2>&1
 
 echo.
 echo ===== Resultat =====
 type "%ICI%\installer_pluie.log"
 echo.
 echo Pour voir la pluie tout de suite : Play, touche ² puis tapez   Chelles.Pluie Oui
-echo Journal : Tools\Pluie\installer_pluie.log
+echo Journal : Tools\Pluie\installer_pluie.log (detail : installer_pluie_unreal.log)
 pause
 exit /b 0
 
