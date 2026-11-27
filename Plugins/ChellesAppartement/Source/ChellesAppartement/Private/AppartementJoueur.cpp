@@ -25,6 +25,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Sound/SoundBase.h"
 #include "Styling/CoreStyle.h"
+#include "TimerManager.h"
 #include "UObject/Package.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Layout/SBorder.h"
@@ -1100,7 +1101,7 @@ void AAppartementJoueur::Exposer(const FPieceAppartement& Piece, USceneComponent
 				}
 			}
 			S->RegisterComponent();
-			if (Principal != S && Principal && S->SkeletalMesh->Skeleton == Principal->SkeletalMesh->Skeleton)
+			if (Principal != S && Principal && S->SkeletalMesh->GetSkeleton() == Principal->SkeletalMesh->GetSkeleton())
 			{
 				S->SetMasterPoseComponent(Principal); // tete, cheveux, habits : suivent le corps
 			}
